@@ -102,3 +102,80 @@ export function classifyTaskFailure(attempt: TaskAttemptRecord, text?: string): 
 export function inspectTaskWindow(tasks: readonly TaskRecord[], selection: TaskSelection): TaskWindow;
 export function collectTaskEvidence(tasks: readonly TaskRecord[], selection: TaskSelection): Promise<TaskEvidence>;
 export function previewTaskRecordRepair(options?: TaskRecordRepairOptions): Promise<TaskRecordRepairPreview>;
+
+export type IncidentHostSignature = 'host-reboot' | 'host-reset' | 'daemon-restart';
+
+export interface IncidentAttemptSelection {
+  uuid: string;
+  attempt: number;
+  /** Hive Mind release recorded for this attempt. Overrides the batch version. */
+  installedVersion?: string;
+  hostSignature?: IncidentHostSignature;
+}
+
+export type IncidentBatchSelection = {
+  /** Maximum number of selected failures. Defaults to 20 and can be at most 100. */
+  limit?: number;
+  /** Hive Mind release recorded for these attempts. */
+  installedVersion?: string;
+} & ({ attempts: readonly IncidentAttemptSelection[]; window?: never; executions?: never } | { attempts?: never; window: { from: string; to: string }; executions?: readonly string[] });
+
+export type IncidentAction = 'create-issue' | 'comment' | 'regression-issue';
+
+export interface IncidentPublicationPolicy {
+  destination: string;
+  visibility: 'public' | 'private';
+  allow: readonly IncidentAction[];
+  routes?: readonly { backend: 'docker' | 'screen' | 'tmux' | 'ssh' | 'local'; kind: string; exitCode: number; issue: number; signature?: string }[];
+  includeLogEvidence?: boolean;
+}
+
+export interface IncidentLegacyLedger {
+  reported: Readonly<Record<string, { url?: string; fixedUpstream?: boolean }>>;
+}
+
+export interface IncidentBatchEntry {
+  id: string;
+  attempt: number;
+  backend: 'docker' | 'screen' | 'tmux' | 'ssh' | 'local';
+  exitCode: number;
+  memoryExhausted: boolean;
+  startedAt: string;
+  finishedAt: string;
+  installedVersion?: string;
+  hostSignature?: IncidentHostSignature;
+  laterSucceeded: boolean;
+  evidence: TaskEvidence['evidence'];
+  route?: number;
+  action?: IncidentAction | null;
+  pending?: boolean;
+  found?: { source: string; url: string | null; fixedUpstream?: boolean };
+  closed?: {
+    state: 'closed-issue-needs-version-review' | 'closed-after-installed-release' | 'possible-regression';
+    relatedIssue: { url: string; state: 'closed' };
+    installedVersion?: string;
+    closedAt: string | null;
+    releasedAt: string | null;
+  } | null;
+  report: { title: string; body: string };
+}
+
+export interface IncidentBatchPlan {
+  schema: 1;
+  selection: IncidentBatchSelection;
+  policy: IncidentPublicationPolicy | null;
+  usesLegacyLedger: boolean;
+  entries: IncidentBatchEntry[];
+  digest: string | null;
+}
+
+export interface IncidentBatchResult {
+  destination: string;
+  outcomes: ({
+    id: string;
+    attempt: number;
+  } & ({ state: 'published'; url: string } | { state: 'already-reported' | 'known-fix-recorded'; url: string | null; source: string; fixedUpstream?: boolean } | { state: 'blocked'; reason: string } | { state: 'held' | 'remaining' }))[];
+}
+
+export function planIncidentBatch(tasks: readonly TaskRecord[], options: { selection: IncidentBatchSelection; policy?: IncidentPublicationPolicy; legacyLedger?: IncidentLegacyLedger }): Promise<IncidentBatchPlan>;
+export function applyIncidentBatch(plan: IncidentBatchPlan, options: { approve: string; legacyLedger?: IncidentLegacyLedger }): Promise<IncidentBatchResult>;

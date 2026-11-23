@@ -150,6 +150,7 @@ maintenance_spec() {
     audit-config) bin=hive-manager; module=hive-manager/audit-config.mjs ;;
     update-dependencies) bin=hive-manager; module=hive-manager/maintenance/update-dependencies.mjs ;;
     task-report) bin=hive-manager; module=hive-manager/task/report.mjs ;;
+    task-report-batch) bin=hive-manager; module=hive-manager/task/report-batch.mjs ;;
     task-check-browser) bin=hive-manager; module=hive-manager/task/check-browser.mjs ;;
     task-check-uploads) bin=hive-manager; module=hive-manager/task/check-uploads.mjs ;;
     task-recover-failed) bin=hive-manager; module=hive-manager/task/recover-failed.mjs ;;
@@ -309,7 +310,7 @@ task_args() {
   local action=${1-}
   if [[ ! $action || $action == --help || $action == -h ]]; then
     printf 'Usage: hive-manager tasks ACTION [ARGS]\n\n'
-    printf 'Inspect: list, status, attach, report, check-browser, check-uploads, recover-queue\n'
+    printf 'Inspect: list, status, attach, report, report-batch, check-browser, check-uploads, recover-queue\n'
     printf 'Manage: resume, resume-all, recover-failed, repair-records, stop, terminate, pause, unpause, alias, rename\n'
     printf 'Maintain: cleanup-dry-run, cleanup, backup-container, cleanup-backed-up, upload-log\n'
     return
@@ -1810,7 +1811,7 @@ deploy() {
         preserve-layer) run_maintenance deploy-storage preserve "$socket" "$name" "$state_dir" "${@:2}" ;;
         cleanup-preserved) run_maintenance deploy-storage cleanup-preserved "$socket" "$name" "$state_dir" "${@:2}" ;;
       esac
-      case "${1-}" in report|check-browser|check-uploads|recover-failed|repair-records|recover-queue|backup-container|cleanup-backed-up) require docker; inside hive-manager tasks "$@" ;; esac
+      case "${1-}" in report|report-batch|check-browser|check-uploads|recover-failed|repair-records|recover-queue|backup-container|cleanup-backed-up) require docker; inside hive-manager tasks "$@" ;; esac
       local task_command=()
       task_args "$@"
       if (( ${#task_command[@]} )); then require docker; inside "${task_command[@]}"; fi ;;
@@ -1857,7 +1858,7 @@ main() {
     tasks)
       shift
       case "${1-}" in
-        report|check-browser|check-uploads|recover-failed|repair-records|recover-queue) run_maintenance "task-$1" "${@:2}" ;;
+        report|report-batch|check-browser|check-uploads|recover-failed|repair-records|recover-queue) run_maintenance "task-$1" "${@:2}" ;;
         backup-container) task_container_backup "${@:2}"; return ;;
         cleanup-backed-up) task_cleanup_backed_up "${@:2}"; return ;;
       esac

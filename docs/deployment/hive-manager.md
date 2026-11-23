@@ -261,9 +261,61 @@ hive-manager tasks report --incident UUID --attempt 2 --destination OWNER/REPO \
   --routes /path/to/routes.json --reconcile --legacy-ledger /path/to/auto-fix-reports.json
 ```
 
-For a closed route, the preview links the issue and compares its close time with the installed Hive Mind release's publication time. Use `--installed-version VERSION` when reviewing a deployment that runs a different release. A closure after that version was released indicates that the fix may still need to be deployed. A closure before or at release time marks a possible regression for review. Use the legacy incident procedure for those records and use `tasks report --incident` with a reviewed digest for newly verified failures. Publication returns the existing GitHub report URL when the attempt has already been reported.
+For a closed route, the preview links the issue and compares its close time with the installed Hive Mind release's publication time. Use `--installed-version VERSION` when reviewing a deployment that runs a different release. A closure after that version was released indicates that the fix may still need to be deployed. A closure before or at release time marks a possible regression for review. Use the batch workflow below to review multiple closed routes and approve eligible regression issues. Publication returns the existing GitHub report URL when the attempt has already been reported.
 
-After a Telegram bot restart, save the previous and current verbose logs locally. Use `deploy logs --timestamps` with `--until` and `--since` around the restart. Run `tasks recover-queue --previous previous.log --current current.log` to list requests from the last pre-restart run that never reached launch, excluding requests the current run already queued or began launching. Both files need their queue initialization line. `--include-commands` includes matching raw Telegram text for local review when available. Once the bot has reconciled, the deployment operator checks each candidate against the live queue and task records, confirms its dependencies and authorized chat with the request owner, and resubmits it once through that chat.
+### Incident batch planning and publication
+
+Save an execution snapshot with `$ --list --output-format json` and keep its logs on the machine that owns the execution records. Use a selection file with either a fixed completion window or a list of exact execution UUIDs and attempt numbers.
+
+```json
+{
+  "window": { "from": "2026-11-20T00:00:00Z", "to": "2026-11-21T00:00:00Z" },
+  "installedVersion": "2.48.0",
+  "limit": 20
+}
+```
+
+The lower boundary is inclusive and the upper boundary is exclusive. A window can also include an `executions` array of UUIDs. To select exact attempts, use `"attempts": [{ "uuid": "12345678-1234-1234-1234-123456789abc", "attempt": 2 }]` in place of `window`. Record the version that ran the attempt. An exact selection can override `installedVersion` and include a reviewed `hostSignature` from `deploy diagnose` for a signal-range Docker exit. The default limit is 20 and the maximum is 100. If the window exceeds the limit, narrow it before saving the plan.
+
+```bash
+umask 077
+hive-manager tasks report-batch plan --records executions.json --selection window.json --output preview.json
+```
+
+The default plan is a local, owner-only file with no publication digest. Omit `--records` to read the current execution store. The plan includes confirmed nonzero exits, including failed historical attempts of executions that later succeeded. For each attempt the manager examines at most 512 KiB of its log within the stored offsets and retains classifications and counts. Raw execution logs, commands, and conversation text stay out of the plan and report.
+
+For GitHub reconciliation, supply a policy file naming the approved repository, its expected visibility, and the allowed actions. An empty `allow` array makes the policy review-only. An open route can produce a `comment`, an unmatched attempt can produce a `create-issue`, and an eligible closed route can produce a `regression-issue`. Add routes from the failure groups as for single incident reporting. By default the report includes the failure signature when available. Set `includeLogEvidence` to include the bounded log's aggregate evidence in the outbound report.
+
+```json
+{
+  "destination": "OWNER/REPO",
+  "visibility": "private",
+  "allow": ["comment", "create-issue"],
+  "routes": [{ "backend": "docker", "kind": "Memory exhaustion", "exitCode": 137, "issue": 318 }],
+  "includeLogEvidence": true
+}
+```
+
+```bash
+hive-manager tasks report-batch plan --records executions.json --selection window.json \
+  --policy policy.json --legacy-ledger auto-fix-reports.json --output reviewed.json
+hive-manager tasks report-batch apply --plan reviewed.json --approve REVIEWED_DIGEST \
+  --legacy-ledger auto-fix-reports.json
+```
+
+Review each proposed action, destination and report body in `reviewed.json` before copying its `sha256:` digest into the apply command. The ledger is an optional read-only export of Control Center's `auto-fix-reports.json`. If it was used in planning, pass the current ledger again on apply. Deduplication uses the destination and exact execution and attempt markers in issues and comments, the historical ledger, and receipts in the manager's state directory.
+
+A closed route shows the recorded release's publication date and the issue's closure date. If the issue closed after that release, or either date is unavailable, hold the report for review. A closure at or before the release date can be a possible regression. To approve a linked new issue for such cases, include `regression-issue` in the policy and review the fresh plan. The manager rechecks the route and release evidence before writing.
+
+Keep the approved plan and the manager state directory together for retries. Batch receipts are stored under `HIVE_MIND_STATE_DIR` or `~/.hive-mind/state` and are shared by plans targeting the same repository. If apply stops after a partial success, rerun it with the same plan and digest. It reuses confirmed receipts and looks for exact markers to reconcile a write whose response was lost. An unresolved write blocks that attempt and later actions. Check the issue or comment directly and reapply when its marker is visible. If an authorized operator confirms GitHub did not accept the write, move only the identified pending record to a private backup before retrying. Keep all confirmed receipts.
+
+Operators integrating a Control Center caller can use `planIncidentBatch` and `applyIncidentBatch` from `@link-assistant/hive-mind/hive-manager`. Store plan files and policy in the deployment that owns the records and use one shared state directory for its batch publishers.
+
+### Telegram queue recovery review
+
+After a restart, save the previous and current verbose logs in a private directory. Use `deploy logs --timestamps` with `--until` and `--since` around the restart. Both files need the queue initialization line. Run `tasks recover-queue --previous previous.log --current current.log` after the bot has reconciled. Review candidates against the live queue, execution records, and dependency state.
+
+Keep the original request in the authorized chat or a restricted local copy. For local review, rerun the command with `--include-commands` and, if saving its output, create the file with `umask 077`. Compare the matched text against the originating message and confirm the target, tool, arguments, prompt, and intended dependencies with the request owner. If the original is missing or ambiguous, retrieve it from the authorized chat or have the owner confirm the complete request before resubmission. Resubmit once through that chat and confirm it appears in the queue or execution store. Use execution and attempt identifiers and sanitized evidence in incident reports. Keep raw requests and queue logs in the restricted review materials.
 
 On a Linux Docker host, `deploy docker-service live-restore` checks whether the local daemon keeps containers running when the daemon is unavailable. Run it with `--apply` as root on a systemd host with `jq` and `flock`. The command validates and backs up `/etc/docker/daemon.json`, reloads `docker.service`, and checks the running daemon. It restores the previous file if the setting fails to take effect. [Docker live restore](https://docs.docker.com/engine/daemon/live-restore/)
 

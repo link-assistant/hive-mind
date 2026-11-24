@@ -28,7 +28,9 @@
 import { describeChildExit } from './child-exit.lib.mjs';
 import { findStartCommandBinary, getCommandStreamDollar, START_COMMAND_MISSING_ERROR } from './start-command-cli.lib.mjs';
 import { execFile } from 'node:child_process';
+import { delimiter, join } from 'node:path';
 import { promisify } from 'node:util';
+import { fileURLToPath } from 'node:url';
 
 const execFileAsync = promisify(execFile);
 export const RESUME_STARTUP_WINDOW_MS = 10000;
@@ -245,9 +247,10 @@ function interpretStartCommandResult(result, error = null) {
  * @param {Object} [options]
  * @param {string|null} [options.command] - Command to run against the resumed session
  * @param {boolean} [options.verbose]
+ * @param {boolean} [options.requireRetained] - Refuse a fresh Docker launch
  * @returns {Promise<{success: boolean, unsupported: boolean, uuid: string|null, mode: string|null, backend: string|null, sessionName: string|null, previousSessionName: string|null, snapshotImage: string|null, message: string|null, output: string, error: string|null}>}
  */
-export async function resumeIsolatedSession(identifier, { command = null, verbose = false } = {}) {
+export async function resumeIsolatedSession(identifier, { command = null, verbose = false, requireRetained = false } = {}) {
   const base = { success: false, unsupported: false, uuid: null, mode: null, backend: null, sessionName: null, previousSessionName: null, snapshotImage: null, message: null, output: '', error: null };
   if (!identifier) return { ...base, error: 'No execution identifier was given to resume.' };
 
@@ -258,14 +261,29 @@ export async function resumeIsolatedSession(identifier, { command = null, verbos
   }
 
   try {
-    const $ = await getCommandStreamDollar();
-    const raw = command ? await $({ mirror: false })`${binPath} --resume ${identifier} --output-format json -- ${command}` : await $({ mirror: false })`${binPath} --resume ${identifier} --output-format json`;
+    let raw;
+    if (requireRetained) {
+      const dockerGuard = fileURLToPath(new URL('./docker-retained-resume/', import.meta.url));
+      const env = { ...process.env };
+      env.HIVE_MIND_RESUME_ORIGINAL_PATH = env.PATH;
+      env.HIVE_MIND_RESUME_DOCKER_BIN = env.START_DOCKER_BIN || 'docker';
+      env.PATH = dockerGuard + delimiter + env.PATH;
+      env.START_DOCKER_BIN = join(dockerGuard, 'docker');
+      const args = ['--resume', identifier, '--output-format', 'json', ...(command ? ['--', command] : [])];
+      raw = await execFileAsync(binPath, args, { env });
+    } else {
+      const $ = await getCommandStreamDollar();
+      raw = command ? await $({ mirror: false })`${binPath} --resume ${identifier} --output-format json -- ${command}` : await $({ mirror: false })`${binPath} --resume ${identifier} --output-format json`;
+    }
     const { ok, stdout, message, unsupported } = interpretStartCommandResult(raw);
     if (!ok) {
       if (verbose) console.log(`[VERBOSE] isolation-runner: $ --resume ${identifier} refused${unsupported ? ' (verb not supported by this $ build)' : ''}: ${message}`);
       return { ...base, unsupported, output: stdout, error: message };
     }
     const parsed = parseExecutionResumeOutput(stdout);
+    if (requireRetained && ![RESUME_MODES.DOCKER_START, RESUME_MODES.DOCKER_SNAPSHOT].includes(parsed.mode)) {
+      return { ...base, output: stdout, error: 'start-command did not confirm a retained-container resume.' };
+    }
     if (verbose) {
       console.log(`[VERBOSE] isolation-runner: $ --resume ${identifier} → mode=${parsed.mode || '(unknown)'} session=${parsed.sessionName || '(unknown)'} uuid=${parsed.uuid || '(unknown)'}`);
     }

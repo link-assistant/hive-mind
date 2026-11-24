@@ -19,6 +19,7 @@ import { reportError } from './sentry.lib.mjs';
 import { reclaimAgentSnapshotStores } from './agent-snapshot-store.lib.mjs';
 import { collectDockerImageReclaimPlan, formatDockerImageReclaimSummary, reclaimDockerImages, resolveDockerImageReclaimMode } from './docker-image-reclaim.lib.mjs';
 import { formatBytes } from './cleanup.lib.mjs';
+import { TASK_PAUSE_MARKER } from './task-pause-marker.lib.mjs';
 import { pruneKeptWorkspaceCaches } from './workspace-cache-prune.lib.mjs';
 
 /**
@@ -98,7 +99,18 @@ export const cleanupKeptWorkspaceCaches = async (tempDir, argv, limitReached, { 
 };
 
 // Cleanup temporary directory
-export const cleanupTempDirectory = async (tempDir, argv, limitReached) => {
+export const cleanupTempDirectory = async (tempDir, argv, limitReached, { pauseMarkerPath = TASK_PAUSE_MARKER } = {}) => {
+  // docker stop sends SIGTERM, which runs this cleanup even on private tasks
+  // with --auto-cleanup. The bot marks the container before sending the stop.
+  if (
+    await fs.stat(pauseMarkerPath).then(
+      marker => marker.isFile() && marker.size === 0,
+      () => false
+    )
+  ) {
+    await log(`\n📁 Keeping stopped task directory: ${tempDir}`);
+    return;
+  }
   // Determine if we should skip cleanup
   const shouldKeepDirectory = !argv.autoCleanup || argv.resume || limitReached || (argv.autoResumeOnLimitReset && global.limitResetTime);
   if (!shouldKeepDirectory) {

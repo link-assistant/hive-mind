@@ -1,6 +1,6 @@
 # Formal AI ड्राफ़्ट (languages: [en](FORMAL-AI-DRAFTS.md) • [zh](FORMAL-AI-DRAFTS.zh.md) • hi • [ru](FORMAL-AI-DRAFTS.ru.md))
 
-इस रिपॉज़िटरी में खुलने वाले हर issue को कुछ ही मिनटों में Formal AI से एक प्रयास मिलता है — एक ऐसी ब्रांच पर जिस पर कोई निर्भर नहीं है। गलत प्रयास की कोई कीमत नहीं। सही प्रयास पहला कमिट बचा देता है। असफल प्रयास भी बर्बादी नहीं है: वह सार्वजनिक रूप से विफल होता है, अपने सत्र के साक्ष्य के साथ, और यही विफलता वह इनपुट है जिससे मेटा-एल्गोरिदम का अगला सुधार बनता है।
+इस रिपॉज़िटरी में खुलने वाले हर पात्र issue को कुछ ही मिनटों में Formal AI से एक प्रयास मिलता है — एक ऐसी ब्रांच पर जिस पर कोई निर्भर नहीं है। गलत प्रयास की कोई कीमत नहीं। सही प्रयास पहला कमिट बचा देता है। असफल प्रयास भी बर्बादी नहीं है: वह सार्वजनिक रूप से विफल होता है, अपने सत्र के साक्ष्य के साथ, और यही विफलता वह इनपुट है जिससे मेटा-एल्गोरिदम का अगला सुधार बनता है।
 
 यह [issue #2233](https://github.com/link-assistant/hive-mind/issues/2233) का उत्तर है।
 
@@ -16,10 +16,13 @@ solve <issue-url> \
   --development-log \
   --verbose \
   --attribution formal-ai \
+  --no-auto-continue \
   --no-auto-restart-until-mergeable \
   --no-auto-restart-on-uncommitted-changes \
   --log-dir /home/box/logs
 ```
+
+इमेज डाउनलोड करने के बाद, अगर `issue-<number>-*` ब्रांच वाला कोई PR खुला है, तो वर्कफ़्लो `issue-has-open-pull-request` कोड के साथ प्रयास छोड़ देता है। अगर जाँच के बाद कोई PR खुलता है, तो `--no-auto-continue` ड्राफ़्ट सत्र को उसकी अपनी ब्रांच पर रखता है। वर्कफ़्लो `formal-ai-draft` लेबल लगाने, ड्राफ़्ट स्थिति बहाल करने या जाँचें चलाने से पहले उस PR का सत्यापन करता है जिसे `solve` ने बनाने की सूचना दी।
 
 यह Hive Mind का अपना ही रास्ता है, इसलिए ये ड्राफ़्ट इस बात का सतत और बिना बनावट वाला मापन हैं कि `solve --model formal-ai` उसी रिपॉज़िटरी के वास्तविक कार्यों पर बेहतर हो रहा है या नहीं, जिसकी `solve` अपनी है।
 
@@ -71,7 +74,7 @@ Default token से खुला pull request कोई `pull_request` रन �
 
 किसी credential setup की आवश्यकता नहीं है। सभी write workflows एक resolver का उपयोग करते हैं: GitHub App (`AUTOMATION_APP_ID` variable और `AUTOMATION_APP_PRIVATE_KEY` secret) → एक `AUTOMATION_TOKEN` secret → built-in `github.token`। पहला उपलब्ध layer चुना जाता है। व्यक्तिगत token को contents, issues, pull requests और Actions write permissions चाहिए। `FORMAL_AI_DRAFT_IMAGE` वैकल्पिक variable है (डिफ़ॉल्ट `konard/hive-mind:<version>`)।
 
-Default token से बने pull request की जाँच approval की प्रतीक्षा कर सकती है। Draft workflow तुरंत `dispatch-checks` से draft branch पर `mode=checks` के साथ `release.yml`, `security.yml`, `links.yml` और `workflows.yml` चलाता है। Release के लिए स्पष्ट release mode और `main` branch चाहिए। वैकल्पिक credentials न होने पर प्रयास नहीं छोड़ा जाता; summary में layer दिखता है। दैनिक health check पिछले सात दिनों के वास्तविक प्रयास गिनता है। यह तब भी विफल होता है जब पिछले पाँच ड्राफ़्ट रन एक ही `decision_code` या एक ही पहली त्रुटि पर समाप्त हुए हों; यह उस त्रुटि का नाम लेता है और उसे ट्रैक करने वाले खुले issue को लिंक करता है (या एक खोलने को कहता है)। हर ड्राफ़्ट job दोनों को annotations के रूप में दर्ज करता है, इसलिए रन का सारांश बताता है कि ड्राफ़्ट लाल क्यों है।
+Default token से बने pull request की जाँच approval की प्रतीक्षा कर सकती है। Draft workflow तुरंत `dispatch-checks` से draft branch पर `mode=checks` के साथ `release.yml`, `security.yml`, `links.yml` और `workflows.yml` चलाता है। Release के लिए स्पष्ट release mode और `main` branch चाहिए। वैकल्पिक credentials न होने पर प्रयास नहीं छोड़ा जाता; summary में layer दिखता है। दैनिक health check पिछले सात दिनों के वास्तविक प्रयास गिनता है। अगर पिछले पाँच ड्राफ़्ट रन का निर्णय कोड या प्राथमिक परिणाम समान हो, तो जाँच विफल होती है। रिपोर्ट संबंधित रन और जॉब के सटीक लिंक देती है। पुराने रन के annotations का इस्तेमाल होने पर स्रोत का संकेत दिया जाता है।
 
 Shared actions अभी प्रकाशित नहीं हैं: [link-foundation/.github#1](https://github.com/link-foundation/.github/issues/1)। फिलहाल `.github/actions/` में compatible local actions हैं।
 
@@ -107,9 +110,28 @@ jobs:
 
 ## विफल ड्राफ़्ट कैसे पढ़ें
 
-1. सत्र लॉग `--attach-logs` द्वारा pull request से जुड़ा होता है।
-2. यदि कोई pull request नहीं खुला, तो वही लॉग वर्कफ़्लो रन पर `formal-ai-draft-session-<issue>` आर्टिफ़ैक्ट के रूप में मिलता है, जो 30 दिन रखा जाता है। रन के annotations सत्र द्वारा दर्ज पहली त्रुटि का नाम बताते हैं। वे solve के अपने `solve-*.log` से पढ़े जाते हैं, इसलिए कॉलर द्वारा उसी डायरेक्टरी में लिखी गई कोई दूसरी `*.log` फ़ाइल उन्हें नहीं छिपाती ([#4065](https://github.com/link-assistant/hive-mind/issues/4065))।
-3. ब्रांच पर `dev/log/self-authored/issue-<n>/evidence` में `agent-stream.jsonl` और `session-id.txt` होते हैं — यह मॉडल का अपना रिकॉर्ड है कि उसने क्या किया, Hive Mind का उसका सारांश नहीं।
+Actions आर्टिफ़ैक्ट `formal-ai-draft-session-<issue>` में संवेदनशील जानकारी हटाए गए solve लॉग और `formal-ai-draft-outcome.json` 30 दिन तक रहते हैं। `--attach-logs` का वैकल्पिक बाहरी प्रकाशन विफल होने पर भी Actions आर्टिफ़ैक्ट सत्र का प्रमाण रख सकता है। प्रयास का annotation प्राथमिक कारण और अंतिम annotation आर्टिफ़ैक्ट के अपलोड की स्थिति तथा solve लॉग की संख्या बताता है।
+
+### साझा परिणाम अनुबंध
+
+JSON स्कीमा का पहचानकर्ता `hive-mind/formal-ai-draft-outcome/v1` है। लॉन्चर बाहर निकलने से पहले लॉग के पास `formal-ai-draft-outcome.json` लिखता है और `draft_outcome` स्टेप आउटपुट देता है। पुनः उपयोग योग्य वर्कफ़्लो इस आउटपुट में Actions अपलोड की रसीद जोड़ता है। आर्टिफ़ैक्ट के भीतर का JSON अपलोड से पहले तैयार होता है, इसलिए उसमें Actions की स्थिति `unconfirmed` है। अंतिम annotation और वर्कफ़्लो आउटपुट में आर्टिफ़ैक्ट का URL मिलता है।
+
+- `primary` में स्थिर कोड, वह चरण जहाँ तक प्रयास पहुँचा और पढ़ने योग्य संदेश हैं।
+- `task` में लक्ष्य, अपेक्षित रिपॉज़िटरी बदलाव, प्रयास का प्रकार, फ़ाइलों का अंतर और स्वीकृति की स्थिति हैं। सफल प्रक्रिया में कार्यान्वयन का बदलाव समीक्षा योग्य है। स्वीकृति के लिए अलग सत्यापन चाहिए।
+- `solver` और `process` में solver की अंतिम स्थिति और उसका स्रोत, प्रक्रिया का शुरू होना, निकास कोड और सिग्नल हैं। पुराने इमेज के लॉग से मिले परिणाम `legacy-log` के रूप में चिह्नित हैं।
+- `runtime` में वर्कफ़्लो का स्रोत, इमेज, solver और क्लाइंट संस्करण, उपयोग हुआ बैकएंड और माउंट किए गए Formal AI बाइनरी का SHA-256 हैं।
+- `infrastructure` में इंफ़्रास्ट्रक्चर की स्थिति और प्रभाव शुरू होने से पहले स्थगन की स्थिति में लंबित पूर्वापेक्षाएँ हैं।
+- `evidence` और `links` में वैकल्पिक बाहरी प्रकाशन, Actions आर्टिफ़ैक्ट की स्थिति और रन तथा जॉब के URL हैं।
+
+Health check संरचित प्राथमिक कारण के आधार पर रन को समूह में रखता है। केवल पुराने annotations वाले रन के लिए स्रोत का संकेत दिया जाता है। जिस फ़ाइल अंतर की पुष्टि न हो वह असत्यापित रहता है। सिर्फ़ लॉग, solver के अस्थायी चिह्न या सत्र मेटाडेटा को कार्यान्वयन का श्रेय नहीं मिलता।
+
+Formal AI का कॉलर `scripts/formal-ai-draft-outcome.lib.mjs` के `parseDraftOutcome` से `draft_outcome` या JSON फ़ाइल पढ़ सकता है। अपलोड के बाद अंतिम रसीद के लिए `scripts/formal-ai-draft-evidence.mjs --finalize` चलाएँ। अपलोड की स्थिति, URL और साफ़ किए गए लॉग की संख्या क्रमशः `FORMAL_AI_DRAFT_ARTIFACT_STATUS`, `FORMAL_AI_DRAFT_ARTIFACT_URL` और `FORMAL_AI_DRAFT_SESSION_LOGS` में दें। जॉब का सटीक संख्यात्मक लिंक पाने के लिए जॉब के संदर्भ से `RUNNER_NAME` सेट करें। कॉलर सत्यापन और रिपोर्टिंग का ज़िम्मेदार है। [Formal AI #1488](https://github.com/link-assistant/formal-ai/issues/1488)
+
+`makeDraftOutcome` में `formal-ai-hive-client-outcome/v1` स्थगन रसीद और `started: false` प्रक्रिया स्थिति दी जा सकती है। रसीद में प्रभाव का दावा न होने और क्रियान्वयन तथा लेखन का श्रेय शून्य होने का प्रमाण चाहिए। बिना बदलाव वाली निरंतरता को सत्यापित करने के लिए `attemptKind: 'continuation'`, पुष्ट खाली या सिर्फ़ निदान वाला अंतर, और उसी अपरिवर्तनीय रिविज़न पर सभी ज़रूरी जाँचें सफल होने का विश्वसनीय प्रमाण दें। बिना बदलाव वाले पहले प्रयास को कार्यान्वयन या स्वीकृति का श्रेय नहीं मिलता। [Formal AI #1485](https://github.com/link-assistant/formal-ai/issues/1485)
+
+30 अक्टूबर के रिप्ले में solve 2.39.9 और Formal AI 0.355.15 इस्तेमाल हुए। अनुरोधित कार्यान्वयन नहीं हुआ और `planned_not_executed` के साथ निकास कोड 5 आया। वैकल्पिक gist और साझा रिपॉज़िटरी अपलोड में HTTP 403 आया, PR ब्रांच पर लॉग का वैकल्पिक प्रकाशन सफल रहा और Actions ने सत्र आर्टिफ़ैक्ट `12990367865` रखा। मूल issue के स्क्रीनशॉट Dependabot PR की सूची और Hive रन दिखाते हैं। रिप्ले ने Dependabot की समस्या का कारण निर्धारित नहीं किया। [मूल issue](https://github.com/link-assistant/hive-mind/issues/3863) · [सटीक जॉब](https://github.com/link-assistant/hive-mind/actions/runs/41081977243/job/124153176671)
+
+ब्रांच पर `dev/log/self-authored/issue-<n>/evidence` में `agent-stream.jsonl` और `session-id.txt` होते हैं — यह मॉडल का अपना रिकॉर्ड है कि उसने क्या किया, Hive Mind का उसका सारांश नहीं।
 
 ## जब formal-ai अपना composite action प्रकाशित करे
 

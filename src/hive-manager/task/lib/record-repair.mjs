@@ -8,6 +8,7 @@ import { taskUuidPattern } from './inspection.mjs';
 
 const run = promisify(execFile);
 const containerIdPattern = /^[a-f\d]{64}$/;
+export const repairStartVersions = ['0.44.0', '0.45.0'];
 
 export async function startLibraries() {
   try {
@@ -15,7 +16,7 @@ export async function startLibraries() {
     const executable = await realpath(stdout.trim());
     const root = dirname(dirname(dirname(executable)));
     const { name, version } = JSON.parse(await readFile(join(root, 'package.json'), 'utf8'));
-    if (name !== 'start-command' || version !== '0.44.0') throw new Error();
+    if (name !== 'start-command' || !repairStartVersions.includes(version)) throw new Error();
     const require = createRequire(executable);
     return {
       require,
@@ -27,7 +28,7 @@ export async function startLibraries() {
       ...require('../lib/launch-owner.js'),
     };
   } catch {
-    throw new HiveManagerError('START_COMMAND_UNAVAILABLE', 'Recorded-resume repair needs the start-command 0.44.0 executable installed on PATH.');
+    throw new HiveManagerError('START_COMMAND_UNAVAILABLE', `Recorded-resume repair needs the start-command ${repairStartVersions.join(' or ')} executable installed on PATH.`);
   }
 }
 
@@ -50,8 +51,9 @@ export async function inspectRepairContainer(id) {
   }
 }
 
-export function repairPlan(record, container, start) {
+export function repairPlan(record, container, start, protectPaused = false) {
   const options = record.options ?? {};
+  if (protectPaused && (record.paused === true || options.stopRequestedAt)) return null;
   if (record.status !== 'executed' || options.isolated !== 'docker' || options.isolationMode !== 'detached' || start.hasActiveLaunch(record)) return null;
   const { Id, Name, Config, State } = container;
   const labels = Config?.Labels ?? {};
@@ -85,7 +87,7 @@ export function repairSelection(uuids = []) {
   return new Set(uuids.map(uuid => uuid.toLowerCase()));
 }
 
-export async function findRepairCandidates(records, selected, start) {
+export async function findRepairCandidates(records, selected, start, protectPaused) {
   const byUuid = new Map(records.filter(record => taskUuidPattern.test(record.uuid) && (!selected.size || selected.has(record.uuid.toLowerCase()))).map(record => [record.uuid, record]));
   const listing = await docker(['ps', '-q', '--no-trunc', '--filter', 'label=start-command.snapshot-image', '--filter', 'status=running']);
   const ids = listing.split('\n').filter(id => containerIdPattern.test(id));
@@ -94,10 +96,10 @@ export async function findRepairCandidates(records, selected, start) {
     const container = await inspectRepairContainer(id);
     const uuid = container.Config?.Labels?.['start-command.uuid'];
     const record = byUuid.get(uuid);
-    const plan = record && repairPlan(record, container, start);
+    const plan = record && repairPlan(record, container, start, protectPaused);
     if (!plan) continue;
     const matches = candidates.get(uuid) ?? [];
-    matches.push({ id, name: plan.newSessionName });
+    matches.push({ id, name: plan.newSessionName, startedAt: container.State.StartedAt });
     candidates.set(uuid, matches);
   }
   return candidates;
@@ -125,12 +127,16 @@ async function readRepairRecords(start, appFolder) {
   }
 }
 
-export async function previewTaskRecordRepair({ uuids, appFolder = process.env.START_APP_FOLDER } = {}) {
+export async function reviewedRepairCandidates(uuids, appFolder, protectPaused) {
   const selected = repairSelection(uuids);
   if (appFolder !== undefined && typeof appFolder !== 'string') throw new HiveManagerError('INVALID_INPUT', 'Specify a start-command app folder path.');
   const start = await startLibraries();
   const records = await readRepairRecords(start, appFolder);
-  const candidates = await findRepairCandidates(records, selected, start);
+  return findRepairCandidates(records, selected, start, protectPaused);
+}
+
+export async function previewTaskRecordRepair({ uuids, appFolder = process.env.START_APP_FOLDER } = {}) {
+  const candidates = await reviewedRepairCandidates(uuids, appFolder);
   const outcomes = [...candidates].map(([uuid, matches]) => (matches.length === 1 ? { uuid, container: matches[0].name, state: 'eligible' } : { uuid, state: 'ambiguous' }));
   return { mode: 'preview', outcomes };
 }

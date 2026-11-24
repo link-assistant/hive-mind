@@ -1,12 +1,16 @@
 import { execFile } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { performance } from 'node:perf_hooks';
 import { setTimeout as delay } from 'node:timers/promises';
+import { pathToFileURL } from 'node:url';
 import { parseArgs, promisify } from 'node:util';
 import { createSessionStore } from '../../session-store.lib.mjs';
 import { withStateLock } from '../../state-lock.lib.mjs';
 import { aliasResumeCommand, solveTask, issueTarget } from './lib/recovery-command.mjs';
 import { docker, snapshotSpace } from './lib/snapshot-space.mjs';
 import { latestAttempt, taskAttempts } from './lib/inspection.mjs';
+import { readExecutionStore } from './lib/read-execution-store.mjs';
+import { observedWatchers } from './lib/watchers.mjs';
 import { listTrackedTasks } from './report.mjs';
 
 const execFileAsync = promisify(execFile);
@@ -83,7 +87,7 @@ function recoveryPlan(executions, containers, sessions, policy) {
 }
 
 async function currentPlan(policy) {
-  const executions = await listTrackedTasks();
+  const executions = policy.profile ? await readExecutionStore({ allowMissing: true }) : await listTrackedTasks();
   let active;
   try {
     active = await docker(['ps', '--format', '{{.Names}}\t{{.Label "start-command.root-session"}}\t{{.Label "start-command.uuid"}}']);
@@ -97,17 +101,60 @@ async function currentPlan(policy) {
       const [name, family, uuid] = line.split('\t');
       return { name, family, uuid };
     });
-  return recoveryPlan(executions, containers, await createSessionStore().load(), policy);
+  return recoveryPlan(executions, containers, await createSessionStore().load({ strict: policy.profile }), policy);
 }
 
-async function reviewCandidate(entry) {
+async function reviewCandidate(entry, requireIdentity, watchers) {
   const { task, container, family, alias, attempt, target } = entry;
   const { uuid: id, exitCode, endTime } = task;
-  const snapshot = await snapshotSpace({ id, family, container, containerId: task.options.containerId, exitCode });
+  const snapshot = await snapshotSpace({ id, family, container, containerId: task.options.containerId, exitCode, requireIdentity });
   const command = alias ? await aliasResumeCommand(task, alias, target) : undefined;
   const candidate = { id, attempt, nextAttempt: attempt + 1, exitCode, finishedAt: endTime ?? null, recovery: alias ? 'telegram-alias' : 'memory-exhaustion', snapshot };
   if (alias && !command) candidate.blocked = 'unrecognized-alias-arguments';
+  if (watchers?.has(container) || watchers?.has(snapshot.containerId?.slice(7))) candidate.blocked = 'completion-watcher-present';
+  if (requireIdentity && snapshot.state === 'ready' && !candidate.blocked) {
+    candidate.approval = `sha256:${createHash('sha256')
+      .update(JSON.stringify([id, attempt, entry.startedAt, endTime, exitCode, family, snapshot.containerId, task.command, command]))
+      .digest('hex')}`;
+  }
   return { candidate, command };
+}
+
+async function resumeCandidate(id, command) {
+  const override = command === undefined ? [] : ['--', command];
+  await execFileAsync('$', ['--resume', id, '--output-format', 'json', ...override], { timeout: 120_000, maxBuffer: 1024 * 1024 });
+}
+
+const recoveryLock = action => withStateLock('hive-manager-task-recovery', action, { timeoutMs: 5000, staleMs: 60 * 60 * 1000 });
+
+export async function previewProfileRecovery(policy) {
+  const entries = await currentPlan(policy);
+  const candidates = [];
+  if (!entries.length) return candidates;
+  const watchers = await observedWatchers();
+  for (const entry of entries) candidates.push((await reviewCandidate(entry, true, watchers)).candidate);
+  return candidates;
+}
+
+export async function applyProfileRecovery(policy, { id, attempt, approval }) {
+  return recoveryLock(async () => {
+    const selection = { ...policy, execution: id, attempt, limit: 1 };
+    const [entry] = await currentPlan(selection);
+    if (!entry) return { id, attempt, state: 'changed' };
+    const { candidate, command } = await reviewCandidate(entry, true);
+    if (!candidate.approval || candidate.approval !== approval) return { id, attempt, state: 'changed', snapshot: candidate.snapshot };
+    // Snapshot sizing can take time. Recheck the family and watcher just before resuming.
+    const [current] = await currentPlan(selection);
+    if (!current || !sameFailure(entry, current)) return { id, attempt, state: 'changed' };
+    const watchers = await observedWatchers();
+    if (watchers.has(current.container) || watchers.has(candidate.snapshot.containerId.slice(7))) return { id, attempt, state: 'changed' };
+    try {
+      await resumeCandidate(id, command);
+      return { id, attempt, nextAttempt: candidate.nextAttempt, state: 'resumed' };
+    } catch {
+      return { id, attempt, state: 'resume-unconfirmed' };
+    }
+  });
 }
 
 function sameFailure(a, b) {
@@ -176,8 +223,7 @@ async function recoverFailed() {
         continue;
       }
       try {
-        const override = review.command === undefined ? [] : ['--', review.command];
-        await execFileAsync('$', ['--resume', id, '--output-format', 'json', ...override], { timeout: 120_000, maxBuffer: 1024 * 1024 });
+        await resumeCandidate(id, review.command);
         attempts.set(id, nextAttempt);
         outcomes.push({ id, state: 'resumed' });
       } catch {
@@ -187,7 +233,7 @@ async function recoverFailed() {
     }
     return { mode: values.apply ? 'apply' : 'preview', candidates, outcomes };
   };
-  const result = values.apply ? await withStateLock('hive-manager-task-recovery', action, { timeoutMs: 5000, staleMs: 60 * 60 * 1000 }) : await action();
+  const result = values.apply ? await recoveryLock(action) : await action();
   if (values.wait) await followRecoveries(result.outcomes, attempts, Number(values.wait));
   process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
   if (result.outcomes.some(({ state }) => state === 'resume-failed')) throw new Error('A resume could not be confirmed. Check tasks status before retrying.');
@@ -195,9 +241,11 @@ async function recoverFailed() {
   if (result.outcomes.some(({ state, completion }) => state !== 'resumed' || (values.wait && completion?.exitCode !== 0))) process.exitCode = 1;
 }
 
-try {
-  await recoverFailed();
-} catch (error) {
-  process.stderr.write(`hive-manager: ${error.message}\n`);
-  process.exitCode = 1;
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  try {
+    await recoverFailed();
+  } catch (error) {
+    process.stderr.write(`hive-manager: ${error.message}\n`);
+    process.exitCode = 1;
+  }
 }

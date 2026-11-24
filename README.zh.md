@@ -557,6 +557,30 @@ Shows:
 - Solve queue status
 ```
 
+#### Docker 任务控制
+
+```text
+/pause <会话 ID 或 GitHub issue/PR URL> [--reason <原因>]
+/unpause <会话 ID 或 GitHub issue/PR URL>
+/stop <会话 ID 或 GitHub issue/PR URL>
+/resume <会话 ID 或 GitHub issue/PR URL>
+/status <会话 ID 或 GitHub issue/PR URL>
+/list
+```
+
+发起人或原聊天所有者可以在任务所在群组或与机器人的私聊中控制任务。
+可提供容器名、会话 UUID、执行 UUID 或 URL，也可回复任务消息。
+`/list` 和不带目标的命令会列出你符合条件的 Docker 任务。
+
+`/pause` 冻结容器并释放 CPU 槽位，进程、RAM 和文件都会保留。
+`/unpause` 继续同一进程。`/queue` 和 `/limits` 会单独显示已暂停的
+任务，暂停满一小时后机器人会提醒一次。机器人重启后也能检测到手动
+执行的 Docker 暂停和解除暂停。
+
+`/stop` 释放 RAM 并保留容器文件。`/resume` 会使用保留的工作区和最近
+记录的 AI 会话重启已停止的任务。执行 UUID 仍然有效。恢复需要原容器
+仍然存在，暂不支持使用路由器或 Formal AI sidecar 的任务。
+
 #### `/terminal_watch` - Live Session Log
 
 ```

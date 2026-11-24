@@ -308,6 +308,7 @@ hi
         code "निकास कोड {{code}}"
       pending "प्रतीक्षारत"
       processing "चल रहा"
+      paused "रुका हुआ"
       processes "{{count}} प्रक्रियाएँ"
       status
         cancelled "रद्द"
@@ -391,6 +392,29 @@ hi
     week "सप्ताह"
     weekly "साप्ताहिक"
   telegram
+    task
+      control
+        usage "उपयोग: /{{command}} <सत्र ID या GitHub URL>। आप कार्य संदेश का जवाब भी दे सकते हैं।"
+        list "आपके Docker कार्य"
+        empty "कोई मेल खाता Docker कार्य नहीं मिला।"
+        unauthorized "यह कार्य इस चैट या विषय में उपलब्ध नहीं है।"
+        missing "इस पहचान से कोई ट्रैक किया गया कार्य नहीं मिला।"
+        owner "केवल कार्य अनुरोधकर्ता या मूल चैट का मालिक इसे नियंत्रित कर सकता है।"
+        conflict "इस URL का कार्य पहले से चल रहा है या कतार में है।"
+        failed "/{{command}}: {{error}}"
+        already
+          paused "कार्य {{session}} पहले से रुका है। RAM आवंटित है। जारी रखने के लिए /unpause या RAM खाली करने के लिए /stop चलाएँ।"
+        not
+          paused "कार्य {{session}} चल रहा है और रुका हुआ नहीं है।"
+        paused "कार्य {{session}} रोक दिया गया। CPU स्लॉट खाली है और RAM आवंटित है। उसी प्रक्रिया को जारी रखने के लिए /unpause या RAM खाली करने के लिए /stop चलाएँ।"
+        unpaused "कार्य {{session}} की वही प्रक्रिया फिर चल रही है।"
+        resumed "कार्य {{session}} सहेजी गई फ़ाइलों के साथ फिर शुरू हुआ।"
+      state
+        paused "⏸ रुका हुआ"
+        running "चल रहा है"
+        stopped "बंद ({{state}})"
+      pause
+        alert "कार्य {{session}} कम से कम एक घंटे से रुका है। जारी रखने के लिए /unpause या RAM खाली करने के लिए /stop चलाएँ।"
     fetching
       limits "🔄 उपयोग सीमाएँ प्राप्त की जा रही हैं..."
     gathering
@@ -524,6 +548,7 @@ hi
           💡 कतार स्थिति देखने के लिए /queue का उपयोग करें।
         """
       session
+        paused "इस URL का कार्य पहले से रुका है: `{{session}}`। जारी रखने के लिए /unpause {{session}} चलाएँ।"
         running """
           ❌ इस URL के लिए पहले से एक कार्य सत्र चल रहा है।
 
@@ -676,6 +701,8 @@ hi
       stop
         start "*/stop* / */start* - नए tasks स्वीकार करना रोकें या फिर शुरू करें (केवल owner)"
         uuid "*/stop* `<uuid>` - isolated solve/hive session को CTRL+C भेजें (केवल owner)। UUID वाले message पर reply के रूप में भी काम करता है।"
+      pause
+        resume "*/pause* Docker कार्य को रोककर CPU स्लॉट खाली करता है। RAM आवंटित रहती है। */unpause* उसी प्रक्रिया को जारी रखता है। RAM खाली करने के लिए */stop* और बंद कार्य को फिर शुरू करने के लिए */resume* चलाएँ। */list* आपके कार्य और */status* एक कार्य की स्थिति दिखाता है। सत्र ID या URL दें, या कार्य संदेश का जवाब दें।"
       log "*/log* - isolated session log लाएँ (केवल owner)। उपयोग: `/log <uuid>` या `/log` से reply करें"
       terminal
         watch "*/terminal\\_watch* (alias: */watch*) - isolated session log को live-update करें (chat owner या session requester)। उपयोग: `/terminal_watch <uuid>`, `/watch <uuid>`, या इनमें से किसी command से reply करें"

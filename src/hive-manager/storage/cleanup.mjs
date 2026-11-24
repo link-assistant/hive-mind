@@ -1,11 +1,11 @@
 import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { chmodSync, closeSync, fsyncSync, lstatSync, mkdirSync, mkdtempSync, openSync, readFileSync, readlinkSync, realpathSync, renameSync, rmSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { performance } from 'node:perf_hooks';
 import { setTimeout as delay } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
-import { absolute, dockerRoot, executionId, inspect, inventory, localDocker, mountTable, overlaps, runtimeRoots, upperDirectory } from './lib/docker.mjs';
+import { absolute, dockerRoot, executionId, inspect, inventory, localDocker, localDockerEndpoint, mountTable, overlaps, runtimeRoots, upperDirectory } from './lib/docker.mjs';
 import { openTree, planFiles, removeApproved } from './lib/files.mjs';
 import { MemoryPressure, memoryGuard, run } from './lib/process.mjs';
 import { pinnedScanner } from './lib/scanner.mjs';
@@ -103,7 +103,7 @@ function liveTask(row) {
   };
 }
 
-export async function scopedCleanup({ docker, directory, stateDir, approved, check, scan, progress }) {
+export async function scopedCleanup({ docker, directory, stateDir, approved, check, scan, progress, instance }) {
   const deadline = performance.now() + 30 * 60_000;
   const guard = () => {
     check();
@@ -113,7 +113,10 @@ export async function scopedCleanup({ docker, directory, stateDir, approved, che
   const root = realpathSync(await dockerRoot(docker, options));
   if (overlaps(root, realpathSync(directory))) throw new Error('Cleanup state overlaps Docker storage.');
   if (approved && approved.root !== root) throw new Error('Docker data root changed after the preview.');
-  const rows = await inventory(docker, options);
+  const rows = instance ? await inspect(docker, [instance], options) : await inventory(docker, options);
+  if (instance && (rows.length !== 1 || rows[0].name !== instance || rows[0].execution || !running(rows[0]))) throw new Error('The deployment is not an eligible running cleanup scope.');
+  const scope = instance ? taskIdentity(rows[0]) : null;
+  if (instance && approved && approved.scope !== scope) throw new Error('The deployment changed after cleanup preview.');
 
   const plans = [];
   let fileCount = 0;
@@ -123,7 +126,10 @@ export async function scopedCleanup({ docker, directory, stateDir, approved, che
     let trees;
     try {
       guard();
-      const candidates = await scan(paths, docker, container);
+      const scanned = await scan(paths, docker, container);
+      // A deployment-scoped run leaves task and bot state alone, including
+      // state in the writable layer of adopted instances.
+      const candidates = instance ? scanned.filter(path => dirname(path) === '/var/cache/apt/archives' && path.endsWith('.deb')) : scanned;
       const current = await refresh();
       trees = await getTrees(current);
       const boundary = current.paths;
@@ -164,15 +170,16 @@ export async function scopedCleanup({ docker, directory, stateDir, approved, che
   }
 
   const hostPaths = () => hostProtected(root, directory, rows, stateDir);
-  await consider(
-    'host',
-    'host',
-    hostPaths(),
-    () => ({ view: openTree('/') }),
-    async () => ({
-      paths: approved ? hostProtected(root, directory, await inventory(docker, options), stateDir) : hostPaths(),
-    })
-  );
+  if (!instance)
+    await consider(
+      'host',
+      'host',
+      hostPaths(),
+      () => ({ view: openTree('/') }),
+      async () => ({
+        paths: approved ? hostProtected(root, directory, await inventory(docker, options), stateDir) : hostPaths(),
+      })
+    );
   for (const row of rows) {
     guard();
     if (!running(row)) {
@@ -212,7 +219,7 @@ export async function scopedCleanup({ docker, directory, stateDir, approved, che
     }
   }
   guard();
-  return { root, plans };
+  return { root, plans, scope };
 }
 
 function checkDirectory(directory) {
@@ -234,14 +241,23 @@ export async function readCleanupStatus(directory) {
   return current?.id === state.id && current.status === 'running' ? { ...current, status: 'interrupted' } : current;
 }
 
-export async function launchCleanup(directory, socket, instance, stateDir, approval) {
+export async function reviewedInstanceCleanup(directory, endpoint, instance, stateDir, approval, identity) {
+  const state = await readCleanupStatus(directory);
+  const plan = readJson(join(directory, 'preview.json'));
+  if (state?.id !== approval || state.status !== 'completed' || state.mode !== 'preview' || plan?.id !== approval || plan.endpoint !== endpoint || plan.instance !== instance || plan.stateDir !== resolve(stateDir) || plan.scope !== identity) {
+    throw new Error('Use the latest completed --instance-only cleanup preview for this running deployment.');
+  }
+  return { id: approval, scopes: state.scopes };
+}
+
+export async function launchCleanup(directory, socket, instance, stateDir, approval, instanceOnly = false) {
   checkDirectory(directory);
   const id = randomUUID();
   if (approval) {
     const state = await readCleanupStatus(directory);
     if (state?.id !== approval || state.status !== 'completed' || state.mode !== 'preview') throw new Error('Apply requires the latest completed preview.');
   }
-  return launchLocked(directory, id, [process.execPath, entry, 'worker', socket, instance, stateDir, id, approval ?? '']);
+  return launchLocked(directory, id, [process.execPath, entry, 'worker', socket, instance, stateDir, id, approval ?? '', instanceOnly ? 'instance-only' : '']);
 }
 
 export async function launchLocked(directory, id, command) {
@@ -271,34 +287,38 @@ export async function launchLocked(directory, id, command) {
 
 // The flock parent outlives the SSH client and holds the lock until this
 // worker exits, including any time spent waiting for a guarded child to stop.
-export async function cleanupWorker(directory, socket, instance, stateDir, id, approval) {
+export async function cleanupWorker(directory, socket, instance, stateDir, id, approval, scopeMode) {
   checkDirectory(directory);
   if (!executionId.test(id) || (approval && !executionId.test(approval))) throw new Error('Invalid cleanup job ID.');
   const file = join(directory, 'status.json');
   const prior = readJson(file);
   const preview = join(directory, 'preview.json');
-  const state = { id, status: 'running', mode: approval ? 'apply' : 'preview', approval: approval || null, startedAt: new Date().toISOString(), scopes: [] };
+  const instanceOnly = scopeMode === 'instance-only';
+  const endpoint = instanceOnly ? localDockerEndpoint(socket) : undefined;
+  if (instanceOnly) stateDir = resolve(stateDir);
+  const state = { id, status: 'running', mode: approval ? 'apply' : 'preview', approval: approval || null, instanceOnly, startedAt: new Date().toISOString(), scopes: [] };
   // A killed worker may leave a staging file. This worker holds the same lock.
   rmSync(`${file}.new`, { force: true });
   rmSync(`${preview}.new`, { force: true });
   const approved = approval && readJson(preview);
-  if (approval && (prior?.id !== approval || prior.status !== 'completed' || approved?.id !== approval || approved.socket !== socket || approved.instance !== instance || approved.stateDir !== stateDir)) {
+  if (approval && (prior?.id !== approval || prior.status !== 'completed' || approved?.id !== approval || (instanceOnly ? approved.endpoint !== endpoint : approved.socket !== socket) || approved.instance !== instance || approved.stateDir !== stateDir || Boolean(approved.scope) !== instanceOnly)) {
     throw new Error('Apply requires the latest completed preview for this deployment.');
   }
   save(file, state);
   let temp;
   try {
     const check = await memoryGuard();
-    const docker = localDocker(socket);
+    const docker = localDocker(endpoint?.slice(7) ?? socket);
     const root = realpathSync(await dockerRoot(docker, { check }));
     if ([root, ...runtimeRoots].some(path => overlaps(path, directory))) throw new Error('Scoped cleanup state overlaps protected runtime storage.');
     temp = mkdtempSync(join(directory, 'scanner-'));
     chmodSync(temp, 0o700);
-    const scan = await pinnedScanner(temp, check);
+    const scan = await pinnedScanner(temp, check, { aptArchivesOnly: instanceOnly });
     const result = await scopedCleanup({
       docker,
       directory,
       stateDir,
+      instance: instanceOnly ? instance : undefined,
       approved,
       check,
       scan,
@@ -310,7 +330,7 @@ export async function cleanupWorker(directory, socket, instance, stateDir, id, a
       },
     });
     if (!approval) {
-      save(preview, { ...result, id, socket, instance, stateDir });
+      save(preview, { ...result, id, socket, endpoint, instance, stateDir });
       state.previewFile = preview;
     }
     state.status = 'completed';

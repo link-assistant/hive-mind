@@ -143,10 +143,34 @@ assert.equal(hasAutoRestartLimitFailure(), false, 'a fresh run starts without a 
 // A clean tree still fails, it just has nothing to preserve.
 resetAutoRestartLimitFailure();
 const clean$ = makeFake$('');
-const cleanFailure = await failOnAutoRestartBudgetExhausted({ owner: 'o', repo: 'r', prNumber: null, tempDir: '/tmp/none', branchName: 'b', $: clean$, log: noopLog, formatAligned, blocker: 'CI still failing' });
+const exhaustionLog = [];
+const failedHead = 'd59f425a46d4004731dbb4de412afc6fe8942e9a';
+const checkUrl = 'https://github.com/o/r/actions/runs/1/job/2';
+const cleanFailure = await failOnAutoRestartBudgetExhausted({
+  owner: 'o',
+  repo: 'r',
+  prNumber: null,
+  tempDir: '/tmp/none',
+  branchName: 'b',
+  $: clean$,
+  log: async (message, options) => exhaustionLog.push({ message, options }),
+  formatAligned,
+  blocker: 'CI still failing',
+  ciBlocker: { checks: [{ name: 'Telephone recognition', html_url: checkUrl, description: 'raw provider output' }] },
+  ciHeadSha: failedHead,
+});
 assert.equal(cleanFailure.reason, AUTO_RESTART_LIMIT_REACHED_REASON, 'still a failure with a clean tree');
 assert.equal(cleanFailure.committed, false, 'nothing to commit on a clean tree');
 assert.ok(!clean$.calls.some(c => c.includes('gh api')), 'no comment is posted without a PR number');
+assert.deepEqual(
+  exhaustionLog.filter(({ message, options }) => options?.verbose === true && message.startsWith('[VERBOSE] ')).map(({ message }) => message),
+  [`[VERBOSE] Restart limit CI snapshot for ${failedHead} (1/1 evidence lines)`, `[VERBOSE] Failing check: Telephone recognition — ${checkUrl}`],
+  'verbose diagnostics identify the CI snapshot and the failed job'
+);
+assert.ok(
+  exhaustionLog.every(({ message }) => !message.includes('raw provider output')),
+  'diagnostics omit the check payload'
+);
 resetAutoRestartLimitFailure();
 resetAutoRestartBudget();
 

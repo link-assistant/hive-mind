@@ -1,6 +1,6 @@
 # Open a Formal AI draft for every new issue (issue #2233).
 #
-# Every issue opened here gets one attempt from
+# Every eligible issue without an open solve pull request gets one attempt from
 # `solve --tool agent --model formal-ai --attach-logs --verbose` within minutes,
 # on a branch nobody depends on. A wrong attempt costs nothing; a right one
 # saves the first commit. The failure policy is deliberate and is documented in
@@ -59,6 +59,10 @@ on:
         required: false
       AUTOMATION_TOKEN:
         required: false
+    outputs:
+      draft_outcome:
+        description: 'Versioned task, process, and evidence outcome as JSON'
+        value: ${{ jobs.draft.outputs.draft_outcome }}
 
 # All credential layers can open a draft; default-token checks use dispatch.
 permissions:
@@ -115,6 +119,7 @@ jobs:
     outputs:
       head_branch: ${{ steps.attempt.outputs.head_branch }}
       checks_dispatched: ${{ steps.dispatch.outcome == 'success' && steps.gh.outputs.triggers-workflows != 'true' }}
+      draft_outcome: ${{ steps.evidence.outputs.draft_outcome || steps.attempt.outputs.draft_outcome }}
 
     steps:
       # Match the 90-minute job ceiling and reserve time to record a failed attempt.
@@ -178,6 +183,7 @@ jobs:
           FORMAL_AI_DRAFT_BINARY: ${{ inputs.formal_ai_binary_artifact != '' && format('{0}/formal-ai-binary/formal-ai', runner.temp) || '' }}
           FORMAL_AI_INSTALL_GRANT: workspace
           FORMAL_AI_DRAFT_LOG_DIR: ${{ runner.temp }}/formal-ai-draft-logs
+          RUNNER_NAME: ${{ runner.name }}
           AUTOMATION_LAYER: ${{ steps.gh.outputs.layer }}
           GH_TOKEN: ${{ steps.gh.outputs.token }}
         run: node scripts/formal-ai-draft.mjs
@@ -192,18 +198,33 @@ jobs:
           token: ${{ steps.gh.outputs.token }}
           triggers-workflows: ${{ steps.gh.outputs.triggers-workflows }}
 
-      # `--attach-logs` already puts the session log on the pull request. This
-      # is the copy for the case where no pull request was opened at all, which
-      # is exactly the failure mode worth reading. `!cancelled()` rather than
-      # `always()`: see tests/ci-workflow-cancellation-2082.test.mjs.
+      - name: Stage sanitized draft evidence
+        id: stage
+        if: ${{ !cancelled() && steps.decide.outputs.should_run == 'true' && steps.attempt.outputs.should_run != 'false' }}
+        env:
+          FORMAL_AI_DRAFT_ISSUE: ${{ steps.decide.outputs.issue_number }}
+          GH_TOKEN: ${{ steps.gh.outputs.token }}
+          RUNNER_NAME: ${{ runner.name }}
+        run: node scripts/formal-ai-draft-evidence.mjs --stage
+
       - name: Upload the session log
-        if: ${{ !cancelled() && steps.decide.outputs.should_run == 'true' }}
+        id: upload
+        if: ${{ !cancelled() && steps.decide.outputs.should_run == 'true' && steps.attempt.outputs.should_run != 'false' }}
         uses: actions/upload-artifact@v7
         with:
           name: formal-ai-draft-session-${{ steps.decide.outputs.issue_number }}
-          path: ${{ runner.temp }}/formal-ai-draft-logs
+          path: ${{ runner.temp }}/formal-ai-draft-evidence
           if-no-files-found: warn
           retention-days: 30
+
+      - name: Publish draft outcome with the Actions artifact receipt
+        id: evidence
+        if: ${{ !cancelled() && steps.decide.outputs.should_run == 'true' && steps.attempt.outputs.should_run != 'false' }}
+        env:
+          FORMAL_AI_DRAFT_ARTIFACT_STATUS: ${{ steps.upload.outcome }}
+          FORMAL_AI_DRAFT_ARTIFACT_URL: ${{ steps.upload.outputs.artifact-url }}
+          FORMAL_AI_DRAFT_SESSION_LOGS: ${{ steps.stage.outputs.session_logs }}
+        run: node scripts/formal-ai-draft-evidence.mjs --finalize
 
   # A pull request opened with the workflow token starts no pull_request runs,
   # and the runs dispatched above are attached to no pull request, so the draft

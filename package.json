@@ -1,6 +1,6 @@
 {
   "name": "@link-assistant/hive-mind",
-  "version": "2.48.0",
+  "version": "2.49.0",
   "description": "AI-powered issue solver and hive mind for collaborative problem solving",
   "main": "src/hive.mjs",
   "type": "module",
@@ -95,8 +95,8 @@
     "@link-foundation/sensitive-data-sanitizer": "^1.0.0",
     "@secretlint/core": "^14.1.0",
     "@secretlint/profiler": "^14.1.0",
-    "@sentry/node": "^11.16.0",
-    "@sentry/profiling-node": "^11.16.0",
+    "@sentry/node": "^11.17.0",
+    "@sentry/profiling-node": "^11.17.0",
     "agent-commander": "^0.12.0",
     "dayjs": "^1.11.23",
     "decimal.js-light": "^2.5.1",

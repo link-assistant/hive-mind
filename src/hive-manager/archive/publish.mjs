@@ -7,12 +7,12 @@ import { dirname, join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { parseArgs, promisify } from 'node:util';
 import { archiveRepo, archiveRepoPattern, archiveRevisionPattern, openArchiveGit, publishedRevisionName, stageRevisionMarkers } from './lib/git.mjs';
+import { archiveArtifactBytes, archiveBatchBytes, archiveManifestBytes, archiveMaxArtifacts, numberedPart, transcriptPartBytes } from './lib/limits.mjs';
 import { readBoundedFile } from '../lib/files.mjs';
 import { excludedArchiveRepository, redactArchiveIdentity } from './lib/privacy.mjs';
 import { archiveRedactionReceipt, loadArchiveRedactions } from './lib/redactions.mjs';
 import { findResidualCredentialBlock } from '../../log-sanitize-stream.lib.mjs';
 
-const MiB = 1024 * 1024;
 const run = promisify(execFile);
 const usage = `Usage: hive-manager archive-publish DIRECTORY --destination OWNER/REPO [--apply SHA256]
          [--private] [--known-secrets-file FILE]
@@ -20,20 +20,37 @@ const usage = `Usage: hive-manager archive-publish DIRECTORY --destination OWNER
 Preview the files listed in an archive-sessions manifest and print a review digest.
 After reviewing every file, pass that digest to publish one commit to the existing archive repository.
 Use --private to require a private destination. A known secrets file also requires a private destination.
+Numbered transcripts always require a private destination.
 `;
 
 function artifactPaths(sessions) {
   if (!Array.isArray(sessions) || sessions.length < 1 || sessions.length > 100) throw new Error('The archive manifest must contain between 1 and 100 sessions.');
-  const files = new Set(['manifest.json']);
+  const files = new Map([['manifest.json', {}]]);
+  const transcripts = new Set();
+  let chunked = false;
   for (const session of sessions) {
     const match = /^(claude|codex)-([a-f\d]{64})\.jsonl$/.exec(session?.archive ?? '');
-    if (!match || match[1] !== session.tool || files.has(session.archive)) throw new Error('The archive manifest contains an invalid transcript path.');
+    if (!match || match[1] !== session.tool || transcripts.has(session.archive)) throw new Error('The archive manifest contains an invalid transcript path.');
     if (session.revision !== undefined && (typeof session.revision !== 'string' || !archiveRevisionPattern.test(session.revision))) throw new Error('The archive manifest contains an invalid session revision.');
-    files.add(session.archive);
+    transcripts.add(session.archive);
     const [, tool, id] = match;
-    if (session.linksNotation !== undefined) {
-      if (session.linksNotation !== `${tool}-${id}.lino`) throw new Error('The archive manifest contains an invalid Links Notation path.');
-      files.add(session.linksNotation);
+    const stem = `${tool}-${id}`;
+    if (session.parts === undefined) {
+      files.set(session.archive, {});
+      if (session.linksNotation !== undefined) {
+        if (session.linksNotation !== `${stem}.lino`) throw new Error('The archive manifest contains an invalid Links Notation path.');
+        files.set(session.linksNotation, {});
+      }
+    } else {
+      const { parts, revision } = session;
+      if (!revision || session.linksNotation !== undefined || !Array.isArray(parts) || !parts.length || parts.length > archiveMaxArtifacts) throw new Error('The archive manifest contains invalid transcript parts.');
+      const hasLino = parts[0]?.linksNotation !== undefined;
+      for (const [index, part] of parts.entries()) {
+        if (part?.archive !== numberedPart(stem, index + 1, 'jsonl') || (hasLino ? part.linksNotation !== numberedPart(stem, index + 1, 'lino') : part.linksNotation !== undefined)) throw new Error('The archive manifest contains invalid transcript parts.');
+        files.set(part.archive, { limit: transcriptPartBytes, newline: index + 1 < parts.length });
+        if (hasLino) files.set(part.linksNotation, {});
+      }
+      chunked = true;
     }
     if (session.toolResults === undefined) continue;
     if (tool !== 'claude' || !Array.isArray(session.toolResults) || session.toolResults.length > 100) throw new Error('The archive manifest contains invalid tool results.');
@@ -41,40 +58,44 @@ function artifactPaths(sessions) {
     for (const result of session.toolResults) {
       const path = result?.archive ?? '';
       if (!pathPattern.test(path) || files.has(path)) throw new Error('The archive manifest contains an invalid tool result path.');
-      files.add(path);
+      files.set(path, {});
     }
   }
-  if (files.size > 301) throw new Error('The archive manifest contains too many files.');
-  return [...files].sort();
+  if (files.size > archiveMaxArtifacts + 1) throw new Error('The archive manifest contains too many files.');
+  return { files, chunked };
 }
 
 async function review(directory, destination, { snapshot, expectedDigest, privateOnly, redactions } = {}) {
   if (!(await lstat(directory)).isDirectory()) throw new Error('The archive directory must be a real directory.');
   const options = { noFollow: true, allowEmpty: true };
-  const manifest = await readBoundedFile(join(directory, 'manifest.json'), MiB, 'archive manifest', options);
+  const manifest = await readBoundedFile(join(directory, 'manifest.json'), archiveManifestBytes, 'archive manifest', options);
   const { repository, sessions, literalRedactions } = JSON.parse(manifest);
   if (!archiveRepoPattern.test(repository ?? '') || repository !== repository.toLowerCase() || repository === destination) throw new Error('Use a separate GitHub destination and a valid source repository.');
   if (excludedArchiveRepository(repository)) throw new Error('This source repository is excluded from session archives.');
-  const paths = artifactPaths(sessions);
+  const { files, chunked } = artifactPaths(sessions);
+  const paths = [...files.keys()].sort();
   if (literalRedactions === true) {
     const receipt = redactions && (await readBoundedFile(join(directory, archiveRedactionReceipt), 64, 'local redaction policy', options).catch(() => null));
     if (!receipt || receipt.toString('utf8') !== redactions.digest) throw new Error('Review and apply require the same --known-secrets-file literals used to stage this archive.');
   }
   const { visibility, default_branch: branch } = await archiveRepo(destination);
-  if ((privateOnly || redactions) && visibility !== 'private') throw new Error('This publication requires a private destination.');
+  if ((privateOnly || redactions || chunked) && visibility !== 'private') throw new Error('This publication requires a private destination.');
+  if (snapshot && chunked && !expectedDigest) throw new Error('Numbered transcripts require the archive-publish review digest.');
   const hash = createHash('sha256').update(`hive-manager archive v1\0${repository}\0${destination}\0${visibility}\0${branch}\0`);
   if (redactions) hash.update(`known literals\0${redactions.digest}\0`);
   let bytes = 0;
   for (const path of paths) {
     const file = join(directory, path);
     if (!(await lstat(dirname(file))).isDirectory()) throw new Error('Archive artifacts must be in real directories.');
-    const data = path === 'manifest.json' ? manifest : await readBoundedFile(file, Math.min(64 * MiB, 256 * MiB - bytes), 'archive artifact', options);
+    const { limit = archiveArtifactBytes, newline } = files.get(path);
+    const data = path === 'manifest.json' ? manifest : await readBoundedFile(file, Math.min(limit, archiveBatchBytes - bytes), 'archive artifact', options);
     if (!isUtf8(data) || data.includes(0)) throw new Error('Archive artifacts must contain UTF-8 text.');
+    if (newline && data.at(-1) !== 10) throw new Error('Each nonfinal transcript part must end at a JSONL record boundary.');
     const text = data.toString('utf8');
     redactions?.assertClean(text);
     if (redactArchiveIdentity(text) !== text) throw new Error('The archive contains recognizable identity-document, booking, or contact details. Redact them before publishing.');
     bytes += data.length;
-    if (bytes > 256 * MiB) throw new Error('An archive batch may contain at most 256 MiB. Export fewer sessions per batch.');
+    if (bytes > archiveBatchBytes) throw new Error('An archive batch may contain at most 256 MiB. Export fewer sessions per batch.');
     hash.update(`${path}\0${data.length}\0`).update(data);
     if (snapshot) {
       const output = join(snapshot, path);
@@ -99,6 +120,9 @@ async function publish({ source, destination, digest, paths, visibility, branch,
   const { git, base, remote } = await openArchiveGit(destination, branch, work);
   const prefix = `${source}/${digest}`;
   const existing = new Set((await git(['ls-tree', '-r', base, '--', prefix])).split('\n').filter(Boolean));
+  if (!existing.size && revisions.length && (await git(['ls-tree', '-r', base, '--', ...revisions]))) {
+    throw new Error('An archive revision has already been published. Stage a fresh batch with --published-in.');
+  }
   await git(['read-tree', base]);
   for (const path of paths) {
     const blob = await git(['hash-object', '--no-filters', '-w', '--', join(snapshot, path)]);

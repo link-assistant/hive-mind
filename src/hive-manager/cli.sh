@@ -33,6 +33,7 @@ Usage: hive-manager [--host HOST] [SSH options] COMMAND [ARGS]
   archive-session       Sanitize a session file and write it to stdout
   archive-sessions      Stage sanitized sessions associated with a public repository
   archive-publish       Publish a reviewed session archive to GitHub
+  archive-overview      Render a source inventory from local archive manifests
   proxy-test            Verify Telegram text and media on a client network
   proxy-pcap            Summarize and compare bounded proxy packet captures
   close-linked-issues   Reconcile issues linked from merged pull requests
@@ -44,6 +45,9 @@ SSH options (before COMMAND):
   --ssh-option OPTION  Pass an OpenSSH option (-o), repeatable
   --ssh-port PORT      SSH port (-p)
   --tty                Request a terminal for interactive remote commands
+
+HIVE_MANAGER_PACKAGE_VERSION     Select the host maintenance package, including over SSH.
+HIVE_MANAGER_PACKAGE_DIAGNOSTICS=1  Report host package selection on stderr.
 Run hive-manager deploy --help for deployment options.
 HELP
 }
@@ -56,6 +60,7 @@ Usage: hive-manager deploy [OPTIONS] ACTION [ARGS]
   apply | update        Deploy or replace the instance, keeping a rollback
   rollback              Switch back to the previous container
   recover               Complete or undo an interrupted rollout
+  auto-fix              Preview, apply or check profile-scoped operations recovery
   status | logs         Show instance status or stream Docker logs
   start | stop | restart
                         Control the instance
@@ -74,15 +79,19 @@ Usage: hive-manager deploy [OPTIONS] ACTION [ARGS]
   cleanup --scoped      Preview or apply detached host and task cache cleanup
   backup [--output FILE|-]
                         Save a private archive of deployment state
+  backup --plan [SOURCES] | backup --plan-file FILE [--output FILE|-]
+                        Review and stream a selected private backup bundle
   restore [--input FILE|-]
                         Extract an archive into a new state directory
+  restore --bundle [--input FILE|-]
+                        Verify and restore a private bundle to a new directory
   reboot --confirm      Reboot the deployment host
   docker-service        Check or start Docker, or enable daemon live restore
   proxy                 Manage an optional Telegram MTProto proxy
   compose ARGS          Run Docker Compose on the target (supports -f, --env-file)
   helm ARGS             Run Helm on the target (uses its kubeconfig)
   cleanup | configure-claude | audit-config | screens | models | tasks
-  archive-session | archive-sessions | archive-publish | proxy-test | proxy-pcap | close-linked-issues
+  archive-session | archive-sessions | archive-publish | archive-overview | proxy-test | proxy-pcap | close-linked-issues
                         Run a maintenance command inside the instance
 
 Options (before ACTION):
@@ -117,7 +126,15 @@ shell_quote() {
 over_ssh() {
   require ssh
   [[ $host =~ ^[a-zA-Z0-9_][a-zA-Z0-9_.@:+-]*$ || $host =~ ^:[a-fA-F0-9:]+$ ]] || fail "Invalid SSH destination: $host"
-  local remote='exec bash -c' word
+  local remote='exec' word
+  if [[ $package_version || ${HIVE_MANAGER_PACKAGE_DIAGNOSTICS:-} ]]; then
+    remote+=' env'
+    if [[ $package_version ]]; then remote+=" $(shell_quote "HIVE_MANAGER_PACKAGE_VERSION=$package_version")"; fi
+    if [[ ${HIVE_MANAGER_PACKAGE_DIAGNOSTICS:-} ]]; then
+      remote+=" $(shell_quote "HIVE_MANAGER_PACKAGE_DIAGNOSTICS=$HIVE_MANAGER_PACKAGE_DIAGNOSTICS")"
+    fi
+  fi
+  remote+=' bash -c'
   for word in "$BASH_EXECUTION_STRING" hive-manager "$@"; do
     remote+=" $(shell_quote "$word")"
   done
@@ -127,23 +144,27 @@ maintenance_spec() {
   case "$1" in
     cleanup|hive-cleanup) bin=hive-cleanup; module=cleanup.mjs ;;
     deploy-storage) bin=hive-manager; module=hive-manager/storage/main.mjs ;;
+    deploy-auto-fix) bin=hive-manager; module=hive-manager/auto-fix/main.mjs ;;
     configure-claude) bin=configure-claude; module=configure-claude.mjs ;;
     screens|hive-screens) bin=hive-screens; module=hive-screens.mjs ;;
     models|hive-models) bin=hive-models; module=hive-models.mjs ;;
     archive-session) bin=hive-manager; module=hive-manager/archive/session.mjs ;;
     archive-sessions) bin=hive-manager; module=hive-manager/archive/sessions.mjs ;;
     archive-publish) bin=hive-manager; module=hive-manager/archive/publish.mjs ;;
+    archive-overview) bin=hive-manager; module=hive-manager/archive/overview.mjs ;;
     proxy-test) bin=hive-manager; module=hive-manager/proxy/test.mjs ;;
     proxy-pcap) bin=hive-manager; module=hive-manager/proxy/pcap.mjs ;;
     proxy-legacy) bin=hive-manager; module=hive-manager/proxy/legacy.mjs ;;
     audit-config) bin=hive-manager; module=hive-manager/audit-config.mjs ;;
     update-dependencies) bin=hive-manager; module=hive-manager/maintenance/update-dependencies.mjs ;;
     task-report) bin=hive-manager; module=hive-manager/task/report.mjs ;;
+    task-report-batch) bin=hive-manager; module=hive-manager/task/report-batch.mjs ;;
     task-check-browser) bin=hive-manager; module=hive-manager/task/check-browser.mjs ;;
     task-check-uploads) bin=hive-manager; module=hive-manager/task/check-uploads.mjs ;;
     task-recover-failed) bin=hive-manager; module=hive-manager/task/recover-failed.mjs ;;
     task-recover-queue) bin=hive-manager; module=hive-manager/task/recover-queue.mjs ;;
     task-repair-records) bin=hive-manager; module=hive-manager/task/repair-records.mjs ;;
+    task-lifecycle) bin=hive-manager; module=hive-manager/task/lifecycle.mjs ;;
     close-linked-issues) bin=close-linked-issues; module=close-linked-issues.mjs ;;
     *) return 1 ;;
   esac
@@ -167,64 +188,112 @@ package_source() {
   [[ -f $source_dir/../package.json && -f $source_dir/hive.mjs ]] || return 1
   cd -- "$source_dir" && pwd -P
 }
+package_release() {
+  command -v node >/dev/null || return 1
+  node -e '
+    const { name, version } = require(process.argv[1]);
+    if (name !== process.argv[2] || typeof version !== "string" || !/^\d+\.\d+\.\d+(?:[+-][\w.+-]+)?$/.test(version)) process.exit(1);
+    console.log(version);
+  ' "$1/../package.json" "$package_name" 2>/dev/null
+}
+
+package_diagnostic() {
+  if [[ ${HIVE_MANAGER_PACKAGE_DIAGNOSTICS:-} == 1 ]]; then
+    printf 'hive-manager: %s\n' "$*" >&2
+  fi
+}
+
+check_package_version() {
+  [[ ! $package_version || $package_version =~ ^[a-zA-Z0-9][a-zA-Z0-9_.+-]*$ ]] || fail "Invalid Hive Mind package version"
+}
+
+find_maintenance() {
+  local source=$1 expected=$2 module=$3 entry path version previous=''
+  shift 3
+  for entry in "$@"; do
+    [[ $entry ]] && path=$(package_source "$entry") && [[ $path != "$previous" && -f $path/$module ]] || continue
+    previous=$path
+    if [[ $expected || $source == npm || ${HIVE_MANAGER_PACKAGE_DIAGNOSTICS:-} == 1 ]]; then
+      if version=$(package_release "$path"); then
+        if [[ $expected && $version != "$expected" ]]; then
+          package_diagnostic "skipping $source package $package_name@$version (requested $package_version)"
+          continue
+        fi
+        package_diagnostic "$source package $package_name@$version"
+      else
+        package_diagnostic "could not verify $source package at $path"
+        [[ ! $expected && $source != npm ]] || continue
+      fi
+    fi
+    printf '%s\n' "$path"
+    return
+  done
+  return 1
+}
+
+run_package_module() {
+  local path=$1 module=$2
+  shift 2
+  require node
+  exec node --import "$path/hive-manager/lib/terminal.mjs" "$path/$module" "$@"
+}
+
+run_npm_maintenance() {
+  local module=$1 path
+  shift
+  # npm resolves dist-tags and partial versions. Recheck an exact version before
+  # using a bin from npm's PATH, which may also contain an installed Hive Mind.
+  path=$(find_maintenance npm "$package_pin" "$module" "$(type -P hive)") ||
+    fail "npm did not provide $package_name@${package_version:-latest} with $module"
+  run_package_module "$path" "$module" "$@"
+}
+
 run_maintenance() {
-  local bin module source_path action=$1
+  local bin module path bin_path=''
   maintenance_spec "$1" || fail "Unknown maintenance command: $1"
   shift
-  if source_path=$(package_source) && [[ -f $source_path/$module ]]; then
-    require node
-    exec node --import "$source_path/hive-manager/lib/terminal.mjs" "$source_path/$module" "$@"
+  check_package_version
+  if path=$(find_maintenance installed "${package_pin:-$package_version}" "$module" "$0"); then
+    run_package_module "$path" "$module" "$@"
   fi
-  if [[ $bin != hive-manager ]] && command -v "$bin" >/dev/null; then
-    exec "$bin" "$@"
+  if [[ $bin != hive-manager ]]; then bin_path=$(type -P "$bin") || bin_path=''; fi
+  if [[ ! $package_version && $bin_path ]]; then
+    if [[ ${HIVE_MANAGER_PACKAGE_DIAGNOSTICS:-} == 1 ]]; then
+      find_maintenance installed '' "$module" "$bin_path" >/dev/null || package_diagnostic "using $bin_path (package version unavailable)"
+    fi
+    exec "$bin_path" "$@"
   fi
-  if [[ $bin == hive-manager ]] && source_path=$(package_source "$(command -v hive)") && [[ -f $source_path/$module ]]; then
-    require node
-    exec node --import "$source_path/hive-manager/lib/terminal.mjs" "$source_path/$module" "$@"
+  if path=$(find_maintenance installed "${package_pin:-$package_version}" "$module" "$(type -P hive)" "$bin_path"); then
+    run_package_module "$path" "$module" "$@"
   fi
   require node
   require npm
-  # The package provides the same entry points for standalone use and older images.
-  local version=${HIVE_MANAGER_PACKAGE_VERSION:-latest}
-  [[ $version =~ ^[a-zA-Z0-9][a-zA-Z0-9_.-]*$ ]] || fail "Invalid Hive Mind package version"
-  if [[ $action == deploy-storage ]]; then
-    local subcommand=() storage_action=$1 socket=$2 name=$3 state_dir=$4
-    shift 4
-    case "$storage_action" in
-      disk) subcommand=(disk) ;;
-      scoped) subcommand=(cleanup --scoped) ;;
-      preserve) subcommand=(tasks preserve-layer) ;;
-      cleanup-preserved) subcommand=(tasks cleanup-preserved) ;;
-    esac
-    local deploy_flags=(--name "$name" --state-dir "$state_dir")
-    if [[ $socket ]]; then deploy_flags+=(--docker-socket "$socket"); fi
-    exec npm exec --yes --package "@link-assistant/hive-mind@$version" -- hive-manager deploy "${deploy_flags[@]}" "${subcommand[@]}" "$@"
-  fi
-  if [[ $action == task-* ]]; then
-    exec npm exec --yes --package "@link-assistant/hive-mind@$version" -- hive-manager tasks "${action#task-}" "$@"
-  fi
-  if [[ $bin == hive-manager ]]; then
-    exec npm exec --yes --package "@link-assistant/hive-mind@$version" -- hive-manager "$action" "$@"
-  fi
-  exec npm exec --yes --package "@link-assistant/hive-mind@$version" -- "$bin" "$@"
+  package_diagnostic "requesting $package_name@${package_version:-latest} via npm"
+  exec npm exec --yes --package "$package_name@${package_version:-latest}" -- \
+    bash -c "$BASH_EXECUTION_STRING" hive-manager:npm "$module" "$@"
 }
 
-run_host_maintenance() {
-  local action=$1 source_path entry
+run_host_python() {
+  local module=$1 source_path entry
   shift
-  if source_path=$(package_source) || source_path=$(package_source "$(command -v hive)"); then
-    entry=$source_path/hive-manager/maintenance/$action.py
-    if [[ -f $entry ]]; then
-      require python3
-      exec python3 -I -B -c '
+  check_package_version
+  if source_path=$(find_maintenance installed "${package_pin:-$package_version}" "hive-manager/$module" "$0" "$(type -P hive)"); then
+    entry=$source_path/hive-manager/$module
+    require python3
+    exec python3 -I -B -c '
 import os, runpy, sys
 sys.argv.pop(0)
 sys.path.insert(0, os.path.dirname(sys.argv[0]))
 runpy.run_path(sys.argv[0], run_name="__main__")
-' "$entry" "$@" --container "$name"
-    fi
+' "$entry" "$@"
   fi
-  fail "Install a Hive Mind package with $action on the Linux Docker host"
+  fail "Install $package_name${package_version:+@$package_version} with $module on the target Linux host"
+}
+
+run_host_maintenance() {
+  local action=$1
+  shift
+  run_host_python "maintenance/$action.py" "$@" --container "$name"
 }
 
 auth_args() {
@@ -256,7 +325,7 @@ task_args() {
   local action=${1-}
   if [[ ! $action || $action == --help || $action == -h ]]; then
     printf 'Usage: hive-manager tasks ACTION [ARGS]\n\n'
-    printf 'Inspect: list, status, attach, report, check-browser, check-uploads, recover-queue\n'
+    printf 'Inspect: list, status, attach, report, report-batch, check-browser, check-uploads, recover-queue\n'
     printf 'Manage: resume, resume-all, recover-failed, repair-records, stop, terminate, pause, unpause, alias, rename\n'
     printf 'Maintain: cleanup-dry-run, cleanup, backup-container, cleanup-backed-up, upload-log\n'
     return
@@ -756,6 +825,13 @@ restore_state() {
     [[ ! -e $stage ]] || fail "State directory already exists: $state_dir"
   )
   printf 'Restored %s\n' "$state_dir"
+}
+
+private_backup() {
+  local action=$1
+  shift
+  if [[ ${1-} != --help && ${1-} != -h ]]; then lock_deployment; fi
+  (run_host_python backup/main.py "$action" "$name" "$state_dir" "$@")
 }
 
 deploy_status() {
@@ -1683,9 +1759,20 @@ deploy() {
   case "$action" in
     compose) require docker; exec docker compose "$@" ;;
     helm) require helm; exec helm "$@" ;;
-    backup) backup_state "$@"; return ;;
-    restore) restore_state "$@"; return ;;
+    backup)
+      case "${1-}" in
+        --plan|--plan-file|--help|-h) private_backup backup "$@" ;;
+        *) backup_state "$@" ;;
+      esac
+      return ;;
+    restore)
+      case "${1-}" in
+        --bundle) shift; private_backup restore "$@" ;;
+        *) restore_state "$@" ;;
+      esac
+      return ;;
     diagnose) require docker; diagnose "$@"; return ;;
+    auto-fix) run_maintenance deploy-auto-fix "$name" "$state_dir" "$socket" "$variant" "$@" ;;
     reboot)
       [[ $# == 1 && $1 == --confirm ]] || fail "Usage: deploy reboot --confirm"
       require systemctl
@@ -1757,7 +1844,7 @@ deploy() {
         preserve-layer) run_maintenance deploy-storage preserve "$socket" "$name" "$state_dir" "${@:2}" ;;
         cleanup-preserved) run_maintenance deploy-storage cleanup-preserved "$socket" "$name" "$state_dir" "${@:2}" ;;
       esac
-      case "${1-}" in report|check-browser|check-uploads|recover-failed|repair-records|recover-queue|backup-container|cleanup-backed-up) require docker; inside hive-manager tasks "$@" ;; esac
+      case "${1-}" in report|report-batch|check-browser|check-uploads|recover-failed|repair-records|recover-queue|backup-container|cleanup-backed-up) require docker; inside hive-manager tasks "$@" ;; esac
       local task_command=()
       task_args "$@"
       if (( ${#task_command[@]} )); then require docker; inside "${task_command[@]}"; fi ;;
@@ -1804,7 +1891,7 @@ main() {
     tasks)
       shift
       case "${1-}" in
-        report|check-browser|check-uploads|recover-failed|repair-records|recover-queue) run_maintenance "task-$1" "${@:2}" ;;
+        report|report-batch|check-browser|check-uploads|recover-failed|repair-records|recover-queue|lifecycle) run_maintenance "task-$1" "${@:2}" ;;
         backup-container) task_container_backup "${@:2}"; return ;;
         cleanup-backed-up) task_cleanup_backed_up "${@:2}"; return ;;
       esac
@@ -1822,6 +1909,16 @@ main() {
   esac
 }
 
-main "$@"
+package_name=@link-assistant/hive-mind
+package_version=${HIVE_MANAGER_PACKAGE_VERSION:-}
+package_pin=''
+if [[ $package_version =~ ^v?([0-9]+\.[0-9]+\.[0-9]+([+-][a-zA-Z0-9.+-]+)?)$ ]]; then
+  package_pin=${BASH_REMATCH[1]}
+fi
+if [[ $0 == hive-manager:npm ]]; then
+  run_npm_maintenance "$@"
+else
+  main "$@"
+fi
 HIVE_MANAGER_PROGRAM
 )" "${BASH_SOURCE[0]:-hive-manager}" "$@"

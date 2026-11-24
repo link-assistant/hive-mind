@@ -626,7 +626,7 @@ export class SolveQueue {
     // System resources apply to ALL tools, not just Claude
     // See: https://github.com/link-assistant/hive-mind/issues/1155
     // See: https://github.com/link-assistant/hive-mind/issues/1253 (strategies)
-    const resourceCheck = await this.checkSystemResources(totalProcessing, { locale });
+    const resourceCheck = await this.checkSystemResources(totalProcessing, { locale, pausedCount: externalProcessing.paused?.length || 0 });
     if (resourceCheck.rejected) {
       rejected = true;
       rejectReason = resourceCheck.rejectReason;
@@ -1131,7 +1131,9 @@ export class SolveQueue {
     for (const [tool, toolQueue] of Object.entries(this.queues)) {
       const pending = toolQueue.length;
       const processing = externalProcessing.byTool[tool] || 0;
-      message += `${tool} (${lt('queue_pending', {}, { locale })}: ${pending}, ${lt('queue_processing', {}, { locale })}: ${processing})\n`;
+      const paused = externalProcessing.paused?.filter(item => item.tool === tool).length || 0;
+      const pausedLabel = paused ? `, ⏸ ${lt('queue_paused', {}, { locale })}: ${paused}` : '';
+      message += `${tool} (${lt('queue_pending', {}, { locale })}: ${pending}, ${lt('queue_processing', {}, { locale })}: ${processing}${pausedLabel})\n`;
     }
     return message;
   }
@@ -1161,6 +1163,7 @@ export class SolveQueue {
     const labels = {
       pending: cap(lt('queue_pending', {}, { locale })),
       processing: cap(lt('queue_processing', {}, { locale })),
+      paused: cap(lt('queue_paused', {}, { locale })),
       completed: cap(lt('queue_completed', {}, { locale })),
       failed: cap(lt('queue_failed', {}, { locale })),
     };
@@ -1180,10 +1183,11 @@ export class SolveQueue {
       // The snapshot already merged queue launches, tracked executions and
       // foreground task trees. Preserve those identities in the detailed list.
       const executing = collectExecutingItems({ sessionItems: runningSessionItems, tool, byExecution: true });
+      const paused = collectExecutingItems({ sessionItems: work.paused || [], tool, byExecution: true });
       // Issue #2823: a launch is not a completion. A task that is still
       // executing is listed only under Processing, and a session that failed
       // after launch is listed under Failed.
-      const { completed, failed, executingHidden } = partitionQueueHistory({ completed: completedByTool[tool] || [], failed: failedByTool[tool] || [], executing, locale });
+      const { completed, failed, executingHidden } = partitionQueueHistory({ completed: completedByTool[tool] || [], failed: failedByTool[tool] || [], executing: [...executing, ...paused], locale });
       if (executingHidden.length > 0 || failed.length !== (failedByTool[tool] || []).length) {
         this.log(`Detailed status ${tool}: ${executing.length} executing, ${executingHidden.length} launched item(s) still executing hidden from Completed, ${completed.length} completed, ${failed.length} failed (${failed.length - (failedByTool[tool] || []).length} after launch)`);
       }
@@ -1192,15 +1196,15 @@ export class SolveQueue {
       totals.completed += completed.length;
       totals.failed += failed.length;
       // Skip tools with nothing to show in any list.
-      if (pending === 0 && executing.length === 0 && completed.length === 0 && failed.length === 0) continue;
+      if (pending === 0 && executing.length === 0 && paused.length === 0 && completed.length === 0 && failed.length === 0) continue;
       const pendingItems = toolQueue.map(item => ({ url: item.url, waitMs: item.getWaitTime(), waitingReason: item.waitingReason }));
-      message += formatQueueToolSection({ tool, executing, pendingItems, completed, failed, labels, max, locale });
+      message += formatQueueToolSection({ tool, executing, paused, pendingItems, completed, failed, labels, max, locale });
     }
     message += this.formatWaitingForTasksSection({ locale }); // #4069: tasks that wait for other tasks
     // Issue #2823: the summary counts what the lists above show. It used to
     // print the number of successful *launches* as "Completed" and never
     // counted sessions that failed after launch.
-    message += `${labels.pending}: ${totals.pending}, ${labels.processing}: ${totals.processing}, ${labels.completed}: ${totals.completed}, ${labels.failed}: ${totals.failed}\n`;
+    message += `${labels.pending}: ${totals.pending}, ${labels.processing}: ${totals.processing}, ${work.paused?.length ? `⏸ ${labels.paused}: ${work.paused.length}, ` : ''}${labels.completed}: ${totals.completed}, ${labels.failed}: ${totals.failed}\n`;
     return message;
   }
 }

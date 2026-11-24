@@ -420,6 +420,7 @@ const runWatchLoop = async (params, watch) => {
             repo,
             prNumber,
             sha: checkedHeadSha,
+            // Only CI for the current HEAD gates readiness in PR-scoped monitoring.
             checkOlderCommits: false,
             waitForAllRepoActionsFlag,
             verbose: argv.verbose,
@@ -754,6 +755,8 @@ const runWatchLoop = async (params, watch) => {
             formatAligned,
             blocker: restartReason,
             subsystem: 'auto-restart-until-mergeable',
+            ciBlocker: !billingBlocker ? ciBlocker : null,
+            ciHeadSha: ciStatus?.sha,
           });
           return { success: false, reason: exhaustion.reason, latestSessionId, latestAnthropicCost };
         }

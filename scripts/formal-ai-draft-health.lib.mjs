@@ -1,33 +1,34 @@
 /** Pure health decision for the scheduled Formal AI draft check (issues #2323, #2324). */
 import { decideDraft, DRAFT_DECISION_ANNOTATION_TITLE, DRAFT_DECISION_CODES, DRAFT_FAILURE_ANNOTATION_TITLE } from './formal-ai-draft.lib.mjs';
+import { FINAL_OUTCOME_ANNOTATION, OUTCOME_ANNOTATION, parseDraftOutcome } from './formal-ai-draft-outcome.lib.mjs';
 
 export const DRAFT_STEP = 'Open the Formal AI draft';
 
 /** Issues opened since `since` that the draft workflow would attempt. */
 export const eligibleIssues = (issues, since) => issues.filter(issue => issue.created_at >= since && decideDraft({ action: 'opened', issue: { ...issue, labels: (issue.labels || []).filter(label => label.name !== 'formal-ai-draft') } }).run);
 
-/** A run counts only when its model step actually started; a green run with a skipped step is not an attempt. */
-export const isExecutedAttempt = (run, jobs) => ['issues', 'workflow_dispatch'].includes(run.event) && jobs.some(job => job.steps?.some(step => step.name === DRAFT_STEP && step.started_at && step.conclusion !== 'skipped'));
+/** Occupancy is decided inside the attempt step, before the model starts. */
+export const isExecutedAttempt = (run, jobs, decisionCode) => decisionCode !== DRAFT_DECISION_CODES.occupied && ['issues', 'workflow_dispatch'].includes(run.event) && jobs.some(job => job.steps?.some(step => step.name === DRAFT_STEP && step.started_at && step.conclusion !== 'skipped'));
 
-export function evaluateDraftHealth({ eligible, attempts }) {
+export function evaluateDraftHealth({ eligible, attempts, occupied = 0, deferred = 0 }) {
   return {
-    healthy: !(eligible > 0 && attempts === 0),
-    report: `Formal AI draft health (7 days): ${eligible} eligible issues, ${attempts} executed attempts.`,
+    healthy: !(eligible > occupied + deferred && attempts === 0),
+    report: `Formal AI draft health (7 days): ${eligible} eligible issues, ${attempts} executed attempts${occupied ? `, ${occupied} skipped with an open pull request` : ''}${deferred ? `, ${deferred} deferred before effects` : ''}.`,
   };
 }
 
 /**
  * A draft that fails the same way every time is not healthy either: dozens of
  * drafts once failed on one known error while this check, counting attempts
- * only, stayed green. These read the decision and the first error each draft
- * job records as annotations and fail on a repeat.
+ * only, stayed green. Prefer typed outcomes and use prose for historical runs.
  */
 export const REPEATED_FAILURE_THRESHOLD = 5;
 
 /** Decisions that are the policy working, not a fault: they neither count nor break a streak. */
-const POLICY_SKIPS = new Set([DRAFT_DECISION_CODES.notOpened, DRAFT_DECISION_CODES.pullRequest, DRAFT_DECISION_CODES.botAuthor, DRAFT_DECISION_CODES.optOut, DRAFT_DECISION_CODES.alreadyDrafted]);
+const POLICY_SKIPS = new Set([DRAFT_DECISION_CODES.notOpened, DRAFT_DECISION_CODES.pullRequest, DRAFT_DECISION_CODES.botAuthor, DRAFT_DECISION_CODES.optOut, DRAFT_DECISION_CODES.alreadyDrafted, DRAFT_DECISION_CODES.occupied]);
 const NO_RECORDED_ERROR = 'failure with no recorded first error';
 const DECISION_PREFIX = 'decision_code ';
+const OUTCOME_PREFIX = 'outcome ';
 
 /**
  * An error message without the parts that differ per run (ids, paths, durations,
@@ -52,15 +53,25 @@ export const normalizeErrorKey = message =>
  * @param {object} run a workflow run
  * @param {object[]} annotations the draft job's check-run annotations
  */
-export function runOutcomeFromAnnotations(run, annotations) {
+export function runOutcomeFromAnnotations(run, annotations, job) {
   const titled = title => (annotations || []).find(annotation => annotation.title === title)?.message ?? null;
-  return { url: run.html_url, createdAt: run.created_at, status: run.status, conclusion: run.conclusion, decisionCode: titled(DRAFT_DECISION_ANNOTATION_TITLE), firstError: titled(DRAFT_FAILURE_ANNOTATION_TITLE) };
+  const outcome = parseDraftOutcome(titled(FINAL_OUTCOME_ANNOTATION)) ?? parseDraftOutcome(titled(OUTCOME_ANNOTATION));
+  const common = { url: run.html_url, createdAt: run.created_at, status: run.status, conclusion: run.conclusion, decisionCode: titled(DRAFT_DECISION_ANNOTATION_TITLE) };
+  if (outcome) return { ...common, source: 'structured', outcome, jobUrl: job?.html_url ?? outcome.links.job };
+  return { ...common, source: 'legacy-annotation', firstError: titled(DRAFT_FAILURE_ANNOTATION_TITLE), ...(job?.html_url ? { jobUrl: job.html_url } : {}) };
 }
 
 /** `undefined`: neutral; `null`: healthy; a string: the fault this run repeats. */
 const faultKey = outcome => {
   if (outcome.status !== 'completed' || outcome.conclusion === 'cancelled') return undefined;
   if (POLICY_SKIPS.has(outcome.decisionCode)) return undefined;
+  if (outcome.outcome) {
+    const { primary, solver, infrastructure } = outcome.outcome;
+    if (primary.code === 'deferred_before_effects') return undefined;
+    if (['implementation_present', 'verified_noop'].includes(primary.code)) return null;
+    const cause = primary.code === 'no_requested_implementation' ? solver.terminalState : primary.code === 'infrastructure_failure' ? infrastructure.code : null;
+    return `${OUTCOME_PREFIX}${primary.code}${cause ? ` (${cause})` : ''}`;
+  }
   if (outcome.conclusion === 'success' || outcome.conclusion === 'skipped' || outcome.conclusion === 'neutral') {
     return outcome.decisionCode && outcome.decisionCode !== DRAFT_DECISION_CODES.run ? `${DECISION_PREFIX}${outcome.decisionCode}` : null;
   }
@@ -72,25 +83,28 @@ const faultKey = outcome => {
  *
  * @param {object[]} outcomes from runOutcomeFromAnnotations, in any order
  * @param {{threshold?: number}} [options]
- * @returns {{key: string, count: number, runs: string[]}|null} runs newest first
+ * @returns {{key: string, count: number, runs: string[], jobs: Array<string|null>}|null} runs newest first
  */
 export function findRepeatedFailure(outcomes, { threshold = REPEATED_FAILURE_THRESHOLD } = {}) {
   const newestFirst = [...outcomes].sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
   let key;
   const runs = [];
+  const jobs = [];
   for (const outcome of newestFirst) {
     const fault = faultKey(outcome);
     if (fault === undefined) continue;
     if (fault === null || (key !== undefined && fault !== key)) break;
     key = fault;
     runs.push(outcome.url);
+    jobs.push(outcome.jobUrl ?? null);
   }
-  return key !== undefined && runs.length >= threshold ? { key, count: runs.length, runs } : null;
+  return key !== undefined && runs.length >= threshold ? { key, count: runs.length, runs, jobs } : null;
 }
 
 /** The text to look for in open issues: the decision code, the `[ERROR_CODE]` an error starts with, or the longest literal part of the error. */
 export const trackingIssueSearchPhrase = key => {
   if (key.startsWith(DECISION_PREFIX)) return key.slice(DECISION_PREFIX.length);
+  if (key.startsWith(OUTCOME_PREFIX)) return /\(([^()]+)\)$/.exec(key)?.[1] ?? key.slice(OUTCOME_PREFIX.length).replace(/_/g, ' ');
   if (key === NO_RECORDED_ERROR) return null;
   const code = /^\[([A-Z][A-Z0-9_]+)\]/.exec(key)?.[1];
   if (code) return code;
@@ -107,7 +121,8 @@ export const trackingIssueSearchPhrase = key => {
  * @param {{number: number, title: string, html_url: string}|null} issue an open issue that mentions it
  */
 export function formatRepeatedFailureReport(streak, issue) {
-  const what = streak.key.startsWith(DECISION_PREFIX) ? `ended with the same ${streak.key}` : `failed with the same first error: ${streak.key}`;
+  const typed = streak.key.startsWith(OUTCOME_PREFIX);
+  const what = streak.key.startsWith(DECISION_PREFIX) ? `ended with the same ${streak.key}` : typed ? `failed with the same ${streak.key}` : `failed with the same first error (legacy annotation fallback): ${streak.key}`;
   const tracking = issue ? `Tracking issue: #${issue.number} ${issue.title} (${issue.html_url})` : 'No open issue mentions it; open one so the failure is tracked.';
-  return [`The last ${streak.count} draft runs ${what}`, tracking, 'Runs, newest first:', ...streak.runs.map(url => `- ${url}`)].join('\n');
+  return [`The last ${streak.count} draft runs ${what}`, tracking, 'Runs, newest first:', ...streak.runs.map((url, index) => `- ${url}${streak.jobs?.[index] ? ` (job ${streak.jobs[index]})` : ''}`)].join('\n');
 }

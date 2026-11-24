@@ -1,5 +1,25 @@
 # @link-assistant/hive-mind
 
+## 2.49.0
+
+### Minor Changes
+
+- f84b533: Default Claude Code's main conversation and subagent prompt caches to one hour across Hive Mind launchers and stock images. Preserve Claude's explicit five-minute environment overrides.
+- 05c81e6: Skip transient retry waits that would leave no time before a configured solve deadline. Pass the attempt deadline and transient backoff settings into Formal AI draft containers.
+- 65dfa74: Check that Docker is reachable before preparing isolated tasks, report actionable daemon and mount errors, and show failed launch attempts in the Telegram queue history.
+- 8a691e3: Skip Formal AI drafts when an open pull request already works on the issue. Apply the draft label and draft state only to the pull request created by the current attempt.
+- 10c11e4: Publish versioned Formal AI draft outcomes and group repeated failures by the missing task effect or failing stage. Report optional log publication and retained Actions evidence independently.
+- 85ed3d7: Classify dirty checkouts and exhausted restart budgets in stored Docker logs. Include the final failing CI checks and checked commit in verbose logs when the restart budget is exhausted.
+- 053b668: Preserve large Claude and Codex session revisions as numbered, sanitized parts for reviewed private publication. Import checksum-verified legacy split revisions without rewriting archive history, and regenerate source overviews from the legacy inventory and published batch manifests.
+- 7563a4e: Honor the explicit Hive Mind package version for host maintenance over SSH and report the effective package and version with optional diagnostics.
+- 1884471: Add a profile-scoped auto-fix preview, detached apply and recovery receipts to the Hive Mind Manager CLI and JavaScript API.
+- 957e49c: Add private, resumable Hive Mind Manager incident batch plans with exact attempt deduplication, historical ledger reconciliation, and reviewed publication policy.
+- dae3bb5: Add Telegram controls to freeze Docker tasks with `/pause`, continue the same process with `/unpause`, and restart a stopped task with its retained files using `/resume`. Show paused tasks separately in `/queue`, `/limits`, `/list`, and `/status`, and keep their state in sync with Docker across bot restarts.
+- 3a38fba: Add reviewed private deployment backups for selected Claude and Codex state, additional host paths, Docker mounts, and stopped legacy container paths. Stream bundles over SSH and verify manifests, file checksums, and private permissions before restoring to a new directory.
+- d9ac039: Keep active pull requests out of the `solve` auto-continue branch fallback so parallel sessions do not work on the same pull request.
+- 2fe5a61: Distinguish known solver failure causes in task reports and incident routing, and give operators actionable guidance when a repository needs its first commit.
+- 526fe86: Let AllCommits CI consensus proceed when the pull request head has passed CI and is mergeable, and the only remaining workflow runs have been queued on superseded commits for at least 30 minutes. Verbose output identifies the ignored runs.
+
 ## 2.48.0
 
 ### Minor Changes

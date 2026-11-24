@@ -1,0 +1,833 @@
+{
+  "repository": "konard/voice-simulator",
+  "selection": "Run IDs linked from the two incident windows in PR #162, including the pre-incident baseline referenced in those comments.",
+  "runs": [
+    {
+      "runId": 44853374457,
+      "createdAt": "2026-11-21T01:59:59Z",
+      "headSha": "fee0a96ef22c45650226cdf85b18856bc7524597",
+      "workflow": "Checks and release",
+      "conclusion": "failure",
+      "failedJobs": [
+        {
+          "jobId": 136689743560,
+          "name": "Release Preflight"
+        },
+        {
+          "jobId": 136690242832,
+          "name": "Test (node, ubuntu-24.04)"
+        },
+        {
+          "jobId": 136690242855,
+          "name": "Test (bun, macos-15)"
+        },
+        {
+          "jobId": 136690242900,
+          "name": "Test (bun, ubuntu-24.04)"
+        },
+        {
+          "jobId": 136690242914,
+          "name": "Test (deno, windows-2025)"
+        },
+        {
+          "jobId": 136690242916,
+          "name": "Test (deno, ubuntu-24.04)"
+        },
+        {
+          "jobId": 136690242956,
+          "name": "Test (node, macos-15)"
+        },
+        {
+          "jobId": 136690243043,
+          "name": "Test (node, windows-2025)"
+        },
+        {
+          "jobId": 136690243101,
+          "name": "Test (deno, macos-15)"
+        },
+        {
+          "jobId": 136690243127,
+          "name": "Test (bun, windows-2025)"
+        },
+        {
+          "jobId": 136693116450,
+          "name": "Pipeline Status"
+        }
+      ]
+    },
+    {
+      "runId": 44923245409,
+      "createdAt": "2026-11-21T16:12:02Z",
+      "headSha": "2437deeb538e8b2dd2e442c52118eeca36ab6c74",
+      "workflow": "Checks and release",
+      "conclusion": "failure",
+      "failedJobs": [
+        {
+          "jobId": 136904015447,
+          "name": "Test (bun, ubuntu-24.04)"
+        },
+        {
+          "jobId": 136904015516,
+          "name": "Test (node, ubuntu-24.04)"
+        },
+        {
+          "jobId": 136904015522,
+          "name": "Test (deno, ubuntu-24.04)"
+        },
+        {
+          "jobId": 136905692134,
+          "name": "Pipeline Status"
+        }
+      ]
+    },
+    {
+      "runId": 44924102130,
+      "createdAt": "2026-11-21T16:21:09Z",
+      "headSha": "2437deeb538e8b2dd2e442c52118eeca36ab6c74",
+      "workflow": "Checks and release",
+      "conclusion": "failure",
+      "failedJobs": [
+        {
+          "jobId": 136906959520,
+          "name": "Test (deno, ubuntu-24.04)"
+        },
+        {
+          "jobId": 136906959522,
+          "name": "Test (node, ubuntu-24.04)"
+        },
+        {
+          "jobId": 136906959539,
+          "name": "Test (bun, macos-15)"
+        },
+        {
+          "jobId": 136906959618,
+          "name": "Test (bun, windows-2025)"
+        },
+        {
+          "jobId": 136906959655,
+          "name": "Test (node, windows-2025)"
+        },
+        {
+          "jobId": 136906959694,
+          "name": "Test (deno, macos-15)"
+        },
+        {
+          "jobId": 136906959719,
+          "name": "Test (deno, windows-2025)"
+        },
+        {
+          "jobId": 136906959734,
+          "name": "Test (bun, ubuntu-24.04)"
+        },
+        {
+          "jobId": 136906959736,
+          "name": "Test (node, macos-15)"
+        },
+        {
+          "jobId": 136910969785,
+          "name": "Pipeline Status"
+        }
+      ]
+    },
+    {
+      "runId": 44927342003,
+      "createdAt": "2026-11-21T16:57:04Z",
+      "headSha": "06200c8d4cb4de80d6be07df95f83a56d92a7d02",
+      "workflow": "Checks and release",
+      "conclusion": "failure",
+      "failedJobs": [
+        {
+          "jobId": 136916982456,
+          "name": "Test (node, ubuntu-24.04)"
+        },
+        {
+          "jobId": 136916982538,
+          "name": "Test (deno, ubuntu-24.04)"
+        },
+        {
+          "jobId": 136916982575,
+          "name": "Test (bun, ubuntu-24.04)"
+        },
+        {
+          "jobId": 136918929823,
+          "name": "Pipeline Status"
+        }
+      ]
+    },
+    {
+      "runId": 44928361934,
+      "createdAt": "2026-11-21T17:08:05Z",
+      "headSha": "06200c8d4cb4de80d6be07df95f83a56d92a7d02",
+      "workflow": "Checks and release",
+      "conclusion": "failure",
+      "failedJobs": [
+        {
+          "jobId": 136919721471,
+          "name": "Test (bun, macos-15)"
+        },
+        {
+          "jobId": 136919721478,
+          "name": "Test (deno, windows-2025)"
+        },
+        {
+          "jobId": 136919721505,
+          "name": "Test (deno, ubuntu-24.04)"
+        },
+        {
+          "jobId": 136919721524,
+          "name": "Test (node, ubuntu-24.04)"
+        },
+        {
+          "jobId": 136919721541,
+          "name": "Test (bun, ubuntu-24.04)"
+        },
+        {
+          "jobId": 136919721552,
+          "name": "Test (node, windows-2025)"
+        },
+        {
+          "jobId": 136919721577,
+          "name": "Test (bun, windows-2025)"
+        },
+        {
+          "jobId": 136919721589,
+          "name": "Test (deno, macos-15)"
+        },
+        {
+          "jobId": 136919721615,
+          "name": "Test (node, macos-15)"
+        },
+        {
+          "jobId": 136921794104,
+          "name": "Pipeline Status"
+        }
+      ]
+    },
+    {
+      "runId": 44930130571,
+      "createdAt": "2026-11-21T17:27:19Z",
+      "headSha": "c41144ee10959bde3da07a2d860b68d64283021d",
+      "workflow": "Checks and release",
+      "conclusion": "failure",
+      "failedJobs": [
+        {
+          "jobId": 136924719402,
+          "name": "Release Preflight"
+        },
+        {
+          "jobId": 136925071893,
+          "name": "Test (node, macos-15)"
+        },
+        {
+          "jobId": 136925071895,
+          "name": "Test (bun, ubuntu-24.04)"
+        },
+        {
+          "jobId": 136925071899,
+          "name": "Test (bun, macos-15)"
+        },
+        {
+          "jobId": 136925071915,
+          "name": "Test (bun, windows-2025)"
+        },
+        {
+          "jobId": 136925071924,
+          "name": "Test (deno, macos-15)"
+        },
+        {
+          "jobId": 136925071937,
+          "name": "Test (deno, windows-2025)"
+        },
+        {
+          "jobId": 136925071957,
+          "name": "Test (deno, ubuntu-24.04)"
+        },
+        {
+          "jobId": 136925071993,
+          "name": "Test (node, windows-2025)"
+        },
+        {
+          "jobId": 136925072017,
+          "name": "Test (node, ubuntu-24.04)"
+        },
+        {
+          "jobId": 136927518937,
+          "name": "Pipeline Status"
+        }
+      ]
+    },
+    {
+      "runId": 44931599178,
+      "createdAt": "2026-11-21T17:43:28Z",
+      "headSha": "635641e47f907f979f1762fd8491047f34ec5b2c",
+      "workflow": "Checks and release",
+      "conclusion": "failure",
+      "failedJobs": [
+        {
+          "jobId": 136929553665,
+          "name": "Test (bun, ubuntu-24.04)"
+        },
+        {
+          "jobId": 136929553677,
+          "name": "Test (node, macos-15)"
+        },
+        {
+          "jobId": 136929553690,
+          "name": "Test (bun, macos-15)"
+        },
+        {
+          "jobId": 136929553691,
+          "name": "Test (deno, windows-2025)"
+        },
+        {
+          "jobId": 136929553743,
+          "name": "Test (deno, ubuntu-24.04)"
+        },
+        {
+          "jobId": 136929553751,
+          "name": "Test (bun, windows-2025)"
+        },
+        {
+          "jobId": 136929553781,
+          "name": "Test (deno, macos-15)"
+        },
+        {
+          "jobId": 136929553793,
+          "name": "Test (node, ubuntu-24.04)"
+        },
+        {
+          "jobId": 136929553818,
+          "name": "Test (node, windows-2025)"
+        },
+        {
+          "jobId": 136932014771,
+          "name": "Pipeline Status"
+        }
+      ]
+    },
+    {
+      "runId": 44937055910,
+      "createdAt": "2026-11-21T18:43:18Z",
+      "headSha": "0e18bc01a827ab312ce9d38fd89b280ace9ecc61",
+      "workflow": "Checks and release",
+      "conclusion": "failure",
+      "failedJobs": [
+        {
+          "jobId": 136945880272,
+          "name": "Release Preflight"
+        },
+        {
+          "jobId": 136946433946,
+          "name": "Test (bun, windows-2025)"
+        },
+        {
+          "jobId": 136946433947,
+          "name": "Test (deno, macos-15)"
+        },
+        {
+          "jobId": 136946433951,
+          "name": "Test (node, windows-2025)"
+        },
+        {
+          "jobId": 136946433967,
+          "name": "Test (deno, windows-2025)"
+        },
+        {
+          "jobId": 136946433976,
+          "name": "Test (node, ubuntu-24.04)"
+        },
+        {
+          "jobId": 136946433977,
+          "name": "Test (deno, ubuntu-24.04)"
+        },
+        {
+          "jobId": 136946434024,
+          "name": "Test (bun, ubuntu-24.04)"
+        },
+        {
+          "jobId": 136946434102,
+          "name": "Test (bun, macos-15)"
+        },
+        {
+          "jobId": 136946434203,
+          "name": "Test (node, macos-15)"
+        },
+        {
+          "jobId": 136950180771,
+          "name": "Pipeline Status"
+        }
+      ]
+    },
+    {
+      "runId": 44937055981,
+      "createdAt": "2026-11-21T18:43:18Z",
+      "headSha": "0e18bc01a827ab312ce9d38fd89b280ace9ecc61",
+      "workflow": "Security",
+      "conclusion": "success",
+      "failedJobs": []
+    },
+    {
+      "runId": 44937313040,
+      "createdAt": "2026-11-21T18:46:09Z",
+      "headSha": "322247f7d0a2b58739dd9fb24fa6a3c72e173f98",
+      "workflow": "Checks and release",
+      "conclusion": "failure",
+      "failedJobs": [
+        {
+          "jobId": 136947631053,
+          "name": "Test (bun, macos-15)"
+        },
+        {
+          "jobId": 136947631096,
+          "name": "Test (node, macos-15)"
+        },
+        {
+          "jobId": 136947631197,
+          "name": "Test (node, ubuntu-24.04)"
+        },
+        {
+          "jobId": 136947631201,
+          "name": "Test (deno, ubuntu-24.04)"
+        },
+        {
+          "jobId": 136947631206,
+          "name": "Test (bun, ubuntu-24.04)"
+        },
+        {
+          "jobId": 136947631208,
+          "name": "Test (node, windows-2025)"
+        },
+        {
+          "jobId": 136947631279,
+          "name": "Test (bun, windows-2025)"
+        },
+        {
+          "jobId": 136947631289,
+          "name": "Test (deno, macos-15)"
+        },
+        {
+          "jobId": 136947631567,
+          "name": "Test (deno, windows-2025)"
+        },
+        {
+          "jobId": 136950410952,
+          "name": "Pipeline Status"
+        }
+      ]
+    },
+    {
+      "runId": 44937340473,
+      "createdAt": "2026-11-21T18:46:27Z",
+      "headSha": "322247f7d0a2b58739dd9fb24fa6a3c72e173f98",
+      "workflow": "Heavy checks",
+      "conclusion": "failure",
+      "failedJobs": [
+        {
+          "jobId": 136946752861,
+          "name": "Heavy checks"
+        },
+        {
+          "jobId": 136953921254,
+          "name": "Pipeline Status"
+        }
+      ]
+    },
+    {
+      "runId": 44942169457,
+      "createdAt": "2026-11-21T19:40:18Z",
+      "headSha": "8a1d734b43cbcb71ffe41fbfdaff90fb7738a18b",
+      "workflow": "Heavy checks",
+      "conclusion": "failure",
+      "failedJobs": [
+        {
+          "jobId": 136961560704,
+          "name": "Heavy checks"
+        },
+        {
+          "jobId": 136970319649,
+          "name": "Pipeline Status"
+        }
+      ]
+    },
+    {
+      "runId": 44945156924,
+      "createdAt": "2026-11-21T20:13:44Z",
+      "headSha": "7948edf8a9675d3060e065a71ae3bbcec56c477c",
+      "workflow": "Checks and release",
+      "conclusion": "failure",
+      "failedJobs": [
+        {
+          "jobId": 136971052362,
+          "name": "Test (deno, windows-2025)"
+        },
+        {
+          "jobId": 136971052380,
+          "name": "Test (bun, windows-2025)"
+        },
+        {
+          "jobId": 136971052399,
+          "name": "Test (deno, macos-15)"
+        },
+        {
+          "jobId": 136971052419,
+          "name": "Test (bun, ubuntu-24.04)"
+        },
+        {
+          "jobId": 136971052459,
+          "name": "Test (node, macos-15)"
+        },
+        {
+          "jobId": 136971052461,
+          "name": "Test (node, ubuntu-24.04)"
+        },
+        {
+          "jobId": 136971052498,
+          "name": "Test (node, windows-2025)"
+        },
+        {
+          "jobId": 136971052513,
+          "name": "Test (bun, macos-15)"
+        },
+        {
+          "jobId": 136971052525,
+          "name": "Test (deno, ubuntu-24.04)"
+        },
+        {
+          "jobId": 136973785229,
+          "name": "Pipeline Status"
+        }
+      ]
+    },
+    {
+      "runId": 44955618441,
+      "createdAt": "2026-11-21T22:13:26Z",
+      "headSha": "b8bda556e3e33d4f4bdb80ad57198408ee8cc171",
+      "workflow": "Checks and release",
+      "conclusion": "failure",
+      "failedJobs": [
+        {
+          "jobId": 137003465342,
+          "name": "Test (node, windows-2025)"
+        },
+        {
+          "jobId": 137003465517,
+          "name": "Test (bun, macos-15)"
+        },
+        {
+          "jobId": 137003465522,
+          "name": "Test (deno, macos-15)"
+        },
+        {
+          "jobId": 137003465527,
+          "name": "Test (deno, windows-2025)"
+        },
+        {
+          "jobId": 137003465528,
+          "name": "Test (node, macos-15)"
+        },
+        {
+          "jobId": 137003465530,
+          "name": "Test (bun, ubuntu-24.04)"
+        },
+        {
+          "jobId": 137003465585,
+          "name": "Test (node, ubuntu-24.04)"
+        },
+        {
+          "jobId": 137003465611,
+          "name": "Test (bun, windows-2025)"
+        },
+        {
+          "jobId": 137003465687,
+          "name": "Test (deno, ubuntu-24.04)"
+        },
+        {
+          "jobId": 137006367076,
+          "name": "Pipeline Status"
+        }
+      ]
+    },
+    {
+      "runId": 45001521812,
+      "createdAt": "2026-11-22T08:10:03Z",
+      "headSha": "d36f5cd73eb0a46ed3e4851213af99326e8a21c2",
+      "workflow": "Checks and release",
+      "conclusion": "failure",
+      "failedJobs": [
+        {
+          "jobId": 137144269234,
+          "name": "Test (deno, ubuntu-24.04)"
+        },
+        {
+          "jobId": 137144269405,
+          "name": "Test (bun, ubuntu-24.04)"
+        },
+        {
+          "jobId": 137144269476,
+          "name": "Test (node, ubuntu-24.04)"
+        },
+        {
+          "jobId": 137146356543,
+          "name": "Pipeline Status"
+        }
+      ]
+    },
+    {
+      "runId": 45004792763,
+      "createdAt": "2026-11-22T08:51:58Z",
+      "headSha": "cf4f3d57d81b9b50a33751a49a0a280778d48949",
+      "workflow": "Checks and release",
+      "conclusion": "failure",
+      "failedJobs": [
+        {
+          "jobId": 137154181371,
+          "name": "Test (deno, ubuntu-24.04)"
+        },
+        {
+          "jobId": 137154181379,
+          "name": "Test (node, ubuntu-24.04)"
+        },
+        {
+          "jobId": 137154181416,
+          "name": "Test (bun, ubuntu-24.04)"
+        },
+        {
+          "jobId": 137155922293,
+          "name": "Pipeline Status"
+        }
+      ]
+    },
+    {
+      "runId": 45008494201,
+      "createdAt": "2026-11-22T09:38:02Z",
+      "headSha": "75a68628532a50503d57fa1baa028c0f3f288755",
+      "workflow": "Checks and release",
+      "conclusion": "failure",
+      "failedJobs": [
+        {
+          "jobId": 137165670763,
+          "name": "Test (node, ubuntu-24.04)"
+        },
+        {
+          "jobId": 137165670796,
+          "name": "Test (bun, ubuntu-24.04)"
+        },
+        {
+          "jobId": 137165670859,
+          "name": "Test (deno, ubuntu-24.04)"
+        },
+        {
+          "jobId": 137167344728,
+          "name": "Pipeline Status"
+        }
+      ]
+    },
+    {
+      "runId": 45008515555,
+      "createdAt": "2026-11-22T09:38:18Z",
+      "headSha": "75a68628532a50503d57fa1baa028c0f3f288755",
+      "workflow": "Heavy checks",
+      "conclusion": "failure",
+      "failedJobs": [
+        {
+          "jobId": 137165379627,
+          "name": "Heavy checks"
+        },
+        {
+          "jobId": 137171673814,
+          "name": "Pipeline Status"
+        }
+      ]
+    },
+    {
+      "runId": 45014774592,
+      "createdAt": "2026-11-22T10:55:34Z",
+      "headSha": "0ab27bceb41d4099c0f44aac651e1cce0934ab37",
+      "workflow": "Checks and release",
+      "conclusion": "failure",
+      "failedJobs": [
+        {
+          "jobId": 137184969070,
+          "name": "Test (node, ubuntu-24.04)"
+        },
+        {
+          "jobId": 137184969085,
+          "name": "Test (bun, ubuntu-24.04)"
+        },
+        {
+          "jobId": 137184969088,
+          "name": "Test (deno, ubuntu-24.04)"
+        },
+        {
+          "jobId": 137186841946,
+          "name": "Pipeline Status"
+        }
+      ]
+    },
+    {
+      "runId": 45014801771,
+      "createdAt": "2026-11-22T10:55:57Z",
+      "headSha": "0ab27bceb41d4099c0f44aac651e1cce0934ab37",
+      "workflow": "Heavy checks",
+      "conclusion": "failure",
+      "failedJobs": [
+        {
+          "jobId": 137184721297,
+          "name": "Heavy checks"
+        },
+        {
+          "jobId": 137190970899,
+          "name": "Pipeline Status"
+        }
+      ]
+    },
+    {
+      "runId": 45022112630,
+      "createdAt": "2026-11-22T12:24:29Z",
+      "headSha": "dae59f674350f89f428c303b29576059c6a057d5",
+      "workflow": "Checks and release",
+      "conclusion": "failure",
+      "failedJobs": [
+        {
+          "jobId": 137207475892,
+          "name": "Test (node, ubuntu-24.04)"
+        },
+        {
+          "jobId": 137207475928,
+          "name": "Test (bun, ubuntu-24.04)"
+        },
+        {
+          "jobId": 137207476004,
+          "name": "Test (deno, ubuntu-24.04)"
+        },
+        {
+          "jobId": 137209727246,
+          "name": "Pipeline Status"
+        }
+      ]
+    },
+    {
+      "runId": 45022130047,
+      "createdAt": "2026-11-22T12:24:42Z",
+      "headSha": "dae59f674350f89f428c303b29576059c6a057d5",
+      "workflow": "Heavy checks",
+      "conclusion": "failure",
+      "failedJobs": [
+        {
+          "jobId": 137207162822,
+          "name": "Heavy checks"
+        },
+        {
+          "jobId": 137214393740,
+          "name": "Pipeline Status"
+        }
+      ]
+    },
+    {
+      "runId": 45027613026,
+      "createdAt": "2026-11-22T13:27:51Z",
+      "headSha": "d59f425a46d4004731dbb4de412afc6fe8942e9a",
+      "workflow": "Security",
+      "conclusion": "success",
+      "failedJobs": []
+    },
+    {
+      "runId": 45027613093,
+      "createdAt": "2026-11-22T13:27:51Z",
+      "headSha": "d59f425a46d4004731dbb4de412afc6fe8942e9a",
+      "workflow": "Checks and release",
+      "conclusion": "failure",
+      "failedJobs": [
+        {
+          "jobId": 137224324569,
+          "name": "Test (node, ubuntu-24.04)"
+        },
+        {
+          "jobId": 137224324586,
+          "name": "Test (bun, ubuntu-24.04)"
+        },
+        {
+          "jobId": 137224324662,
+          "name": "Test (deno, ubuntu-24.04)"
+        },
+        {
+          "jobId": 137226118625,
+          "name": "Pipeline Status"
+        }
+      ]
+    },
+    {
+      "runId": 45027621556,
+      "createdAt": "2026-11-22T13:27:58Z",
+      "headSha": "d59f425a46d4004731dbb4de412afc6fe8942e9a",
+      "workflow": "Heavy checks",
+      "conclusion": "failure",
+      "failedJobs": [
+        {
+          "jobId": 137223992823,
+          "name": "Heavy checks"
+        },
+        {
+          "jobId": 137229406297,
+          "name": "Pipeline Status"
+        }
+      ]
+    }
+  ],
+  "finalTelephoneSmoke": {
+    "runId": 45027613093,
+    "jobId": 137224324569,
+    "maximumPhoneErrorRate": 0.1,
+    "maximumSoundWordErrorRate": 0,
+    "assertions": [
+      {
+        "language": "en",
+        "logLine": 5723,
+        "phoneErrors": 12,
+        "referencePhones": 16,
+        "soundWordErrors": 6,
+        "referenceWords": 6,
+        "recognizedLanguage": "ru"
+      },
+      {
+        "language": "ru",
+        "logLine": 5742,
+        "phoneErrors": 8,
+        "referencePhones": 13,
+        "soundWordErrors": 3,
+        "referenceWords": 3,
+        "recognizedLanguage": "ru"
+      },
+      {
+        "language": "zh",
+        "logLine": 5763,
+        "phoneErrors": 13,
+        "referencePhones": 13,
+        "soundWordErrors": 11,
+        "referenceWords": 5,
+        "recognizedLanguage": "en"
+      }
+    ]
+  },
+  "finalHeavyBenchmark": {
+    "runId": 45027621556,
+    "jobId": 137223992823,
+    "artifactId": 14757455855,
+    "recordings": 1136,
+    "passed": 4,
+    "failed": 73,
+    "skipped": 0,
+    "telephonePhoneErrorPercent": {
+      "en": 86.4,
+      "ru": 84.1,
+      "hi": 94.0,
+      "zh": 87.4
+    },
+    "telephoneModeLogLine": 1928,
+    "telephoneModeGate": 0.75,
+    "telephoneWhisperMatched": 4,
+    "telephoneWhisperExpected": 4,
+    "telephoneLoudMatched": 0,
+    "telephoneLoudExpected": 4
+  }
+}

@@ -1,5 +1,6 @@
 import { constants } from 'node:fs';
 import { open } from 'node:fs/promises';
+import { classifyTaskFailure } from '../../../task-failure-signature.lib.mjs';
 
 const evidenceBytes = 4 * 1024 * 1024;
 
@@ -39,13 +40,7 @@ function repeatedCount(text, pattern, minimum) {
 }
 
 export function summarizeTaskEvidence({ available, bounded, text = '' }, attempt) {
-  let signature;
-  if (attempt.exitCode > 0) {
-    if (attempt.exitCode === 127 && /^\s*\/[\w-]+\s/.test(attempt.command || '')) signature = 'alias-127';
-    else if (/no rollout found for thread id/i.test(text)) signature = 'codex-no-rollout';
-    else if (text.includes('Result event received') && text.includes('Stream timeout') && text.includes('failed with exit code 143')) signature = 'stream-close-timeout';
-    else if (/Codex (?:exited|command failed) with exit code 137/.test(text) && (attempt.oomKilled === true || attempt.memoryExhausted === true || /oom_kill=[1-9]|OOM killer has killed [1-9]|"oomKills":\s*[1-9]/.test(text))) signature = 'codex-oom';
-  }
+  const signature = classifyTaskFailure(attempt, text);
   if (!available) return { available, signature };
   const output = text.split('\n').filter(line => !/^\s*(?:[[{}"\]]|[-+]\s)|"\w+"\s*:/.test(line));
   const turns = output.reduce((maximum, line) => Math.max(maximum, Number(/Session num_turns:\s*(\d{1,8})\b/.exec(line)?.[1] ?? 0)), 0);

@@ -275,3 +275,35 @@ test('a whole log larger than available memory takes the streaming branch path',
     assert.deepEqual(commits[0].bytes, await fs.readFile(logFile));
   });
 });
+
+test('scratch precheck reserves one sanitized copy plus one gh-upload-log part, not two full copies', { timeout: 20_000 }, async t => {
+  const MiB = 1024 * 1024;
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'hive-branch-logs-'));
+  t.after(() => fs.rm(directory, { recursive: true, force: true }));
+  const logFile = path.join(directory, 'session.log');
+  await fs.writeFile(logFile, '');
+  await fs.truncate(logFile, 300 * MiB); // sparse: no real disk use
+  const route = async freeBytes => {
+    t.mock.method(fs, 'statfs', async () => ({ bavail: freeBytes, bsize: 1 }));
+    t.mock.method(process, 'availableMemory', () => 1024 * MiB);
+    let path = null;
+    await uploadLogWithGhUploadLog({
+      logFile,
+      isPublic: false,
+      sanitize: async () => {
+        path = 'gh-upload-log';
+        throw new Error('stop after routing');
+      },
+      runUpload: async () => assert.fail('sanitize stops first'),
+      publishToBranch: async () => {
+        path = 'branch';
+        return { success: false, failureReason: 'not published in this test' };
+      },
+    });
+    t.mock.restoreAll();
+    return path;
+  };
+  // Older gh-upload-log needed 600 MiB here; 0.13.4 stages at most one 100 MiB part.
+  assert.equal(await route(400 * MiB + 1), 'gh-upload-log');
+  assert.equal(await route(400 * MiB), 'branch');
+});

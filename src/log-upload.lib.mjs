@@ -508,6 +508,9 @@ const runUploadWithRetries = async ({ commandArgs, runUpload, sleep, delaysMs, l
   return { ok: false, parsed: null, output, attempts: maxAttempts };
 };
 
+// gh-upload-log 0.13.4 stages one part of at most GITHUB_REPO_CHUNK_SIZE (100 MiB).
+export const GH_UPLOAD_LOG_MAX_STAGED_BYTES = 100 * 1024 * 1024;
+
 /**
  * Upload a log file using gh-upload-log command
  * @param {Object} options - Upload options
@@ -548,8 +551,11 @@ export const uploadLogWithGhUploadLog = async ({ logFile, isPublic, description,
   try {
     const sourceSize = (await fs.stat(logFile)).size;
     if (publishToBranch) {
-      // Hive Mind and gh-upload-log can both create a full-size sanitized copy.
-      if (!(await hasRoomForCopy(sourceSize * 2))) {
+      // Hive Mind writes one full-size sanitized copy. gh-upload-log 0.13.4+
+      // stages at most one 100 MiB part of it (#4046, gh-upload-log#67); an
+      // older install that still copies the whole file fails with ENOSPC,
+      // which also switches to the streaming branch publication below.
+      if (!(await hasRoomForCopy(sourceSize + Math.min(sourceSize, GH_UPLOAD_LOG_MAX_STAGED_BYTES)))) {
         result.failureReason = 'Insufficient temporary disk space for the gh-upload-log workflow.';
         return await fallback();
       }

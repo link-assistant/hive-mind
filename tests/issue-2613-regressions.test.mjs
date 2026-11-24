@@ -145,32 +145,37 @@ test('checks-only workflow dispatch has defaults for all required inputs', async
   assert.match(dispatch, /bump_type:[\s\S]*?default: (?:'patch'|"patch"|patch)\s*\n/);
 });
 
-test('branch fallback commits only its sanitized log and refuses other checkouts', { timeout: 20_000 }, async () => {
+test('branch fallback preserves checkout work and refuses other checkouts', { timeout: 20_000 }, async () => {
   await withDirectory(async directory => {
     const repositoryPath = path.join(directory, 'checkout');
-    const remote = path.join(directory, 'remote.git');
     await fs.mkdir(repositoryPath);
     const git = (...args) => execFileAsync('git', args, { cwd: repositoryPath });
     await git('init', '--initial-branch=issue-2613-test');
-    await execFileAsync('git', ['init', '--bare', '--initial-branch=main', remote]);
     await git('config', 'user.email', 'test@example.com');
     await git('config', 'user.name', 'Test');
     await git('commit', '--allow-empty', '-m', 'Initial');
-    await git('remote', 'add', 'origin', remote);
+    const { stdout: oldHead } = await git('rev-parse', 'HEAD');
     await fs.writeFile(path.join(repositoryPath, 'unrelated.txt'), 'staged work');
     await git('add', 'unrelated.txt');
     const logFile = path.join(directory, 'session.log');
     await fs.writeFile(logFile, 'complete diagnostics\n');
     const { $: realDollar } = await globalThis.use('command-stream');
     let remoteUrl = 'https://github.com/o/r.git';
-    let failPush = false;
+    let rejectCommit = false;
+    const commits = [];
     const fakeDollar =
       options =>
       async (strings, ...values) => {
         const command = strings.join('?');
-        if (command.startsWith('gh pr view')) return { code: 0, stdout: JSON.stringify({ headRefName: 'issue-2613-test', baseRefName: 'main', headRepositoryOwner: { login: 'o' }, headRepository: { name: 'r' } }) };
+        if (command.startsWith('gh api repos/') && command.includes('/pulls/')) {
+          return { code: 0, stdout: JSON.stringify({ head: { ref: 'issue-2613-test', sha: oldHead.trim(), repo: { full_name: 'o/r', default_branch: 'main' } }, base: { ref: 'main' } }) };
+        }
         if (command === 'git remote get-url --push origin') return { code: 0, stdout: remoteUrl };
-        if (failPush && command.startsWith('git push origin')) return { code: 1, stdout: '', stderr: 'remote: permission denied' };
+        if (command.startsWith('gh api graphql') && !rejectCommit) {
+          commits.push(JSON.parse(options.stdin).variables.input);
+          return { code: 0, stdout: 'a'.repeat(40) };
+        }
+        if (command.startsWith('gh api')) return { code: 1, stdout: '', stderr: 'permission denied' };
         return realDollar({ ...options, mirror: false })(strings, ...values);
       };
     const options = { logFile, repositoryPath, owner: 'o', repo: 'r', prNumber: 2614, $: fakeDollar, log: async () => {} };
@@ -179,24 +184,21 @@ test('branch fallback commits only its sanitized log and refuses other checkouts
     assert.match(result.url, /\/blob\/[a-f\d]{40}\/dev\/log\//);
     const { stdout: staged } = await git('diff', '--cached', '--name-only');
     assert.equal(staged.trim(), 'unrelated.txt');
-    const { stdout: committed } = await git('show', '--format=', '--name-only', 'HEAD');
-    assert.ok(!committed.includes('unrelated.txt'));
-    const { stdout: files } = await git('ls-tree', '-r', '--name-only', 'HEAD');
-    const solveLog = files
-      .trim()
-      .split('\n')
-      .find(file => file.endsWith('/solve.log'));
-    assert.equal(await fs.readFile(path.join(repositoryPath, solveLog), 'utf8'), 'complete diagnostics\n');
-    failPush = true;
-    const unpublished = await publishLogToPullRequestBranch({ ...options, sessionId: 'failed-push' });
+    assert.equal((await git('rev-parse', 'HEAD')).stdout, oldHead);
+    assert.deepEqual(await fs.readdir(repositoryPath), ['.git', 'unrelated.txt']);
+    assert.equal(commits[0].fileChanges.additions.length, 1);
+    assert.equal(Buffer.from(commits[0].fileChanges.additions[0].contents, 'base64').toString('utf8'), 'complete diagnostics\n');
+    rejectCommit = true;
+    const unpublished = await publishLogToPullRequestBranch(options);
     assert.equal(unpublished.success, false);
     assert.equal(unpublished.url, undefined, 'an unpushed log must not be reported as attached');
-    failPush = false;
+    rejectCommit = false;
     remoteUrl = 'https://github.com/other/repository.git';
     assert.equal((await publishLogToPullRequestBranch(options)).success, false);
     remoteUrl = 'https://github.com/o/r.git';
     await git('switch', '-c', 'other');
     assert.equal((await publishLogToPullRequestBranch(options)).success, false);
+    assert.equal(commits.length, 1);
   });
 });
 

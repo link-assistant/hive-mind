@@ -486,6 +486,7 @@ const runUploadWithRetries = async ({ commandArgs, runUpload, sleep, delaysMs, l
     } else {
       await log(`  ❌ gh-upload-log failed (${label}, attempt ${attempt}/${maxAttempts}): ${output}`);
     }
+    if (lib.isENOSPC(output)) return { ok: false, parsed: null, output, attempts: attempt, permanent: true };
     const refusal = uploadResult.code !== 0 ? detectGhUploadLogSanitizerRefusal(output) : null;
     if (refusal) {
       await log(`  ⚠️  gh-upload-log's own sanitizer refused the ${label} (${refusal}); the same bytes are refused every time, so not retrying (${GH_UPLOAD_LOG_REFUSAL_ISSUE_URL})`);
@@ -507,6 +508,9 @@ const runUploadWithRetries = async ({ commandArgs, runUpload, sleep, delaysMs, l
   return { ok: false, parsed: null, output, attempts: maxAttempts };
 };
 
+// gh-upload-log 0.13.4 stages one part of at most GITHUB_REPO_CHUNK_SIZE (100 MiB).
+export const GH_UPLOAD_LOG_MAX_STAGED_BYTES = 100 * 1024 * 1024;
+
 /**
  * Upload a log file using gh-upload-log command
  * @param {Object} options - Upload options
@@ -520,34 +524,62 @@ const runUploadWithRetries = async ({ commandArgs, runUpload, sleep, delaysMs, l
 export const uploadLogWithGhUploadLog = async ({ logFile, isPublic, description, verbose = false, runUpload = runGhUploadLogCommand, sleep = defaultSleep, retryDelaysMs = LOG_UPLOAD_RETRY_DELAYS_MS, partRetryDelaysMs = LOG_UPLOAD_PART_RETRY_DELAYS_MS, partSizeBytes = LOG_UPLOAD_PART_SIZE_BYTES, publishToBranch = null, sanitize = sanitizeLogFileToFileBounded, watch = {} }) => {
   const result = { success: false, url: null, rawUrl: null, type: null, chunks: 1 };
   let privateTempDirectory = null;
+  let privateLogFile = null;
+  let sanitized = false;
+  const fallback = async () => {
+    if (publishToBranch) {
+      const publication = await publishToBranch(sanitized ? privateLogFile : logFile, { needsSanitization: !sanitized });
+      if (publication?.success && publication.url) {
+        Object.assign(result, publication);
+        delete result.failureReason;
+        delete result.publishedParts;
+      } else if (publication?.failureReason) {
+        await log(`  ⚠️  Branch log publication failed: ${publication.failureReason}`);
+        result.failureReason = [result.failureReason, `Branch log publication: ${publication.failureReason}`].filter(Boolean).join('\n');
+        result.publishedParts = [...(result.publishedParts || []), ...(publication.publishedParts || [])];
+        result.destination = publication.destination;
+      }
+    }
+    return result;
+  };
+
+  const hasRoomForCopy = async bytes => {
+    const info = await fs.statfs(os.tmpdir()).catch(() => null);
+    return !info || info.bavail * info.bsize > bytes;
+  };
 
   try {
+    const sourceSize = (await fs.stat(logFile)).size;
+    if (publishToBranch) {
+      // Hive Mind writes one full-size sanitized copy. gh-upload-log 0.13.4+
+      // stages at most one 100 MiB part of it (#4046, gh-upload-log#67); an
+      // older install that still copies the whole file fails with ENOSPC,
+      // which also switches to the streaming branch publication below.
+      if (!(await hasRoomForCopy(sourceSize + Math.min(sourceSize, GH_UPLOAD_LOG_MAX_STAGED_BYTES)))) {
+        result.failureReason = 'Insufficient temporary disk space for the gh-upload-log workflow.';
+        return await fallback();
+      }
+      // A whole-log subprocess can exceed the remaining memory, including
+      // inside a container. Stream the log when even one full buffer won't fit.
+      const availableMemory = process.availableMemory?.();
+      if (availableMemory > 0 && sourceSize >= availableMemory) {
+        result.failureReason = 'Insufficient available memory for the whole-log upload.';
+        return await fallback();
+      }
+    }
     const sanitizedDescription = description ? await sanitizeForPublication(description) : description;
     privateTempDirectory = await fs.mkdtemp(path.join(os.tmpdir(), 'hive-mind-log-upload-'));
     await fs.chmod(privateTempDirectory, 0o700);
-    const privateLogFile = path.join(privateTempDirectory, 'sanitized.log');
-    const fallback = async () => {
-      if (publishToBranch) {
-        const publication = await publishToBranch(privateLogFile);
-        if (publication?.success && publication.url) {
-          Object.assign(result, publication);
-          delete result.failureReason;
-        } else if (publication?.failureReason) {
-          await log(`  ⚠️  Branch log publication failed: ${publication.failureReason}`);
-        }
-      }
-      return result;
-    };
+    privateLogFile = path.join(privateTempDirectory, 'sanitized.log');
     // Issue #2189: this used to be readFile → sanitizeForPublication → writeFile,
     // i.e. three full-size copies of the log in the heap at once. A 134 MB
     // transcript reliably killed the run with "Reached heap limit". The streaming
     // sanitizer holds one block (1 MiB) at a time, so cost no longer scales with
-    // log size. This is now the ONLY place `--attach-logs` sanitizes the log.
+    // log size.
     // Large logs additionally run in a heap-capped worker, so a residual blow-up
     // costs one thread and one failed upload instead of the whole session.
     // Issue #4091: sanitizing 113 MB took 34 minutes with no output at all. The
     // heartbeat reports how much of the sanitized copy is written so far.
-    const sourceSize = (await fs.stat(logFile)).size;
     const sanitizing = await withWatchdog(
       'sanitizing the log',
       () =>
@@ -567,6 +599,7 @@ export const uploadLogWithGhUploadLog = async ({ logFile, isPublic, description,
       }
     );
     if (sanitizing.timedOut) throw new Error(`sanitizing the log did not finish within ${formatDelay(watch.sanitizeDeadlineMs ?? LOG_SANITIZE_DEADLINE_MS)}`);
+    sanitized = true;
     const sanitizeStats = sanitizing.value || {};
     if (verbose) {
       await log(`  🧼 Streamed sanitize: ${sanitizeStats.sourceSize} bytes in ${sanitizeStats.blocks} block(s)${sanitizeStats.forcedReleases > 0 ? `, ${sanitizeStats.forcedReleases} forced release(s)` : ''}${sanitizeStats.worker ? ' (bounded worker)' : ''}`, { verbose: true });
@@ -593,6 +626,9 @@ export const uploadLogWithGhUploadLog = async ({ logFile, isPublic, description,
       if (whole.permanent || (size <= partSizeBytes && !mayIsolateRun)) {
         return await fallback();
       }
+      if (publishToBranch && !(await hasRoomForCopy(size))) {
+        return await fallback();
+      }
       const splitStats = {};
       const partPaths = await splitLogIntoLineAlignedParts({ sourcePath: privateLogFile, directory: privateTempDirectory, partSizeBytes, stats: splitStats });
       if (partPaths.length === 1) {
@@ -609,6 +645,7 @@ export const uploadLogWithGhUploadLog = async ({ logFile, isPublic, description,
         await log(`  ✂️  Cut the log ${splitStats.isolatedRuns} more time(s) to keep long letter/digit runs apart from non-ASCII text, which gh-upload-log's sanitizer refuses together (${GH_UPLOAD_LOG_LONG_RUN_ISSUE_URL}); the parts still concatenate to the exact log`);
       }
       const parts = [];
+      result.publishedParts = parts;
       for (const [index, partPath] of partPaths.entries()) {
         const partLabel = `part ${index + 1} of ${partPaths.length}`;
         const partArgs = buildGhUploadLogArgs({ logFile: partPath, isPublic, description: sanitizedDescription ? `${sanitizedDescription} (${partLabel})` : partLabel, verbose });
@@ -622,8 +659,10 @@ export const uploadLogWithGhUploadLog = async ({ logFile, isPublic, description,
         const part = { success: false, ...partUpload.parsed };
         await resolveUploadUrls(part, verbose);
         parts.push(part);
+        await fs.rm(partPath, { force: true }).catch(() => {});
       }
       delete result.failureReason;
+      delete result.publishedParts;
       Object.assign(result, { success: true, url: parts[0].url, rawUrl: parts[0].rawUrl, type: parts[0].type, chunks: parts.length, parts });
       await log(`  ✅ Complete log uploaded as ${parts.length} parts`);
     }
@@ -650,6 +689,7 @@ export const uploadLogWithGhUploadLog = async ({ logFile, isPublic, description,
     const errorDescription = lib.isENOSPC(error) ? `${describeCredentialSanitizationFailure(error)} (no space left on device for the sanitized log copy; free disk space and retry)` : describeCredentialSanitizationFailure(error);
     await log(`  ❌ Error running gh-upload-log: ${errorDescription}`);
     result.failureReason = result.failureReason || errorDescription;
+    if (publishToBranch && lib.isENOSPC(error)) return await fallback();
     return result;
   } finally {
     if (privateTempDirectory) {

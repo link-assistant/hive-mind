@@ -20,10 +20,12 @@
 import { isEphemeralContainer, resolveCiRunUrl } from './ci-run-url.lib.mjs';
 import { GH_UPLOAD_LOG_FIXED_VERSION, GH_UPLOAD_LOG_LONG_RUN_ISSUE_URL, GH_UPLOAD_LOG_REFUSAL_ISSUE_URL, detectGhUploadLogSanitizerRefusal } from './gh-upload-log-refusal.lib.mjs';
 import { detectExecutionContext } from './solve.resource-diagnostics.lib.mjs';
-import { writeSanitizedPublicationFile } from './token-sanitization.lib.mjs';
-import { LOG_UPLOAD_FAILED_MARKER, SOLUTION_DRAFT_FAILED_MARKER, SOLUTION_DRAFT_LOG_MARKER, buildSessionEndFooter, postTrackedCommentFromFile } from './tool-comments.lib.mjs';
+import { LOG_UPLOAD_FAILED_MARKER, SOLUTION_DRAFT_FAILED_MARKER, SOLUTION_DRAFT_LOG_MARKER, buildSessionEndFooter, postTrackedComment } from './tool-comments.lib.mjs';
 
 const formatSize = bytes => (bytes >= 1024 * 1024 ? `${Math.round(bytes / 1024 / 1024)} MB` : `${Math.round(bytes / 1024)} KB`);
+const maxListedParts = 100;
+const escapeLinkLabel = value => value.replace(/[\\[\]`_*]/g, '\\$&');
+const formatDestination = ({ repository, branch, url }) => `Published on [${escapeLinkLabel(`${repository} branch ${branch}`)}](${url}).\n`;
 
 /**
  * Markdown link lines for an uploaded log: one line, or one line per part when
@@ -37,7 +39,14 @@ const formatSize = bytes => (bytes >= 1024 * 1024 ? `${Math.round(bytes / 1024 /
  */
 export const formatLogLinkLines = ({ uploadResult, logUrl, label, selectUrl }) => {
   const parts = Array.isArray(uploadResult?.parts) ? uploadResult.parts : [];
-  if (parts.length < 2) return `- [${label}](${logUrl})`;
+  const destination = uploadResult.destination?.url ? formatDestination(uploadResult.destination) : '';
+  if (parts.length < 2) return `${destination}- [${label}](${logUrl})`;
+  if (uploadResult.indexUrl) {
+    const index = `- [${label} index](${uploadResult.indexUrl})`;
+    if (parts.length > maxListedParts) return `${destination}${index} (all ${parts.length} parts)`;
+    const links = parts.map(part => `- [${part.name}](${part.url})`).join('\n');
+    return `${destination}${index}\n${links}`;
+  }
   return parts.map((part, index) => `- [${label}: part ${index + 1} of ${parts.length}](${selectUrl(part) || part.url})`).join('\n');
 };
 
@@ -134,10 +143,16 @@ export const formatLogLocationConsoleLines = (logFile, location = describeLogFil
  * @param {Object} [params.location] - Where `logFile` lives ({@link describeLogFileLocation}).
  * @returns {string}
  */
-export const buildLogUploadFailureComment = ({ errorMessage = null, failureReason = null, attempts = null, logSizeBytes, logFile, isPublic = true, failureAction = '', location = describeLogFileLocation(), sessionEndFooter = buildSessionEndFooter() }) => {
+export const buildLogUploadFailureComment = ({ errorMessage = null, failureReason = null, attempts = null, logSizeBytes, logFile, isPublic = true, failureAction = '', location = describeLogFileLocation(), sessionEndFooter = buildSessionEndFooter(), publishedParts = [], destination }) => {
   const heading = errorMessage ? `## 🚨 ${SOLUTION_DRAFT_FAILED_MARKER}\nThe automated solution draft encountered an error:\n\`\`\`\n${errorMessage}\n\`\`\`${failureAction || ''}\n\n### ⚠️ ${LOG_UPLOAD_FAILED_MARKER}` : `## ⚠️ ${SOLUTION_DRAFT_LOG_MARKER}: ${LOG_UPLOAD_FAILED_MARKER}`;
   const attemptText = attempts > 1 ? ` after ${attempts} attempts` : '';
   const reason = failureReason ? `\n\nLast upload error:\n\`\`\`\n${failureReason}\n\`\`\`` : '';
+  const partial = publishedParts.length
+    ? `\n\nThe following parts were published before the attachment failed.\n${destination?.url ? formatDestination(destination) : ''}${publishedParts
+        .slice(0, maxListedParts)
+        .map((part, index) => `- [${part.name || `Part ${index + 1}`}](${part.url})`)
+        .join('\n')}${publishedParts.length > maxListedParts ? `\n${publishedParts.length} parts were published.${destination?.url ? ' See the linked directory for more branch files.' : ''}` : ''}`
+    : ' A partial log is not posted instead, because it could be mistaken for the complete trace.';
   // A removed container leaves no file to run gh-upload-log on.
   // Issue #4042: when gh-upload-log's own sanitizer refused the file, the same
   // command refuses it again, so suggest bounded parts (GNU `split --line-bytes`
@@ -164,7 +179,7 @@ To publish it from there:
 gh-upload-log "${logFile}" ${visibility}
 \`\`\``;
   return `${heading}
-The complete ${errorMessage ? 'failure' : 'working session'} log (${formatSize(logSizeBytes)}) could not be uploaded${attemptText}, so it is not attached here. A partial log is not posted instead, because it could be mistaken for the complete trace.${reason}
+The complete ${errorMessage ? 'failure' : 'working session'} log (${formatSize(logSizeBytes)}) could not be uploaded${attemptText}, so it is not attached here.${reason}${partial}
 
 ${formatLogLocationSection(logFile, location)}${publishHint}
 
@@ -207,22 +222,23 @@ export const forgetLogUploadFailureReports = target => {
  * returns `true`, because the target already says the log is not attached.
  * @returns {Promise<boolean>} Whether the target carries the report.
  */
-export const postLogUploadFailureComment = async ({ $, owner, repo, targetNumber, targetType = 'pr', log, postComment = postTrackedCommentFromFile, ...commentParams }) => {
+export const postLogUploadFailureComment = async ({ $, owner, repo, targetNumber, targetType = 'pr', log, postComment = postTrackedComment, ...commentParams }) => {
   const targetKey = failureTargetKey({ owner, repo, targetType, targetNumber });
   const reportKey = failureReportKey(commentParams);
   const earlier = reportedLogUploadFailures.get(targetKey)?.get(reportKey);
-  if (earlier) {
+  const newParts = commentParams.publishedParts?.filter(part => !earlier?.publishedParts.some(previous => previous.url === part.url)) || [];
+  if (earlier && (!newParts.length || !earlier.commentId)) {
     await log(`  ℹ️  The "${LOG_UPLOAD_FAILED_MARKER}" comment for this log is already on ${targetType === 'pr' ? 'the pull request' : 'the issue'}${earlier.commentId ? ` (comment id=${earlier.commentId})` : ''}; not posting it again`);
     return true;
   }
-  const bodyFile = `/tmp/log-upload-failed-comment-${targetType}-${Date.now()}.md`;
   try {
-    await writeSanitizedPublicationFile(bodyFile, buildLogUploadFailureComment(commentParams));
-    const posted = await postComment({ $, owner, repo, targetNumber, bodyFile });
+    const publishedParts = [...(earlier?.publishedParts || []), ...newParts];
+    const body = buildLogUploadFailureComment({ ...commentParams, publishedParts });
+    const posted = await postComment({ $, owner, repo, targetNumber, body, commentId: earlier?.commentId });
     if (posted?.ok) {
       await log(`  📝 Posted a "${LOG_UPLOAD_FAILED_MARKER}" comment explaining why the log is not attached${posted.commentId ? ` (comment id=${posted.commentId})` : ''}`);
       if (!reportedLogUploadFailures.has(targetKey)) reportedLogUploadFailures.set(targetKey, new Map());
-      reportedLogUploadFailures.get(targetKey).set(reportKey, { commentId: posted.commentId || null });
+      reportedLogUploadFailures.get(targetKey).set(reportKey, { commentId: posted.commentId || null, publishedParts });
       return true;
     }
     await log(`  ❌ Could not post the "${LOG_UPLOAD_FAILED_MARKER}" comment: ${posted?.stderr?.toString() || 'unknown error'}`);
@@ -230,8 +246,5 @@ export const postLogUploadFailureComment = async ({ $, owner, repo, targetNumber
   } catch (error) {
     await log(`  ❌ Could not post the "${LOG_UPLOAD_FAILED_MARKER}" comment: ${error.message}`);
     return false;
-  } finally {
-    const fs = await import('node:fs/promises');
-    await fs.unlink(bodyFile).catch(() => {});
   }
 };

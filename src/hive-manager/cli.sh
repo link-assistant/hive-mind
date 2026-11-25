@@ -808,13 +808,18 @@ wait_for_idle() {
   done
 }
 
-# Remove a replaced container and, when nothing else uses it, its image.
+# Remove a replaced container and, when nothing else uses it, its image. The
+# remaining arguments are image IDs to keep: the new deployment image and the
+# task image, which may be the previous release (issue #4144).
 discard_container() {
-  local image_id
-  image_id=$(docker container inspect --format '{{.Image}}' "$1") || image_id=''
-  docker rm "$1" >/dev/null
-  printf 'Removed replaced container %s\n' "$1"
-  if [[ $image_id && $image_id != "$2" ]] && docker image rm "$image_id" >/dev/null 2>&1; then
+  local container=$1 image_id keep
+  shift
+  image_id=$(docker container inspect --format '{{.Image}}' "$container") || image_id=''
+  docker rm "$container" >/dev/null
+  printf 'Removed replaced container %s\n' "$container"
+  [[ $image_id ]] || return 0
+  for keep; do [[ $image_id != "$keep" ]] || return 0; done
+  if docker image rm "$image_id" >/dev/null 2>&1; then
     printf 'Removed unused image %s\n' "$image_id"
   fi
 }
@@ -864,9 +869,12 @@ apply_deployment() {
   fi
   if (( pull_image )); then docker pull "$image"; fi
   image_id=$(docker image inspect --format '{{.Id}}' "$image")
-  local task_image=''
+  local task_image='' task_image_id=''
   select_task_image "$pull_image"
   task_image_args
+  if [[ $task_image && $task_image != "$image" ]]; then
+    task_image_id=$(docker image inspect --format '{{.Id}}' "$task_image" 2>/dev/null) || task_image_id=''
+  fi
   init_state
 
   # Validate stock binaries and the image baseline without mounting live state.
@@ -892,12 +900,12 @@ apply_deployment() {
   if [[ $old ]]; then
     # Retain the previous rollback until the candidate starts.
     if [[ $prior ]]; then
-      if (( keep_rollback )); then docker rm "$prior" >/dev/null; else discard_container "$prior" "$image_id"; fi
+      if (( keep_rollback )); then docker rm "$prior" >/dev/null; else discard_container "$prior" "$image_id" ${task_image_id:+"$task_image_id"}; fi
     fi
     if (( keep_rollback )); then
       docker rename "$old" "$name.rollback"
     else
-      discard_container "$old" "$image_id"
+      discard_container "$old" "$image_id" ${task_image_id:+"$task_image_id"}
     fi
   fi
   printf 'Deployed %s using %s\n' "$name" "$image"

@@ -332,6 +332,29 @@ Hive Mind 默认将 `CLAUDE_CODE_PROMPT_CACHE_TTL`（主对话）和 `CLAUDE_COD
 | `TELEGRAM_BOT_VERBOSE`                          | false    | 启用详细日志                                                                        |
 | `TELEGRAM_CONFIGURATION`                        | （无）   | LINO 配置字符串                                                                     |
 
+### 13.1. 机器人实例状态、状态查询与排空
+
+Telegram 机器人把实例状态保存在两个必须一致的存储中（issue #4143）：先写入 `hive-mind-state.lino`，再写入启用了事务日志的 link-cli 双元组存储。读取时若 link-cli 副本与 `.lino` 文件一致则使用它，不一致时重试，否则使用 `.lino` 文件；下一次写入会修复 link-cli 副本。状态包含实例（PID、主机、版本、心跳）、接收状态（`accepting` 或 `draining`）、所有运行中、启动中、排队和等待的任务及其隔离后端，以及 `/subscribe` 列表。重启后机器人会恢复订阅者，并把尚未开始的任务重新排队。
+
+| Environment Variable                  | Default              | Description                                                                                                                                                                                                |
+| ------------------------------------- | -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `HIVE_MIND_STATE_DIR`                 | `~/.hive-mind/state` | Directory of `hive-mind-state.lino` (indented Links Notation) and its link-cli copy `hive-mind-state.links`. Mount it on the host to read the state without entering the container. One bot per directory. |
+| `HIVE_MIND_CLINK`                     | `clink` on `PATH`    | link-cli binary for the binary doublets copy; `off` keeps only the `.lino` file                                                                                                                            |
+| `HIVE_MIND_STATE_LOCK_MODE`           | `pid`                | State lock: `pid` (the lock records the owner PID, host and PID namespace and is released at once when that process is gone), `age` (released only after 15 minutes), `none` (no lock; tests only)         |
+| `HIVE_MIND_STATE_PUBLISH_INTERVAL_MS` | `5000`               | How often the bot publishes its tasks and checks for a drain request; it also rewrites the file at least once a minute as a heartbeat                                                                      |
+| `HIVE_MIND_STATE_LINKS_RETENTION`     | `sized:64`           | `clink --retention` policy for the link-cli transactions log                                                                                                                                               |
+| `HIVE_MIND_STATE_LINKS_LOG_MAX_BYTES` | `65536`              | Rotate the link-cli transactions marker log above this size (link-cli 3.1.2 replays the whole log on every call, so writes slow down as it grows)                                                          |
+
+```bash
+hive-telegram-bot --status            # what is running, queued and waiting; is intake paused?
+hive-telegram-bot --status --json     # the same for scripts
+hive-telegram-bot --drain --drain-reason "deploy v2"   # stop taking new tasks
+hive-telegram-bot --wait-for-idle --wait-timeout 3600   # exit 0 once running tasks finished
+hive-telegram-bot --resume-intake     # cancel the drain
+```
+
+这些命令只读写状态目录，因此不需要机器人令牌：可通过 `docker exec` 运行，或在主机上用 `--state-dir` 指向挂载的目录。参见 `examples/redeploy-after-drain.sh` 和 `docs/case-studies/issue-4143`。
+
 ### 14. YouTrack 集成
 
 | 环境变量                | 默认值   | 描述                                  |
@@ -698,33 +721,41 @@ hive <github-url> [options]
 hive-telegram-bot [options]
 ```
 
-| 选项                                     | 别名 | 类型    | 默认值   | 描述                                                                                                                                                                                 |
-| ---------------------------------------- | ---- | ------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `--token`                                | `-t` | string  | （必填） | 来自 @BotFather 的 Telegram bot token                                                                                                                                                |
-| `--allowed-chats`                        |      | string  | （全部） | 允许的聊天 ID（Links Notation）                                                                                                                                                      |
-| `--solve-overrides`                      |      | string  | （无）   | /solve 的覆盖选项                                                                                                                                                                    |
-| `--hive-overrides`                       |      | string  | （无）   | /hive 的覆盖选项                                                                                                                                                                     |
-| `--solve`                                |      | boolean | true     | 启用 /solve 命令（使用 --no-solve 禁用）                                                                                                                                             |
-| `--hive`                                 |      | boolean | true     | 启用 /hive 命令（使用 --no-hive 禁用）                                                                                                                                               |
-| `--task`                                 |      | boolean | true     | 启用 /task 和 /split 命令（使用 --no-task 禁用）                                                                                                                                     |
-| `--auth`                                 |      | boolean | true     | 为白名单聊天所有者启用实验性的私聊 /auth 命令（使用 --no-auth 禁用）                                                                                                                 |
-| `--configuration`                        | `-c` | string  |          | LINO 配置字符串                                                                                                                                                                      |
-| `--peer-bots`                            |      | string  |          | 已知 Hive Mind 机器人的群 ID 和机器人数字 ID 对（Links Notation）                                                                                                                    |
-| `--verbose`                              | `-v` | boolean | false    | 启用详细日志                                                                                                                                                                         |
-| `--dry-run`                              |      | boolean | false    | 验证而不启动 bot                                                                                                                                                                     |
-| `--auto-start-screen-watch-message`      |      | boolean | false    | 实验性：为公开仓库的 `/solve` 会话自动启动单独的 `/terminal_watch` 消息。私有仓库或可见性未知的仓库不会自动启动 watch 消息。                                                         |
-| `--solve-respect-blockers`               |      | boolean | false    | 实验性：solve 命令默认遵守 GitHub 阻塞项和未关闭的子 issue，等同于 `--respect-blockers`（issue #4069）。                                                                             |
-| `--batch-respect-blockers`               |      | boolean | true     | 包含多个链接的 solve 命令先启动未被阻塞的 issue，其余的在其阻塞项之后排队（`--no-batch-respect-blockers` 可禁用）。                                                                  |
-| `--isolation`                            |      | string  | `docker` | 隔离后端（`screen`、`tmux`、`docker`）。默认 `docker`，使 Telegram-bot 工作会话在 Docker 隔离中运行并在成功后清理。要禁用，请传递 `--isolation ''`（或设置 `TELEGRAM_ISOLATION=`）。 |
-| `--container-cpu`                        |      | string  |          | Docker 任务 CPU 限制：固定核心数（`1.5`）或宿主机百分比（`50%`）。                                                                                                                   |
-| `--container-memory`                     |      | string  |          | Docker 任务内存限制：固定容量（`2GiB`）或宿主机百分比（`25%`）。                                                                                                                     |
-| `--container-disk`                       |      | string  |          | Docker 任务可写层限制：固定容量（`20GB`）或文件系统可用空间百分比（`10%`）。                                                                                                         |
-| `--container-cpu-penalty`                |      | boolean | `true`   | 限流在触发窗口内占满全部 CPU 的 Docker 任务，并在解除窗口后解除（issue #2801）。`--no-container-cpu-penalty` 关闭。                                                                  |
-| `--container-cpu-penalty-cpus`           |      | string  | `2`      | 被惩罚的 Docker 任务的 CPU 上限。                                                                                                                                                    |
-| `--container-cpu-penalty-trigger`        |      | string  | `95%`    | 视为「全部 CPU」的平均占比（宿主机 CPU，或更低的 `--container-cpu`）。                                                                                                               |
-| `--container-cpu-penalty-trigger-window` |      | string  | `15m`    | 触发窗口时长（`ms`/`s`/`m`/`h`；纯数字为分钟）。                                                                                                                                     |
-| `--container-cpu-penalty-release`        |      | string  | `65%`    | 解除限流需低于的限额占比。                                                                                                                                                           |
-| `--container-cpu-penalty-release-window` |      | string  | `15m`    | 解除窗口时长。                                                                                                                                                                       |
+| 选项                                     | 别名 | 类型    | 默认值               | 描述                                                                                                                                                                                 |
+| ---------------------------------------- | ---- | ------- | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `--token`                                | `-t` | string  | （必填）             | 来自 @BotFather 的 Telegram bot token                                                                                                                                                |
+| `--allowed-chats`                        |      | string  | （全部）             | 允许的聊天 ID（Links Notation）                                                                                                                                                      |
+| `--solve-overrides`                      |      | string  | （无）               | /solve 的覆盖选项                                                                                                                                                                    |
+| `--hive-overrides`                       |      | string  | （无）               | /hive 的覆盖选项                                                                                                                                                                     |
+| `--solve`                                |      | boolean | true                 | 启用 /solve 命令（使用 --no-solve 禁用）                                                                                                                                             |
+| `--hive`                                 |      | boolean | true                 | 启用 /hive 命令（使用 --no-hive 禁用）                                                                                                                                               |
+| `--task`                                 |      | boolean | true                 | 启用 /task 和 /split 命令（使用 --no-task 禁用）                                                                                                                                     |
+| `--auth`                                 |      | boolean | true                 | 为白名单聊天所有者启用实验性的私聊 /auth 命令（使用 --no-auth 禁用）                                                                                                                 |
+| `--configuration`                        | `-c` | string  |                      | LINO 配置字符串                                                                                                                                                                      |
+| `--peer-bots`                            |      | string  |                      | 已知 Hive Mind 机器人的群 ID 和机器人数字 ID 对（Links Notation）                                                                                                                    |
+| `--verbose`                              | `-v` | boolean | false                | 启用详细日志                                                                                                                                                                         |
+| `--dry-run`                              |      | boolean | false                | 验证而不启动 bot                                                                                                                                                                     |
+| `--auto-start-screen-watch-message`      |      | boolean | false                | 实验性：为公开仓库的 `/solve` 会话自动启动单独的 `/terminal_watch` 消息。私有仓库或可见性未知的仓库不会自动启动 watch 消息。                                                         |
+| `--solve-respect-blockers`               |      | boolean | false                | 实验性：solve 命令默认遵守 GitHub 阻塞项和未关闭的子 issue，等同于 `--respect-blockers`（issue #4069）。                                                                             |
+| `--batch-respect-blockers`               |      | boolean | true                 | 包含多个链接的 solve 命令先启动未被阻塞的 issue，其余的在其阻塞项之后排队（`--no-batch-respect-blockers` 可禁用）。                                                                  |
+| `--isolation`                            |      | string  | `docker`             | 隔离后端（`screen`、`tmux`、`docker`）。默认 `docker`，使 Telegram-bot 工作会话在 Docker 隔离中运行并在成功后清理。要禁用，请传递 `--isolation ''`（或设置 `TELEGRAM_ISOLATION=`）。 |
+| `--container-cpu`                        |      | string  |                      | Docker 任务 CPU 限制：固定核心数（`1.5`）或宿主机百分比（`50%`）。                                                                                                                   |
+| `--container-memory`                     |      | string  |                      | Docker 任务内存限制：固定容量（`2GiB`）或宿主机百分比（`25%`）。                                                                                                                     |
+| `--container-disk`                       |      | string  |                      | Docker 任务可写层限制：固定容量（`20GB`）或文件系统可用空间百分比（`10%`）。                                                                                                         |
+| `--container-cpu-penalty`                |      | boolean | `true`               | 限流在触发窗口内占满全部 CPU 的 Docker 任务，并在解除窗口后解除（issue #2801）。`--no-container-cpu-penalty` 关闭。                                                                  |
+| `--container-cpu-penalty-cpus`           |      | string  | `2`                  | 被惩罚的 Docker 任务的 CPU 上限。                                                                                                                                                    |
+| `--container-cpu-penalty-trigger`        |      | string  | `95%`                | 视为「全部 CPU」的平均占比（宿主机 CPU，或更低的 `--container-cpu`）。                                                                                                               |
+| `--container-cpu-penalty-trigger-window` |      | string  | `15m`                | 触发窗口时长（`ms`/`s`/`m`/`h`；纯数字为分钟）。                                                                                                                                     |
+| `--container-cpu-penalty-release`        |      | string  | `65%`                | 解除限流需低于的限额占比。                                                                                                                                                           |
+| `--container-cpu-penalty-release-window` |      | string  | `15m`                | 解除窗口时长。                                                                                                                                                                       |
+| `--status`                               |      | boolean | false                | Print the instance state (running, queued and waiting tasks, intake) and exit; no token needed                                                                                       |
+| `--json`                                 |      | boolean | false                | With `--status`, `--drain`, `--resume-intake` or `--wait-for-idle`: print JSON                                                                                                       |
+| `--drain`                                |      | boolean | false                | Ask the running instance to stop taking new tasks; running tasks finish, queued ones are kept for the next instance                                                                  |
+| `--drain-reason`                         |      | string  |                      | Reason shown to users while draining                                                                                                                                                 |
+| `--resume-intake`                        |      | boolean | false                | Cancel a drain                                                                                                                                                                       |
+| `--wait-for-idle`                        |      | boolean | false                | Wait until the drain is acknowledged and no task is running or starting (exit 0), or until `--wait-timeout` (exit 1)                                                                 |
+| `--wait-timeout`                         |      | number  | 0                    | Seconds `--wait-for-idle` waits (0 waits forever)                                                                                                                                    |
+| `--state-dir`                            |      | string  | `~/.hive-mind/state` | Bot state directory (`HIVE_MIND_STATE_DIR`)                                                                                                                                          |
 
 启用 `/solve` 时，Telegram bot 也接受 `/do` 和 `/continue` 作为普通
 `/solve` 别名。`/claude`、`/codex`、`/opencode`、`/agent`、`/qwen` 和 `/gemini` 是按工具划分的别名，

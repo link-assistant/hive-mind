@@ -32,6 +32,7 @@ Previous round: [issue #4055](../issue-4055/README.md) (PR #4056).
 | 2026-11-25 14:12 | PR #4150 is opened.                                                                                                                                                                                           |
 | 2026-11-25 14:39 | `report-checks` of 45629684702 (14:39:22) and of 45618594320 (14:39:28) both fail on one `gh api` poll that prints only `unexpected end of JSON input` (F1).                                                  |
 | 2026-11-25 15:2x | This pull request: the four template issues are filed and the comment on cli/cli#10579 is posted.                                                                                                             |
+| 2026-11-25 15:44 | Broken Link Checker 45647110409 on this pull request: a public gist answers 503 to lychee and to all 4 re-checks over a minute, and the step has no API fallback for gists, so the job fails (F5).            |
 
 ## Findings, root causes and fixes
 
@@ -41,6 +42,7 @@ Previous round: [issue #4055](../issue-4055/README.md) (PR #4056).
 | F2  | False positive | `dispatch-checks` of a Formal AI draft           | Fixed                       |
 | F3  | True positive  | Dependabot Health: #4105 stuck in rebase         | Maintainer action (blocked) |
 | F4  | Warning        | `detect-changes` freshness: formal-ai 0.356.10   | Fixed                       |
+| F5  | False positive | Broken Link Checker: a throttled public gist     | Fixed                       |
 | B1  | Warning        | Cleanup: 1384 fixture branches cannot be deleted | Blocked (repository admin)  |
 
 ### F1. False positive: one cut-off GitHub reply fails `report-checks`
@@ -140,6 +142,32 @@ Previous round: [issue #4055](../issue-4055/README.md) (PR #4056).
   its test. The same freshness gate on this branch also required zizmor-action
   v0.9.2, agent-commander ^0.13.0 and eslint-plugin-n ^18.6.0; all are updated.
 
+### F5. False positive: a throttled gist fails the Broken Link Checker
+
+- **Evidence.** Broken Link Checker 45647110409 on this pull request
+  (`ci-logs/links-45647110409.log.gz`): lychee reports
+  `[503] https://gist.github.com/konard/cc12b3bf6d0dbcdcf14dfc17f28ecf35` in
+  `case-studies/issue-661-session-resume-cost-optimization/README.md`. The
+  re-check step asks again 4 times over a minute and still gets `503`, so the
+  job fails with `Broken link detected`. The gist is public and healthy:
+  `GET /gists/cc12b3bf6d0dbcdcf14dfc17f28ecf35` returns `"public": true`, and
+  the page returns 200 from outside the runner. Two other gists in the same run
+  recovered on the re-check.
+- **Root cause.** `scripts/recheck-broken-links.mjs` already falls back to the
+  authenticated REST API when github.com keeps throttling the runner IP
+  (#2423), but only for blob/tree pages. gist.github.com throttles the same way,
+  and a gist URL had no fallback, so an outage longer than the backoff window
+  reads as "broken".
+- **Fix.** The new `githubApiUrl()` maps gist, issue, pull request and commit pages
+  to their REST endpoints (`/gists/{id}`, `/repos/{o}/{r}/issues/{n}`,
+  `/repos/{o}/{r}/commits/{sha}`) as well as blob/tree pages. The fallback
+  still runs only after a transient answer (429, 5xx, connection error), and a
+  404 from the API keeps the link broken.
+- **Test.** `tests/recheck-broken-links-2423.test.mjs`: the gist, issue, pull and
+  commit mapping, and a throttled gist that the API confirms. Before the fix the
+  file fails (`githubApiUrl` is not exported); after it, all 10 tests pass.
+  `RECHECK_VERBOSE=true` logs every attempt and API answer.
+
 ### B1. Warning: 1384 fixture branches retained (repository admin)
 
 - **Evidence.** Cleanup 45624825910: `1384 fixture branch(es) retained by a
@@ -158,8 +186,8 @@ repository rule that prohibits deletion`. Ruleset 21204104
 
 ## Template comparison
 
-Checked at js 8e72538, python 7a05d05, rust 1d29f55, cpp c1c60fb. F2 and F4 do not
-occur there: the templates do not dispatch-and-look-up runs, and their pins are
+Checked at js 8e72538, python 7a05d05, rust 1d29f55, cpp c1c60fb. F2, F4 and F5 do not
+occur there (none of them has a transient-link re-check step): the templates do not dispatch-and-look-up runs, and their pins are
 current. The F1 class (a gh/API call in CI with no retry, so one GitHub blip fails
 a job) occurs in all four. Each reproduction was run against the clone.
 

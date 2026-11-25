@@ -181,6 +181,13 @@ TAG="$(docker image inspect konard/hive-mind-dind:latest \
 docker pull "konard/hive-mind-dind:${TAG:-latest}"
 ```
 
+`--docker-socket` के साथ `--variant dind` के लिए `hive-manager deploy` यह अपने-आप करता है:
+जब release tag वही image हो जो deployment की है, तो वह tasks को उस tag पर pin करता है,
+`prepare`/`apply` के दौरान उसे pull करता है, और पूरा reference
+`HIVE_MIND_DOCKER_ISOLATION_IMAGE` तथा `DIND_HOST_PASSTHROUGH_IMAGES` allowlist दोनों के
+रूप में देता है। देखें [hive-manager](deployment/hive-manager.md) और
+[issue #4144](https://github.com/link-assistant/hive-mind/issues/4144)।
+
 **Startup preflight.** जब `--isolation docker` enabled होता है, bot startup पर inner daemon को
 probe करके result log करता है, ताकि misconfiguration task के बीच में surprise pull बनने के बजाय
 तुरंत सामने आ जाए:
@@ -238,9 +245,10 @@ Options: `--container-cpu-penalty-cpus` (2), `--container-cpu-penalty-trigger` (
 सकते), host image को inner daemon में copy करें:
 
 ```bash
+IMAGE="$(docker exec hive-mind printenv HIVE_MIND_DOCKER_ISOLATION_IMAGE || true)"
 TAG="$(docker exec hive-mind printenv HIVE_MIND_DOCKER_ISOLATION_IMAGE_TAG || true)"
 node scripts/preload-dind-isolation-image.mjs \
-  --container hive-mind --image "konard/hive-mind-dind:${TAG:-latest}"
+  --container hive-mind --image "${IMAGE:-konard/hive-mind-dind:${TAG:-latest}}"
 ```
 
 यह `docker save … | docker exec -i <container> docker load` stream करता है ताकि tarball कभी disk पर

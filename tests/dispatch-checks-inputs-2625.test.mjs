@@ -41,7 +41,7 @@ const dispatchInputs = workflow => {
 };
 
 const dispatchedWorkflows = () => {
-  const allowed = read('scripts/dispatch-checks.mjs').match(/const allowed = new Set\(\[([^\]]+)\]\)/)[1];
+  const allowed = read('scripts/dispatch-checks.lib.mjs').match(/ALLOWED_CHECK_WORKFLOWS = Object\.freeze\(\[([^\]]+)\]\)/)[1];
   return [...allowed.matchAll(/'([^']+)'/g)].map(match => match[1]);
 };
 
@@ -56,7 +56,8 @@ test('the dispatch-checks action defaults only to workflows the script allows', 
 });
 
 test('the dispatch passes mode=checks and nothing else', () => {
-  assert.match(read('scripts/dispatch-checks.mjs'), /'--ref', ref, '-f', 'mode=checks'\]\)/);
+  // Issue #4149: dispatched through the REST endpoint, which returns the run.
+  assert.match(read('scripts/dispatch-checks.lib.mjs'), /\(\{ ref, inputs: \{ mode: 'checks' \}, return_run_details: true \}\)/);
 });
 
 for (const workflow of dispatchedWorkflows()) {

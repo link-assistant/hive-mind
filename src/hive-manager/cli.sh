@@ -57,7 +57,8 @@ deploy_usage() {
 Usage: hive-manager deploy [OPTIONS] ACTION [ARGS]
 
   prepare               Pull the selected image before a rollout
-  apply | update        Deploy or replace the instance, keeping a rollback
+  apply | update        Deploy or replace the instance, keeping a rollback;
+                        refuses while the instance runs tasks (exit 75)
   rollback              Switch back to the previous container
   recover               Complete or undo an interrupted rollout
   auto-fix              Preview, apply or check profile-scoped operations recovery
@@ -111,6 +112,11 @@ Options (before ACTION):
   --setup               Keep the container running for interactive setup
   --no-pull             Use the locally available image during apply
   --dry-run             Print the apply plan without changing the target
+  --wait SECONDS        Let apply wait up to SECONDS for running tasks to finish
+  --force               Let apply replace an instance that is running tasks
+  --no-rollback         Remove the replaced container instead of keeping it
+                        as NAME.rollback (also removes an older rollback)
+  --keep-rollback       Keep NAME.rollback (default; overrides a profile)
   --tty                 Allocate a terminal for Docker exec and inside commands
 
 Apply and update also accept -- COMMAND [ARGS] as the container startup command.
@@ -734,6 +740,85 @@ activate_candidate() {
   fi
 }
 
+# Lists the work of a running instance, one line per item. Tracked executions
+# come from the instance's start-command store. Tasks started without
+# isolation exist only as solve, hive, task, fix or review processes, read
+# from the container's /proc so the check needs no ps on either side.
+# Queued requests that have not started live only in the bot's memory.
+running_tasks_script='
+const { execFileSync } = require("node:child_process");
+const { readdirSync, readFileSync } = require("node:fs");
+const list = extra => JSON.parse(execFileSync("$", ["--list", ...extra, "--output-format", "json"], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"], maxBuffer: 64 * 1024 * 1024, timeout: 120000 }));
+let data;
+try { data = list(["--running"]); } catch { data = list([]); }
+const text = (value, size = 160) => String(value ?? "").replace(/[\u0000-\u001f\u007f]+/g, " ").slice(0, size);
+for (const item of data?.executions ?? []) {
+  if (item?.status !== "executing" && item?.paused !== true) continue;
+  const state = item.paused === true ? "paused" : "running";
+  console.log(`task ${text(item.uuid)} ${state} (${text(item.options?.isolated || "no isolation")}) since ${text(item.startTime)}: ${text(item.command)}`);
+}
+const commands = /^(solve|hive|task|fix|review)(\.mjs)?$/;
+for (const pid of readdirSync("/proc").filter(entry => /^[0-9]+$/.test(entry))) {
+  let argv;
+  try { argv = readFileSync(`/proc/${pid}/cmdline`, "utf8").split("\0").filter(Boolean); } catch { continue; }
+  if (argv.slice(0, 3).some(word => commands.test(word.split("/").pop()))) console.log(`process ${pid}: ${text(argv.join(" "), 200)}`);
+}
+'
+
+running_tasks() {
+  docker exec --user box "$1" node -e "$running_tasks_script"
+}
+
+# Refuse, or wait until the deadline, while the instance runs tasks. With
+# --force, report the work that the replacement interrupts and continue.
+wait_for_idle() {
+  local container=$1 stage=$2 tasks announced='' remaining
+  if (( force )) && [[ $stage == early ]]; then return 0; fi
+  while :; do
+    if ! tasks=$(running_tasks "$container"); then
+      if (( force )); then
+        printf 'hive-manager: could not check %s for running tasks; continuing because of --force\n' "$name" >&2
+        return 0
+      fi
+      fail "Could not check $name for running tasks. Pass --force to replace it anyway."
+    fi
+    [[ $tasks ]] || return 0
+    if (( force )); then
+      printf 'hive-manager: replacing %s while it runs tasks (--force):\n' "$name" >&2
+      sed 's/^/  /' <<<"$tasks" >&2
+      return 0
+    fi
+    remaining=$((wait_deadline - SECONDS))
+    if (( remaining <= 0 )); then
+      printf 'hive-manager: %s is running tasks:\n' "$name" >&2
+      sed 's/^/  /' <<<"$tasks" >&2
+      if (( wait_seconds )); then
+        printf 'hive-manager: tasks still running after %s seconds. Retry later, or pass --force to replace the instance anyway.\n' "$wait_seconds" >&2
+      else
+        printf 'hive-manager: wait for them to finish, retry with --wait SECONDS, or pass --force to replace the instance anyway.\n' >&2
+      fi
+      exit 75
+    fi
+    if [[ $tasks != "$announced" ]]; then
+      printf 'hive-manager: waiting up to %s seconds for tasks in %s to finish:\n' "$remaining" "$name" >&2
+      sed 's/^/  /' <<<"$tasks" >&2
+      announced=$tasks
+    fi
+    sleep $(( remaining < 15 ? remaining : 15 ))
+  done
+}
+
+# Remove a replaced container and, when nothing else uses it, its image.
+discard_container() {
+  local image_id
+  image_id=$(docker container inspect --format '{{.Image}}' "$1") || image_id=''
+  docker rm "$1" >/dev/null
+  printf 'Removed replaced container %s\n' "$1"
+  if [[ $image_id && $image_id != "$2" ]] && docker image rm "$image_id" >/dev/null 2>&1; then
+    printf 'Removed unused image %s\n' "$image_id"
+  fi
+}
+
 apply_deployment() {
   local docker_args admission_flags startup=("$@")
   if (( setup )); then
@@ -755,11 +840,16 @@ apply_deployment() {
     printf 'Docker options:'
     printf ' %q' "${docker_args[@]}"
     printf '\nStartup executable: %q\n' "${startup[0]}"
+    if (( force )); then printf 'Running tasks: replace anyway (--force)\n'
+    elif (( wait_seconds )); then printf 'Running tasks: wait up to %s seconds, then refuse\n' "$wait_seconds"
+    else printf 'Running tasks: refuse\n'; fi
+    if (( keep_rollback )); then printf 'Rollback: keep %s.rollback\n' "$name"
+    else printf 'Rollback: remove the replaced container\n'; fi
     return
   fi
 
   lock_deployment
-  local old prior candidate image_id old_running=false
+  local old prior candidate image_id old_running=false wait_deadline=$((SECONDS + wait_seconds))
   old=$(container_id "$name") || old=''
   prior=$(container_id "$name.rollback") || prior=''
   check_rollout_names "$old" "$prior"
@@ -769,6 +859,8 @@ apply_deployment() {
     if [[ $(instance_owner "$old") != "$name" ]]; then
       docker_args+=(--label io.github.link-assistant.hive-manager.adopted="$old")
     fi
+    # Check before pulling so a busy instance is refused without a download.
+    if [[ $old_running == true ]]; then wait_for_idle "$old" early; fi
   fi
   if (( pull_image )); then docker pull "$image"; fi
   image_id=$(docker image inspect --format '{{.Id}}' "$image")
@@ -790,6 +882,8 @@ apply_deployment() {
     docker run --pull never --rm --network none "${admission_flags[@]}" --entrypoint hive-telegram-bot "$image_id" --dry-run
   fi
 
+  # Check again just before stopping it: tasks may start during the pull.
+  if [[ $old && $old_running == true ]]; then wait_for_idle "$old" final; fi
   candidate=$(docker create --pull never --name "$name.candidate" "${docker_args[@]}" \
     --label io.github.link-assistant.hive-manager.predecessor="$old" \
     --label io.github.link-assistant.hive-manager.predecessor-running="$old_running" \
@@ -797,8 +891,14 @@ apply_deployment() {
   activate_candidate "$name" "$candidate" "$old" "$old_running"
   if [[ $old ]]; then
     # Retain the previous rollback until the candidate starts.
-    if [[ $prior ]]; then docker rm "$prior" >/dev/null; fi
-    docker rename "$old" "$name.rollback"
+    if [[ $prior ]]; then
+      if (( keep_rollback )); then docker rm "$prior" >/dev/null; else discard_container "$prior" "$image_id"; fi
+    fi
+    if (( keep_rollback )); then
+      docker rename "$old" "$name.rollback"
+    else
+      discard_container "$old" "$image_id"
+    fi
   fi
   printf 'Deployed %s using %s\n' "$name" "$image"
   if [[ $task_image ]]; then printf 'Tasks use %s\n' "$task_image"; fi
@@ -1808,6 +1908,8 @@ load_deploy_profile() {
       docker-socket=*) socket=$(profile_path "$base" "${line#*=}") ;;
       setup=true) setup=1 ;;
       setup=false) setup=0 ;;
+      keep-rollback=true) keep_rollback=1 ;;
+      keep-rollback=false) keep_rollback=0 ;;
       *) fail "Unknown deployment profile setting: ${line%%=*}" ;;
     esac
   done < "$profile"
@@ -1823,7 +1925,7 @@ profile_path() {
 deploy() {
   local name=hive-mind state_dir='' variant=plain image='' env_file='' bot_config='' socket='' tool_policy=''
   local requested_task_image=''
-  local setup=0 pull_image=1 dry_run=0 tty=0 adopt=0
+  local setup=0 pull_image=1 dry_run=0 tty=0 adopt=0 force=0 wait_seconds=0 keep_rollback=1 apply_option=''
   while (( $# )); do
     case "$1" in
       -h|--help) deploy_usage; return ;;
@@ -1846,6 +1948,13 @@ deploy() {
       --adopt) adopt=1; shift ;;
       --no-pull) pull_image=0; shift ;;
       --dry-run) dry_run=1; shift ;;
+      --force) force=1; apply_option=$1; shift ;;
+      --wait)
+        need_value "$@"
+        [[ $2 =~ ^[0-9]+$ ]] || fail "--wait requires a number of seconds"
+        wait_seconds=$((10#$2)); apply_option=$1; shift 2 ;;
+      --no-rollback) keep_rollback=0; apply_option=$1; shift ;;
+      --keep-rollback) keep_rollback=1; apply_option=$1; shift ;;
       --tty) tty=1; shift ;;
       *) break ;;
     esac
@@ -1868,6 +1977,10 @@ deploy() {
   if (( dry_run )) && [[ $action != apply && $action != update ]]; then
     fail "--dry-run is available for deploy apply and update"
   fi
+  if [[ $apply_option && $action != apply && $action != update ]]; then
+    fail "$apply_option is available for deploy apply and update"
+  fi
+  if (( force && wait_seconds )); then fail "Choose --force or --wait"; fi
   case "$action" in
     compose) require docker; exec docker compose "$@" ;;
     helm) require helm; exec helm "$@" ;;

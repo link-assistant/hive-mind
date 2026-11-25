@@ -134,6 +134,15 @@ hive-manager deploy --profile ./production.conf rollback
 
 Keep the same profile for every update. The manager pulls and validates the selected image and checks Telegram configuration before stopping the previous container. It restores the previous container if startup fails and retains one stopped rollback container after a successful replacement. Readiness is based on the image health check when present and otherwise on the container staying running across consecutive checks. Inspect the running bot's logs for service-level problems. Rollback switches containers while keeping shared state as it exists at the time of rollback. Run `deploy recover` after an interrupted rollout. It handles containers left at the `.candidate` and `.previous` stages.
 
+`apply` and `update` do not stop an instance that is running tasks. Before pulling and again just before stopping the running container, the manager lists the instance's running or paused start-command executions with `$ --list --running` as `box`. It also lists `solve`, `hive`, `task`, `fix` and `review` processes that run without isolation in the container, read from its `/proc`. If any are found, it prints them and exits with status 75 without changing the deployment. It also refuses, with status 1, when it cannot run the check. Pass `--wait SECONDS` to wait up to that long for the work to finish. Pass `--force` to replace the instance anyway; the work it interrupts is printed. Requests still in the bot's queue are not visible to this check. Apply holds the deployment lock while it waits, but the bot can still accept a task between the last check and the stop.
+
+```bash
+hive-manager deploy --profile ./production.conf --wait 3600 update
+hive-manager deploy --profile ./production.conf --force update
+```
+
+On a host without spare disk or backups, pass `--no-rollback` or set `keep-rollback=false` in the profile. After the new container starts, the manager removes the replaced container and any older `.rollback` container, and tries to remove their images; Docker keeps an image that a container still uses or that has another tag. `deploy rollback` is then unavailable until the next update keeps a rollback. `--keep-rollback` overrides the profile setting.
+
 To bring an existing Docker deployment under management, identify its image variant, state mounts, configuration, and startup command. Back up its state and point the profile at the same state directory if it uses the documented `.hive-mind` layout. Copy any state stored only in the old container before replacing it. Run `hive-manager deploy --profile PROFILE --adopt --dry-run apply` to check the configuration and remove `--dry-run` to proceed. The manager records the original container ID for subsequent rollbacks and updates. Set up GitHub credentials with `hive-manager deploy --profile PROFILE auth github` if they need to be recreated. Use Compose to preserve custom volumes or mounts.
 
 ## Maintenance and diagnostics

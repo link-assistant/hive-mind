@@ -552,6 +552,8 @@ on:
 - **只配置存在的东西。** 对于所有镜像都在本地构建的 compose 文件，Dependabot 的 `docker-compose` 条目匹配不到任何依赖，每次运行都会警告 `groups where no dependencies match`。从仓库本身推导 ecosystem 列表并为其编写测试（issue #4055）。
 - **按含义而不是按文本归类重复失败。** 按精确消息给失败分组的健康检查会把 `Could not pull …:2.40.0` 和 `…:2.40.1` 算作两个故障，于是十二次相同的失败永远达不到阈值五。比较之前先去掉版本、id、哈希和路径（issue #4055）。
 - **有界地等待异步释放。** 异步数据库连接池在 `close()` 返回之后才在工作线程上关闭连接。紧接着需要“没有打开的句柄”的步骤必须带退避和截止时间轮询，并指出它在等待哪个持有者，而不是第一次检查就失败（issue #4055）。
+- **GitHub 截断的响应是暂时性故障，但只有读操作可以重试。** 当 GitHub 以空的或被截断的响应体返回 HTTP 错误时，`gh` 只输出 `unexpected end of JSON input`，不显示状态码。对读操作（`GET`、`gh pr view`、GraphQL 查询）重试这一错误，对写操作不要重试：写操作可能已经生效（issue #2571）。轮询循环也应容忍连续几次失败的轮询，而不是第一次失败就让整个作业失败（issue #4149）。
+- **从 dispatch 响应中获取被触发的 run，而不是从列表中查找。** run 创建后，`gh run list --workflow --branch` 可能在几分钟内仍为空。带 `return_run_details: true` 的 `POST …/actions/workflows/{workflow}/dispatches` 会返回 `workflow_run_id` 和 `html_url`。如果仍然找不到 run，就发出警告：dispatch 已成功，收集结果的作业会报告从未开始的 run（issue #4149）。
 
 ## 质量强制策略
 

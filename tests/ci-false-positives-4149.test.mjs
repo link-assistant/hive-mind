@@ -174,3 +174,12 @@ test('F2: a run that is not listed yet is a warning, not a failed job', () => {
   assert.doesNotMatch(script, /'run', 'list'/, 'the lagging filtered listing is not used');
   assert.match(script, /actions\/workflows\/\$\{workflow\}\/dispatches`, \{ method: 'POST'/);
 });
+
+test('CI/CD best practices state both rules in every language (principle 17)', () => {
+  for (const suffix of ['', '.ru', '.zh', '.hi']) {
+    const doc = read(`docs/CI-CD-BEST-PRACTICES${suffix}.md`);
+    const principle = doc.slice(doc.indexOf('### 17.'), doc.indexOf('\n## ', doc.indexOf('### 17.')));
+    assert.match(principle, /`unexpected end of JSON input`[^\n]*issue #2571[^\n]*issue #4149/, `${suffix || 'en'}: truncated reply rule`);
+    assert.match(principle, /`return_run_details: true`[^\n]*issue #4149/, `${suffix || 'en'}: dispatch rule`);
+  }
+});

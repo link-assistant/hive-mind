@@ -251,6 +251,14 @@ TAG="$(docker image inspect konard/hive-mind-dind:latest \
 docker pull "konard/hive-mind-dind:${TAG:-latest}"
 ```
 
+`hive-manager deploy` does this automatically for `--variant dind` with
+`--docker-socket`: it pins tasks to the release tag when that tag is the same
+image as the deployment, pulls it during `prepare`/`apply`, and passes the full
+reference both as `HIVE_MIND_DOCKER_ISOLATION_IMAGE` and as the
+`DIND_HOST_PASSTHROUGH_IMAGES` allowlist. See
+[hive-manager](deployment/hive-manager.md) and
+[issue #4144](https://github.com/link-assistant/hive-mind/issues/4144).
+
 **Startup preflight.** When `--isolation docker` is enabled, the bot probes the
 inner daemon at startup and logs the result, so a misconfiguration surfaces
 immediately instead of as a surprise pull mid-task:
@@ -353,9 +361,10 @@ against a real Docker daemon.
 you cannot change the deployment), copy the host image into the inner daemon:
 
 ```bash
+IMAGE="$(docker exec hive-mind printenv HIVE_MIND_DOCKER_ISOLATION_IMAGE || true)"
 TAG="$(docker exec hive-mind printenv HIVE_MIND_DOCKER_ISOLATION_IMAGE_TAG || true)"
 node scripts/preload-dind-isolation-image.mjs \
-  --container hive-mind --image "konard/hive-mind-dind:${TAG:-latest}"
+  --container hive-mind --image "${IMAGE:-konard/hive-mind-dind:${TAG:-latest}}"
 ```
 
 This streams `docker save … | docker exec -i <container> docker load` so the

@@ -49,7 +49,7 @@ if (command === 'container' && sub === 'inspect') {
   else if (format.includes('hive-manager.instance')) console.log(c.owner);
   else if (format.includes('.State.Health')) console.log(c.running ? 'running' : 'exited');
   else console.log('');
-} else if (command === 'image' && sub === 'inspect') console.log('sha256:new');
+} else if (command === 'image' && sub === 'inspect') console.log(last === 'team/tasks:old' ? 'sha256:old' : 'sha256:new');
 else if (command === 'image' && sub === 'rm') {
   if (state.containers.some(c => c.image === last)) process.exit(1);
   state.removedImages.push(last);
@@ -194,6 +194,16 @@ test('an idle instance is replaced and --no-rollback reclaims the old containers
   assert.match(result.stdout, /Removed replaced container id-old\nRemoved unused image sha256:old\nDeployed hive-mind/);
   assert.deepEqual(names(), ['hive-mind=id-2-hive-mind.candidate:running']);
   assert.deepEqual(docker().removedImages, ['sha256:prior', 'sha256:old']);
+});
+
+test('--no-rollback keeps the image of the replaced container when tasks still use it (issue #4144)', t => {
+  const { run, names, docker } = fixture(t, { rollback: true });
+  const result = run(['--no-rollback', '--task-image', 'team/tasks:old', 'apply']);
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /Removed replaced container id-old\nDeployed hive-mind/);
+  assert.match(result.stdout, /Tasks use team\/tasks:old\n$/);
+  assert.deepEqual(names(), ['hive-mind=id-2-hive-mind.candidate:running']);
+  assert.deepEqual(docker().removedImages, ['sha256:prior']);
 });
 
 test('an idle instance keeps one rollback by default', t => {

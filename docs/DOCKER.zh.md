@@ -176,6 +176,13 @@ TAG="$(docker image inspect konard/hive-mind-dind:latest \
 docker pull "konard/hive-mind-dind:${TAG:-latest}"
 ```
 
+对于带 `--docker-socket` 的 `--variant dind`，`hive-manager deploy` 会自动完成这一步：
+当发布 tag 与部署镜像是同一个镜像时，它把任务固定到该 tag，在 `prepare`/`apply` 时拉取它，
+并把完整引用同时作为 `HIVE_MIND_DOCKER_ISOLATION_IMAGE` 和
+`DIND_HOST_PASSTHROUGH_IMAGES` allowlist 传入。参见
+[hive-manager](deployment/hive-manager.md) 和
+[issue #4144](https://github.com/link-assistant/hive-mind/issues/4144)。
+
 **启动预检。** 启用 `--isolation docker` 时，机器人会在启动时探测内部 daemon 并记录结果，
 让配置错误立即暴露，而不是在任务执行中变成意外拉取：
 
@@ -229,9 +236,10 @@ cgroup controller；如果 Docker 无法应用请求的内核限制，Hive Mind 
 **手动回退。** 要立即为正在运行的容器播种（或当你无法更改部署时），把宿主镜像复制进内部 daemon：
 
 ```bash
+IMAGE="$(docker exec hive-mind printenv HIVE_MIND_DOCKER_ISOLATION_IMAGE || true)"
 TAG="$(docker exec hive-mind printenv HIVE_MIND_DOCKER_ISOLATION_IMAGE_TAG || true)"
 node scripts/preload-dind-isolation-image.mjs \
-  --container hive-mind --image "konard/hive-mind-dind:${TAG:-latest}"
+  --container hive-mind --image "${IMAGE:-konard/hive-mind-dind:${TAG:-latest}}"
 ```
 
 它以 `docker save … | docker exec -i <container> docker load` 流式传输，因此 tarball 永不落盘；

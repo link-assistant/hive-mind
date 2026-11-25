@@ -67,6 +67,8 @@ Choose `--variant dind` for an instance with its own Docker daemon. It uses a pr
 
 Use `--image IMAGE` to select a tag, digest or compatible custom image. `--no-pull` uses an already present image. To run a service other than the Telegram bot, pass its startup command as `apply -- COMMAND ARG...`. Prepare an image without interrupting a running deployment with `deploy prepare`.
 
+DinD and host-socket instances run Docker isolation tasks with a task image. The manager passes its full reference as `HIVE_MIND_DOCKER_ISOLATION_IMAGE`. By default, tasks reuse the deployment image, so the dind image is stored once. When the deployment uses a mutable tag such as `latest`, the manager pins tasks to the image's baked release tag, for example `konard/hive-mind-dind:2.49.0`. It pins only when that tag refers to the same image. `deploy prepare` and `apply` pull the release tag if it is missing. Select a different task image with `--task-image IMAGE`, the profile key `task-image=`, or `HIVE_MIND_DOCKER_ISOLATION_IMAGE` in the environment file. `HIVE_MIND_DOCKER_ISOLATION_IMAGE_TAG` in the environment file must be a tag such as `2.49.0`. It is combined with the deployment image's repository. A DinD instance with a host socket allows only the task image through the host image passthrough. Containers show the selected image in the `io.github.link-assistant.hive-manager.task-image` label.
+
 ## Profiles and remote use
 
 Create one profile per deployment on the target. Values are literal. Relative paths are resolved against the profile's directory. Put CLI overrides after `--profile`. The default container name is `hive-mind` and its state directory is `~/.hive-mind` on the target. Set separate names and state paths for multiple instances.

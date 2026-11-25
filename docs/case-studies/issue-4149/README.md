@@ -136,7 +136,10 @@ Previous round: [issue #4055](../issue-4055/README.md) (PR #4056).
 ### F4. Warning: stale formal-ai pin
 
 - **Evidence.** `main` 045fdf675, `detect-changes`: 8 warnings
-  `formal-ai 0.356.10 -> 0.356.11 (exact)` (`annotations.tsv`).
+  `formal-ai 0.356.10 -> 0.356.11 (exact)` (`annotations.tsv`). On pull request
+  branches the same gate is an error: Checks and release 45638103197 of
+  `issue-4143-d257ff1e57bb` fails with `Dependency freshness failed: 15 stale`,
+  every one of them a pin this branch updates (`ci-logs/run-45638103197.log.gz`).
 - **Fix.** formal-ai 0.356.11 in `Dockerfile`, `Dockerfile.dind`,
   `Dockerfile.formal-ai`, `coolify/Dockerfile`, `src/formal-ai-version.lib.mjs` and
   its test. The same freshness gate on this branch also required zizmor-action

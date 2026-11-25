@@ -50,6 +50,13 @@ RUN apt-get update && \
 ENV OPENSSL_STATIC=1
 RUN cargo install formal-ai --version "${FORMAL_AI_VERSION}" --locked
 
+# Issue #4143: link-cli (`clink`) keeps the binary doublets copy of the bot
+# state (hive-mind-state.links, transactions log on) next to the indented
+# hive-mind-state.lino file. Without it the bot runs .lino-only.
+FROM rust:1.100-slim-bookworm AS link-cli-builder
+ARG LINK_CLI_VERSION=3.1.2
+RUN cargo install link-cli --version "${LINK_CLI_VERSION}" --locked
+
 # Box 2.10.5 retains the box#112 one-toolchain invariant and the base
 # runtimes: Node.js v24.21.0, Bun 1.4.2 and stable Rust 1.98.1. Box PR #120
 # repaired the Docker Hub multi-arch publishing failure reported in box#119;
@@ -254,6 +261,8 @@ ENV PATH="/home/box/.node-bin:${PATH}"
 
 COPY --from=formal-ai-builder /usr/local/cargo/bin/formal-ai /usr/local/bin/formal-ai
 RUN formal-ai --version
+COPY --from=link-cli-builder /usr/local/cargo/bin/clink /usr/local/bin/clink
+RUN clink --version
 
 # The Box full image includes the Rocq/Coq opam switch data. Keep an explicit
 # opam binary in ~/.local/bin so verification and interactive use are stable.

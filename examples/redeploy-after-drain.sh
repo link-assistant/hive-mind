@@ -11,7 +11,8 @@
 #    /subscribe list and re-queues the tasks that had not started.
 #
 # The commands only touch the state directory (HIVE_MIND_STATE_DIR), so they
-# need no bot token. Without CONTAINER they run on this host, which works when
+# need no bot token. CONTAINER_USER (default box) is the user docker exec runs
+# as. Without CONTAINER they run on this host, which works when
 # the state directory is mounted here (pass STATE_DIR).
 set -euo pipefail
 
@@ -21,7 +22,9 @@ REASON="${DRAIN_REASON:-redeploy}"
 
 bot() {
   if [ -n "${CONTAINER:-}" ]; then
-    docker exec "$CONTAINER" hive-telegram-bot "$@"
+    # Run as the bot's user (box in the hive-mind images, as hive-manager does) so
+    # the state directory resolves to the bot's HOME and keeps its owner.
+    docker exec --user "${CONTAINER_USER:-box}" "$CONTAINER" hive-telegram-bot "$@"
   else
     hive-telegram-bot ${STATE_DIR:+--state-dir "$STATE_DIR"} "$@"
   fi

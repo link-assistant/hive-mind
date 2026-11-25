@@ -55,6 +55,7 @@ Times are UTC on 2026-11-25.
   - `pid` mode breaks the lock at once when the owner is dead on the same host, and after the stale age otherwise.
   - `age` mode uses the age only.
   - `none` mode disables locking.
+- **hive-manager (#4145, PR #4148).** `hive-manager deploy update` refuses to replace an instance that runs tasks. It finds them through start-command and `/proc`, and `--wait` waits for them. That check cannot see queued requests, and a task can still start between its last check and the stop. Running `hive-telegram-bot --drain` and `--wait-for-idle` first (as `box`, through `docker exec`) closes both gaps: intake stops and the queue is kept in the state files. `docs/deployment/hive-manager.md` documents this order. hive-manager does not drain automatically, because an older image without `--drain` would start a second bot instead of failing.
 
 ## Prior art and libraries
 

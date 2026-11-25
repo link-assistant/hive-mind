@@ -7,7 +7,7 @@
  * run up with `gh run list --workflow --branch --event`, a filtered listing
  * that GitHub fills in eventually: it stayed empty for the whole 2-minute
  * window. The dispatch endpoint returns the created run itself when asked
- * (`return_run_details: true`, GitHub changelog 2026-02-19; gh >= 2.80 sends
+ * (`return_run_details: true`, GitHub changelog 2026-02-19; gh >= 2.87.0 sends
  * it too), so the listing is now only a fallback, and a run that still cannot
  * be found is a warning: the dispatch succeeded, and report-checks posts a
  * failing commit status if the run really never starts.

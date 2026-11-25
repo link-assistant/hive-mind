@@ -45,7 +45,7 @@ export function restoreSubscribers(list = []) {
   let restored = 0;
   for (const entry of list) {
     const userId = typeof entry?.userId === 'string' && /^-?\d+$/.test(entry.userId) ? Number(entry.userId) : entry?.userId;
-    if (userId === null || userId === undefined || subscribers.has(userId)) continue;
+    if (!Number.isSafeInteger(userId) || subscribers.has(userId)) continue; // Telegram user ids are integers
     const subscribedAt = entry.subscribedAt ? new Date(entry.subscribedAt) : new Date();
     subscribers.set(userId, { username: entry.username || null, firstName: entry.firstName || null, subscribedAt: Number.isNaN(subscribedAt.getTime()) ? new Date() : subscribedAt, sourceChatId: entry.sourceChatId ?? null });
     restored++;

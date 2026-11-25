@@ -1,3 +1,4 @@
+/* eslint-disable no-await-in-loop -- --wait-for-idle polls the state on an interval */
 /**
  * Operator commands for a hive-telegram-bot instance (issue #4143):
  *

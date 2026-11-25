@@ -1,3 +1,4 @@
+/* eslint-disable no-await-in-loop -- restored tasks are enqueued in their original order */
 /**
  * Publish what a running hive-telegram-bot instance is doing into the durable
  * bot state (issue #4143), and read operator requests (drain) back from it.
@@ -21,7 +22,7 @@
 
 import { randomUUID } from 'node:crypto';
 
-import { createBotStateStore } from './bot-state-store.lib.mjs';
+import { cloneState, createBotStateStore } from './bot-state-store.lib.mjs';
 import { createItemTarget, createSessionTarget } from './telegram-solve-dependencies.lib.mjs';
 import { currentLockOwner } from './state-lock.lib.mjs';
 
@@ -258,7 +259,7 @@ export function createBotInstanceState({ store, env = process.env, verbose = fal
       params.queue && (params.queue.isIntakePausedFn = () => intake.state === 'draining');
       let previous = null;
       const result = await stateStore.update(draft => {
-        previous = structuredClone(draft);
+        previous = cloneState(draft);
         if (draft.intake.state === 'draining' && draft.intake.instanceId !== instanceId) {
           log(`Intake was draining for instance ${draft.intake.instanceId || 'unknown'}; this new instance accepts tasks`);
           draft.intake = { state: 'accepting', resetAt: new Date(now()).toISOString(), previousRequest: draft.intake.requestedAt };

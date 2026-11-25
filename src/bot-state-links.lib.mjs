@@ -1,3 +1,4 @@
+/* eslint-disable no-await-in-loop -- link-cli files are stat-ed, renamed and removed one at a time under the state lock */
 /**
  * Binary mirror of the bot instance state in a link-cli (`clink`) doublets
  * store (issue #4143).
@@ -207,7 +208,11 @@ export function createLinksStore({ dbPath, command = resolveClinkCommand(), rete
 
   async function rotateLogIfLarge() {
     let size = 0;
-    for (const file of logFiles()) size += await fsp.stat(file).then(stats => stats.size, () => 0);
+    for (const file of logFiles())
+      size += await fsp.stat(file).then(
+        stats => stats.size,
+        () => 0
+      );
     if (size <= logMaxBytes) return false;
     log(`Rotating the link-cli transitions log of ${dbPath} (${size} bytes)`);
     for (const file of logFiles()) await fsp.rename(file, file.replace(/\.links$/, '.prev.links')).catch(error => (error.code === 'ENOENT' ? null : Promise.reject(error)));

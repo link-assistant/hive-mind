@@ -1,3 +1,4 @@
+/* eslint-disable no-await-in-loop -- reads retry one after another with a pause while the stores disagree */
 /**
  * Durable bot instance state kept in two stores that must agree (issue #4143):
  *
@@ -74,6 +75,9 @@ export function normalizeBotState(state = {}) {
     subscribers: isPlainObject(state.subscribers) ? state.subscribers : {},
   };
 }
+
+/** State trees are JSON-like (strings, numbers, booleans, arrays, objects). */
+export const cloneState = value => JSON.parse(JSON.stringify(value));
 
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -214,7 +218,7 @@ export function createBotStateStore({ dir = resolveBotStateDir(), env = process.
         BOT_STATE_LOCK_NAME,
         async () => {
           const current = toResult(await readOnce(), 1);
-          const draft = structuredClone(current.state);
+          const draft = cloneState(current.state);
           const result = await mutate(draft, current);
           if (result === false && current.consistent !== false) return { ...current, written: false };
           const { state, binary } = await writeUnlocked(result && result !== true ? result : draft);
@@ -226,4 +230,4 @@ export function createBotStateStore({ dir = resolveBotStateDir(), env = process.
   };
 }
 
-export default { BOT_STATE_BASENAME, BOT_STATE_LOCK_NAME, BOT_STATE_VERSION, INTAKE_STATES, createBotStateStore, normalizeBotState, stateToStringTree, stringTreeToState };
+export default { BOT_STATE_BASENAME, BOT_STATE_LOCK_NAME, BOT_STATE_VERSION, INTAKE_STATES, cloneState, createBotStateStore, normalizeBotState, stateToStringTree, stringTreeToState };

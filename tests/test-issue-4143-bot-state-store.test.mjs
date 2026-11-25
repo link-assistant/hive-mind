@@ -57,7 +57,7 @@ await asyncTest('LiNo: tricky scalars survive format + parse', async () => {
 await asyncTest('LiNo: quoting picks the cheapest safe form', async () => {
   assert(quoteLinoScalar('plain') === 'plain', 'plain word is raw');
   assert(quoteLinoScalar('a b') === '"a b"', 'spaces are double quoted');
-  assert(quoteLinoScalar('say "hi"') === "'say \"hi\"'", 'double quotes switch to single quotes');
+  assert(quoteLinoScalar('say "hi"') === '\'say "hi"\'', 'double quotes switch to single quotes');
   assert(quoteLinoScalar('').startsWith('~b64_'), 'empty string is base64 (links-notation pairs "" across lines)');
   assert(quoteLinoScalar('#x') !== '#x', 'leading # is quoted (links-notation comment)');
   assert(formatLinoTree({ a: { b: 'c' } }).includes('\n    b c'), 'nested object is indented');
@@ -121,7 +121,10 @@ await asyncTest('link-cli store: real clink round trip with transactions', async
     await store.write(tree);
     assert(same(await store.read(), tree), `write ${index + 1} reads back`);
   }
-  assert(fs.readdirSync(dir).some(name => name.includes('transitions')), 'transactions log files exist');
+  assert(
+    fs.readdirSync(dir).some(name => name.includes('transitions')),
+    'transactions log files exist'
+  );
 });
 
 const fakeLinks = (initial = null) => {
@@ -134,11 +137,11 @@ const fakeLinks = (initial = null) => {
     available: async () => true,
     read: async () => {
       calls.read++;
-      return tree && structuredClone(tree);
+      return tree && JSON.parse(JSON.stringify(tree));
     },
     write: async value => {
       calls.write++;
-      tree = structuredClone(value);
+      tree = JSON.parse(JSON.stringify(value));
       return true;
     },
   };
@@ -175,7 +178,10 @@ await asyncTest('dual store: mismatch retries, falls back to .lino, next write r
   assert(read.consistent === false && read.source === 'lino', 'falls back to .lino');
   assert(read.attempts === 5, 'retried 3 times lock-free and once under the lock');
   assert(read.state.intake.state === 'draining', '.lino content wins');
-  assert(logs.some(message => message.includes('differ')), 'mismatch is logged');
+  assert(
+    logs.some(message => message.includes('differ')),
+    'mismatch is logged'
+  );
   const repaired = await store.update(() => false);
   assert(repaired.written === true, 'update writes even without changes when the stores disagreed');
   assert((await store.read()).consistent === true, 'stores agree again');

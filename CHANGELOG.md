@@ -1,5 +1,23 @@
 # @link-assistant/hive-mind
 
+## 2.50.0
+
+### Minor Changes
+
+- 75996a7: Fix CI/CD false positives found in issue #4149:
+
+  - Read-only `gh` calls are retried when GitHub cuts its reply off (`unexpected end of JSON input`). Writes are still never retried on it, because the request may already have been applied.
+  - The Formal AI draft `report-checks` poll tolerates up to 10 failed polls in a row instead of failing on the first.
+  - `dispatch-checks` takes the dispatched run from the dispatch response (`return_run_details`), so a run that GitHub has created but does not list yet no longer fails the draft.
+  - The Broken Link Checker confirms throttled gist, issue, pull request and commit links through the GitHub API, as it already did for blob/tree pages, instead of reporting a healthy gist as broken.
+  - formal-ai 0.356.11, zizmor-action v0.9.2, agent-commander ^0.13.0, eslint-plugin-n ^18.6.0, @sentry/node and @sentry/profiling-node ^11.18.0.
+
+- ecbbfc9: Pass the full Docker isolation task image from `hive-manager deploy` as `HIVE_MIND_DOCKER_ISOLATION_IMAGE` instead of putting an image reference in `HIVE_MIND_DOCKER_ISOLATION_IMAGE_TAG`. The task image reuses the deployment image, pinned to its release tag when that tag is the same image. You can select it with `--task-image`, `task-image=` or the environment file, and it is the only image allowed through the dind host passthrough. A full reference left in the tag variable by older deployments is used as-is.
+
+  `deploy apply --no-rollback` no longer removes the image of the replaced container when it is still the selected task image.
+
+- 84d9e6f: `hive-manager deploy apply|update` no longer replaces an instance that is running tasks. It lists the running start-command executions and non-isolated task processes, then exits with status 75, unless `--wait SECONDS` lets the work finish first or `--force` replaces the instance anyway. The new `--no-rollback` option, or `keep-rollback=false` in a profile, removes the replaced container, any older `.rollback` container and their unused images instead of keeping a rollback.
+
 ## 2.49.0
 
 ### Minor Changes

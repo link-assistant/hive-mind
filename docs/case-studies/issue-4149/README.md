@@ -144,6 +144,16 @@ Previous round: [issue #4055](../issue-4055/README.md) (PR #4056).
   `Dockerfile.formal-ai`, `coolify/Dockerfile`, `src/formal-ai-version.lib.mjs` and
   its test. The same freshness gate on this branch also required zizmor-action
   v0.9.2, agent-commander ^0.13.0 and eslint-plugin-n ^18.6.0; all are updated.
+- **It recurs by design.** Checks and release 45661017613 on this branch
+  (merge of `main` 2eae48df2) failed `detect-changes` with
+  `Dependency freshness failed: 12 stale`: `@sentry/*` 11.17.0 -> 11.18.0 and
+  `@sentry/conventions` 0.35.0 -> 0.36.0. Sentry 11.18.0 was published at
+  16:49 UTC, after the previous run on this branch had passed
+  (`ci-logs/run-45661017613-detect-changes.log.gz`). The gate is right: a new
+  release makes a pin stale. It is not a false positive, so it stays an error on
+  pull requests. `@sentry/node` and `@sentry/profiling-node` ^11.18.0 and the
+  lockfile are updated here (`@sentry/node-cpu-profiler` stays 2.4.4). `main`
+  shows the same as a warning until it gets these pins.
 
 ### F5. False positive: a throttled gist fails the Broken Link Checker
 

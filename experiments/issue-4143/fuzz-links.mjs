@@ -7,7 +7,7 @@ import { createLinksStore, decodeDoublets, encodeDoublets } from '../../src/bot-
 import { normalizeStringTree, stringTreesEqual } from '../../src/bot-state-lino.lib.mjs';
 const alphabet = ['a', 'x', '0', ' ', '"', '(', ')', ':', '\n', '-', '_', '.', '~', 'é', '#'];
 let seed = Number(process.argv[2] || 1);
-const rnd = () => ((seed = (seed * 1103515245 + 12345) % 2 ** 31) / 2 ** 31);
+const rnd = () => (seed = (seed * 1103515245 + 12345) % 2 ** 31) / 2 ** 31;
 const str = () => Array.from({ length: Math.floor(rnd() * 4) }, () => alphabet[Math.floor(rnd() * alphabet.length)]).join('');
 const tree = depth => {
   const obj = {};

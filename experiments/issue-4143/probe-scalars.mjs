@@ -7,7 +7,11 @@ for (const s of samples) {
   for (const tree of [{ k: s, z: 'tail' }, { [s || 'E']: 'v', z: 'tail' }, { arr: [s, 'tail'] }, { o: { k: s }, z: 'tail' }]) {
     const text = formatLinoTree(tree);
     let got;
-    try { got = (await parseLinoTree(text, { parser })).tree; } catch (e) { got = 'ERR ' + e.message; }
+    try {
+      got = (await parseLinoTree(text, { parser })).tree;
+    } catch (e) {
+      got = 'ERR ' + e.message;
+    }
     if (!stringTreesEqual(got, tree)) console.log('FAIL', JSON.stringify(s), JSON.stringify(text), '=>', JSON.stringify(got));
   }
 }

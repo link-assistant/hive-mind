@@ -3,7 +3,7 @@ import { formatLinoTree, parseLinoTree, normalizeStringTree, stringTreesEqual, l
 const parser = await loadLinoParser();
 const alphabet = ['a', 'Z', '0', '9', ' ', '"', "'", '`', '(', ')', ':', '\n', '\t', '-', '_', '.', '/', '\\', '~', 'é', '😀', '#', '=', ',', '\r', '\u0001'];
 let seed = Number(process.argv[2] || 1);
-const rnd = () => ((seed = (seed * 1103515245 + 12345) % 2 ** 31) / 2 ** 31);
+const rnd = () => (seed = (seed * 1103515245 + 12345) % 2 ** 31) / 2 ** 31;
 const str = () => Array.from({ length: Math.floor(rnd() * 8) }, () => alphabet[Math.floor(rnd() * alphabet.length)]).join('');
 const tree = depth => {
   const obj = {};
@@ -23,7 +23,11 @@ for (let i = 0; i < runs; i++) {
   const t = tree(0);
   const text = formatLinoTree(t);
   let parsed;
-  try { parsed = (await parseLinoTree(text, { parser })).tree; } catch (e) { parsed = e.message; }
+  try {
+    parsed = (await parseLinoTree(text, { parser })).tree;
+  } catch (e) {
+    parsed = e.message;
+  }
   const expected = normalizeStringTree(t) ?? {};
   if (!stringTreesEqual(parsed, expected)) {
     failures++;

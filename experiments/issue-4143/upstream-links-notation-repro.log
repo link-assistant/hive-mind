@@ -1,0 +1,6 @@
+"root:\n  a \"\"\n  b \"\"\n" => [["root",[null,"a","\n  b "]]]
+"root:\n  a ''\n  b ''\n" => [["root",[null,"a","\n  b "]]]
+"root:\n  a \"\"\n  b \"x y\"\n" => [["root",[null,"a",""],[null,"b","x y"]]]
+"root:\n  tag #release\n  next 1\n" => [["root","tag",[null,"next","1"]]]
+"root:\n  time 12:30\n" ERROR Syntax error at line 2, column 10: Expected "(", [ \t], [\r\n], or [^ \t\n\r(:)] but ":" found.
+"root:\n  url https://x/y#frag\n" ERROR Syntax error at line 2, column 12: Expected "(", [ \t], [\r\n], or [^ \t\n\r(:)] but ":" found.

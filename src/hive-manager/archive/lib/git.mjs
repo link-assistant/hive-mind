@@ -15,12 +15,15 @@ export function publishedRevisionName(archive, revision) {
 
 export async function archiveRepo(repository) {
   try {
-    return await ghWithRateLimitRetry(async () => {
-      const { stdout } = await run('gh', ['api', '--hostname', 'github.com', `repos/${repository}`, '--jq', '{full_name, visibility, default_branch}'], { timeout: 15_000, maxBuffer: 4096 });
-      const result = JSON.parse(stdout);
-      if (result.full_name?.toLowerCase() !== repository || !result.default_branch || !['private', 'internal', 'public'].includes(result.visibility)) throw new Error();
-      return result;
-    });
+    return await ghWithRateLimitRetry(
+      async () => {
+        const { stdout } = await run('gh', ['api', '--hostname', 'github.com', `repos/${repository}`, '--jq', '{full_name, visibility, default_branch}'], { timeout: 15_000, maxBuffer: 4096 });
+        const result = JSON.parse(stdout);
+        if (result.full_name?.toLowerCase() !== repository || !result.default_branch || !['private', 'internal', 'public'].includes(result.visibility)) throw new Error();
+        return result;
+      },
+      { retryTruncatedReply: true }
+    );
   } catch {
     throw new Error(`Could not verify GitHub repository ${repository}.`);
   }

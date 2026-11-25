@@ -11,7 +11,7 @@
 import { getWorkflowRunsForSha } from './github-merge.lib.mjs';
 import { promisify } from 'util';
 import { exec as execCallback } from 'child_process';
-import { ghWithRateLimitRetry } from './github-rate-limit.lib.mjs';
+import { ghWithRateLimitRetry, isReadOnlyGhCommand } from './github-rate-limit.lib.mjs';
 import { githubLimits } from './config.lib.mjs';
 import { cancellableSleep } from './interruptible-sleep.lib.mjs';
 import { evaluateBranchCIHealth, BRANCH_CI_LOOKBACK_COMMITS, BRANCH_CI_START_GRACE_MS } from './github-branch-ci-health.lib.mjs';
@@ -22,6 +22,7 @@ const execRaw = promisify(execCallback);
 const exec = (cmd, opts) =>
   ghWithRateLimitRetry(() => execRaw(cmd, { timeout: githubLimits.execTimeoutMs, ...opts }), {
     label: `gh exec (${cmd.split(/\s+/).slice(0, 3).join(' ')})`,
+    retryTruncatedReply: isReadOnlyGhCommand(cmd),
   });
 
 /**

@@ -90,7 +90,7 @@ export function findClosestBranchName(target, candidates) {
  */
 export async function checkBaseBranchExists({ owner, repo, baseBranch, verbose = false }) {
   try {
-    const result = await ghCmdRetry(() => $({ signal: AbortSignal.timeout(GH_QUERY_TIMEOUT_MS) })`gh api repos/${owner}/${repo}/branches/${baseBranch} --jq .name`, { label: `check branch ${baseBranch}` });
+    const result = await ghCmdRetry(() => $({ signal: AbortSignal.timeout(GH_QUERY_TIMEOUT_MS) })`gh api repos/${owner}/${repo}/branches/${baseBranch} --jq .name`, { retryTruncatedReply: true, label: `check branch ${baseBranch}` });
     if (result.code === 0) {
       return { exists: true };
     }
@@ -123,7 +123,7 @@ export async function buildMissingBaseBranchErrorMessage({ owner, repo, baseBran
   try {
     // Issue #2135: `mirror: false`. Only the closest name is reported (below),
     // yet the raw answer is every branch in the repository.
-    const listResult = await ghCmdRetry(() => $(QUIET_PROBE)`gh api repos/${owner}/${repo}/branches --paginate --jq .[].name`, { label: `list branches ${owner}/${repo}` });
+    const listResult = await ghCmdRetry(() => $(QUIET_PROBE)`gh api repos/${owner}/${repo}/branches --paginate --jq .[].name`, { retryTruncatedReply: true, label: `list branches ${owner}/${repo}` });
     if (listResult.code === 0) {
       const branches = listResult.stdout
         .toString()
@@ -171,7 +171,7 @@ export async function buildMissingBaseBranchErrorMessage({ owner, repo, baseBran
 export async function validateGitHubEntityExistence({ owner, repo, number, type, baseBranch, verbose = false, autoAcceptInvite = false }) {
   // Step 1: Check user/organization existence
   try {
-    const userResult = await ghCmdRetry(() => $({ signal: AbortSignal.timeout(GH_QUERY_TIMEOUT_MS) })`gh api users/${owner} --jq .login`, { label: `check user ${owner}` });
+    const userResult = await ghCmdRetry(() => $({ signal: AbortSignal.timeout(GH_QUERY_TIMEOUT_MS) })`gh api users/${owner} --jq .login`, { retryTruncatedReply: true, label: `check user ${owner}` });
     if (userResult.code !== 0) {
       const errorOutput = (userResult.stderr?.toString() ? userResult.stderr.toString() : '') + (userResult.stdout?.toString() ? userResult.stdout.toString() : '');
       if (errorOutput.includes('404') || errorOutput.includes('Not Found')) {
@@ -190,7 +190,7 @@ export async function validateGitHubEntityExistence({ owner, repo, number, type,
 
   // Step 2: Check repository existence
   try {
-    const repoResult = await ghCmdRetry(() => $({ signal: AbortSignal.timeout(GH_QUERY_TIMEOUT_MS) })`gh api repos/${owner}/${repo} --jq .full_name`, { label: `check repo ${owner}/${repo}` });
+    const repoResult = await ghCmdRetry(() => $({ signal: AbortSignal.timeout(GH_QUERY_TIMEOUT_MS) })`gh api repos/${owner}/${repo} --jq .full_name`, { retryTruncatedReply: true, label: `check repo ${owner}/${repo}` });
     if (repoResult.code !== 0) {
       const errorOutput = (repoResult.stderr?.toString() ? repoResult.stderr.toString() : '') + (repoResult.stdout?.toString() ? repoResult.stdout.toString() : '');
       if (errorOutput.includes('404') || errorOutput.includes('Not Found')) {

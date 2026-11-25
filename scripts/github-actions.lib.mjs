@@ -3,10 +3,16 @@ import { promisify } from 'node:util';
 import { mkdtemp, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { classifyGitHubCommand } from '../src/github-operation-retry.lib.mjs';
 import { ghWithRateLimitRetry } from '../src/github-rate-limit.lib.mjs';
 
 const execFileAsync = promisify(execFile);
-export const gh = async args => (await ghWithRateLimitRetry(() => execFileAsync('gh', args, { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 }))).stdout;
+// Issue #4149: a read whose error reply lost its body ("unexpected end of JSON
+// input") is retried like any other transient fault; a write is not (#2571).
+export const gh = async args => {
+  const operation = classifyGitHubCommand('gh', args);
+  return (await ghWithRateLimitRetry(() => execFileAsync('gh', args, { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 }), { label: operation?.label, retryTruncatedReply: operation?.readOnly === true })).stdout;
+};
 export const ghJson = async args => JSON.parse(await gh(args));
 
 /** Structured API payloads never enter a shell or command line. */

@@ -13,7 +13,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { classifyBrokenLinks, existsViaGithubApi, githubContentsApiUrl, isTransientStatus, recheckUrl } from '../scripts/recheck-broken-links.mjs';
+import { classifyBrokenLinks, existsViaGithubApi, githubApiUrl, githubContentsApiUrl, isTransientStatus, recheckUrl } from '../scripts/recheck-broken-links.mjs';
 
 const report = `# Summary
 
@@ -92,5 +92,25 @@ describe('GitHub contents API fallback', () => {
     assert.equal(await existsViaGithubApi('https://github.com/o/r/blob/main/a.md', async () => response(200)), true);
     assert.equal(await existsViaGithubApi('https://github.com/o/r/blob/main/a.md', async () => response(404)), false);
     assert.equal(await existsViaGithubApi('https://example.net/a', async () => response(200)), false);
+  });
+
+  // Issue #4149: a public gist answered 503 to lychee and to every re-check
+  // (run 45647110409), and had no API fallback, so the check failed.
+  it('maps gist, issue, pull and commit pages to their REST endpoints', () => {
+    assert.equal(githubApiUrl('https://gist.github.com/konard/cc12b3bf6d0dbcdcf14dfc17f28ecf35'), 'https://api.github.com/gists/cc12b3bf6d0dbcdcf14dfc17f28ecf35');
+    assert.equal(githubApiUrl('https://gist.github.com/cc12b3bf6d0dbcdcf14dfc17f28ecf35#file-a-md'), 'https://api.github.com/gists/cc12b3bf6d0dbcdcf14dfc17f28ecf35');
+    assert.equal(githubApiUrl('https://github.com/o/r/issues/12#issuecomment-1'), 'https://api.github.com/repos/o/r/issues/12');
+    assert.equal(githubApiUrl('https://github.com/o/r/pull/7/files'), 'https://api.github.com/repos/o/r/issues/7');
+    assert.equal(githubApiUrl('https://github.com/o/r/commit/0e90eb003'), 'https://api.github.com/repos/o/r/commits/0e90eb003');
+    assert.equal(githubApiUrl('https://github.com/o/r/blob/main/a.md'), 'https://api.github.com/repos/o/r/contents/a.md?ref=main');
+    assert.equal(githubApiUrl('https://gist.github.com/konard'), null);
+    assert.equal(githubApiUrl('https://example.net/a'), null);
+  });
+
+  it('recovers a gist that the HTML page throttles but the API confirms', async () => {
+    const asked = [];
+    const ok = await existsViaGithubApi('https://gist.github.com/konard/cc12b3bf6d0dbcdcf14dfc17f28ecf35', async url => (asked.push(url), response(200)));
+    assert.equal(ok, true);
+    assert.deepEqual(asked, ['https://api.github.com/gists/cc12b3bf6d0dbcdcf14dfc17f28ecf35']);
   });
 });

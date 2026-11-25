@@ -48,7 +48,7 @@ const runOnce = (command, args) =>
 export const runWithGitHubRetry = async (command, args, retryOptions = {}) => {
   const operation = classifyGitHubCommand(command, args);
   const run = () => runOnce(command, args);
-  const result = operation ? await retryGitHubOperation(run, { label: operation.label, noun: operation.tool === 'git' ? 'git' : 'network', ...retryOptions }) : await run();
+  const result = operation ? await retryGitHubOperation(run, { label: operation.label, noun: operation.tool === 'git' ? 'git' : 'network', retryTruncatedReply: operation.readOnly, ...retryOptions }) : await run();
   return result.code;
 };
 

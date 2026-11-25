@@ -2,6 +2,7 @@ import { execFile as execFileCallback, spawn } from 'node:child_process';
 import { promisify } from 'node:util';
 
 import { parseGitHubUrl } from './github-url-parser.lib.mjs';
+import { classifyGitHubCommand } from './github-operation-retry.lib.mjs';
 import { ghWithRateLimitRetry } from './github-rate-limit.lib.mjs';
 
 const execFile = promisify(execFileCallback);
@@ -132,7 +133,7 @@ export class OrganizationGitHubClient {
     for (const [key, value] of Object.entries(variables)) {
       if (value !== null && value !== undefined) args.push(typeof value === 'number' ? '-F' : '-f', `${key}=${value}`);
     }
-    const result = await ghWithRateLimitRetry(() => this.run('gh', args, { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 }), { label, log: this.log });
+    const result = await ghWithRateLimitRetry(() => this.run('gh', args, { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 }), { label, log: this.log, retryTruncatedReply: classifyGitHubCommand('gh', args)?.readOnly === true });
     const payload = JSON.parse(result.stdout);
     if (payload.errors?.length) throw new Error(payload.errors.map(error => error.message).join('; '));
     return payload.data;
@@ -147,7 +148,7 @@ export class OrganizationGitHubClient {
 
     let readme = '';
     try {
-      const result = await ghWithRateLimitRetry(() => this.run('gh', ['api', `repos/${owner}/${repo}/readme`, '-H', 'Accept: application/vnd.github.raw+json'], { encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 }), { label: `README ${owner}/${repo}`, log: this.log });
+      const result = await ghWithRateLimitRetry(() => this.run('gh', ['api', `repos/${owner}/${repo}/readme`, '-H', 'Accept: application/vnd.github.raw+json'], { encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 }), { label: `README ${owner}/${repo}`, log: this.log, retryTruncatedReply: true });
       readme = result.stdout;
     } catch (error) {
       if (!/404|not found/i.test(`${error?.stderr || ''} ${error?.message || ''}`)) throw error;

@@ -588,12 +588,13 @@ export const isTransientNetworkError = error => isTransientNetworkErrorShared(er
  * @param {number} [options.delay=1000] - Initial delay between retries in ms
  * @param {number} [options.backoff=2] - Backoff multiplier
  * @param {string} [options.label='gh command'] - Label for log messages
+ * @param {boolean} [options.retryTruncatedReply=false] - `fn` only reads; also retry GitHub's lost reply body (issue #4149)
  * @returns {Promise<*>} Result of successful function execution
  * @throws {Error} Last error if all attempts fail or error is non-transient
  */
 export const ghRetry = async (fn, options = {}) => {
-  const { maxAttempts = 3, delay = 1000, backoff = 2, label = 'gh command' } = options;
-  return retryGitHubOperation(fn, { label, noun: '', maxAttempts, delayMs: delay, backoff, sharedBudget: true, sleep, log: retryLog(log), rateLimit: await sharedBudgetRateLimit(label) });
+  const { maxAttempts = 3, delay = 1000, backoff = 2, label = 'gh command', retryTruncatedReply = false } = options;
+  return retryGitHubOperation(fn, { label, noun: '', maxAttempts, delayMs: delay, backoff, sharedBudget: true, retryTruncatedReply, sleep, log: retryLog(log), rateLimit: await sharedBudgetRateLimit(label) });
 };
 
 /**
@@ -641,13 +642,16 @@ const isNonZeroResult = result => result?.code !== 0;
  * @param {number} [options.delay=1000] - Initial delay between retries in ms
  * @param {number} [options.backoff=2] - Backoff multiplier
  * @param {string} [options.label='gh command'] - Label for log messages
+ * @param {boolean} [options.retryTruncatedReply=false] - the command only reads; also retry GitHub's lost reply body (issue #4149)
  * @returns {Promise<{stdout: string, stderr: string, code: number}>} Command result
  */
 export const ghCmdRetry = async (cmdFn, options = {}) => {
-  const { maxAttempts = 3, delay = 1000, backoff = 2, label = 'gh command' } = options;
+  const { maxAttempts = 3, delay = 1000, backoff = 2, label = 'gh command', retryTruncatedReply = false } = options;
   return retryGitHubOperation(cmdFn, {
     label,
     noun: '',
+    // Issue #4149: set by callers whose command only reads.
+    retryTruncatedReply,
     maxAttempts,
     delayMs: delay,
     backoff,

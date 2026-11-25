@@ -12,7 +12,8 @@
  * connect-phase failure (lycheeverse/lychee#2297).
  *
  * This script asks those URLs again, sequentially and with backoff, and for
- * github.com blob/tree pages falls back to the authenticated contents API. A 4xx
+ * GitHub pages (blob/tree, issue/pull, commit, gist) falls back to the
+ * authenticated REST API. A 4xx
  * other than 429 is a definite answer and stays final, as does any error
  * that is not an http(s) URL (missing local file, ...).
  *
@@ -124,13 +125,33 @@ export function githubContentsApiUrl(url) {
 }
 
 /**
- * Ask the GitHub REST API whether a blob/tree target exists.
+ * Map a GitHub page to the REST endpoint that proves it exists. Besides
+ * blob/tree pages, gist.github.com throttles runner IPs the same way: on
+ * PR #4150 (run 45647110409, issue #4149) a public gist answered 503 to lychee
+ * and to every re-check for a minute, while the gists API answered 200.
+ * @param {string} url
+ * @returns {string|null}
+ */
+export function githubApiUrl(url) {
+  const contents = githubContentsApiUrl(url);
+  if (contents) return contents;
+  const gist = /^https:\/\/gist\.github\.com\/(?:[^/#?]+\/)?([0-9a-f]{20,40})(?:[/#?]|$)/i.exec(url);
+  if (gist) return `https://api.github.com/gists/${gist[1]}`;
+  const issue = /^https:\/\/github\.com\/([^/]+)\/([^/]+)\/(?:issues|pull)\/(\d+)(?:[/#?]|$)/.exec(url);
+  if (issue) return `https://api.github.com/repos/${issue[1]}/${issue[2]}/issues/${issue[3]}`;
+  const commit = /^https:\/\/github\.com\/([^/]+)\/([^/]+)\/commit\/([0-9a-f]{7,40})(?:[/#?]|$)/i.exec(url);
+  if (commit) return `https://api.github.com/repos/${commit[1]}/${commit[2]}/commits/${commit[3]}`;
+  return null;
+}
+
+/**
+ * Ask the GitHub REST API whether a GitHub page's target exists.
  * @param {string} url
  * @param {typeof fetch} fetchImpl
  * @returns {Promise<boolean>}
  */
 export async function existsViaGithubApi(url, fetchImpl = fetch) {
-  const apiUrl = githubContentsApiUrl(url);
+  const apiUrl = githubApiUrl(url);
   if (!apiUrl) return false;
   const headers = { Accept: 'application/vnd.github+json', 'User-Agent': 'broken-link-recheck/1.0' };
   if (process.env.GITHUB_TOKEN) headers.Authorization = `Bearer ${process.env.GITHUB_TOKEN}`;

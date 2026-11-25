@@ -31,7 +31,7 @@ export const BOT_STATE_LOCK_NAME = 'hive-mind-state';
 export const INTAKE_STATES = Object.freeze(['accepting', 'draining']);
 
 // Fields decoded back to numbers or booleans; everything else stays a string.
-const NUMBER_FIELDS = new Set(['version', 'pid', 'chatId', 'messageId', 'messageThreadId', 'replyToMessageId', 'requesterUserId', 'sourceChatId', 'userId', 'position']);
+const NUMBER_FIELDS = new Set(['version', 'pid', 'number', 'launching', 'chatId', 'messageId', 'messageThreadId', 'replyToMessageId', 'requesterUserId', 'sourceChatId', 'userId', 'position']);
 const BOOLEAN_FIELDS = new Set(['showLimits']);
 
 const isPlainObject = value => value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -192,6 +192,18 @@ export function createBotStateStore({ dir = resolveBotStateDir(), env = process.
       return links;
     },
     read,
+    /**
+     * Cheap lock-free look at the `.lino` copy only (no link-cli process), used
+     * by the publisher to notice operator requests such as a drain between
+     * heartbeats. `null` when there is no state or it cannot be parsed.
+     */
+    async peek() {
+      const tree = await readLino().catch(error => {
+        trace(`.lino peek failed: ${error.message}`);
+        return null;
+      });
+      return tree ? normalizeBotState(stringTreeToState(tree)) : null;
+    },
     /**
      * Read-modify-write under the lock. `mutate(state)` returns the new state
      * (or mutates in place and returns undefined). Returning `false` skips the

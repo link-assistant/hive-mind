@@ -62,7 +62,8 @@ export const currentLockOwner = (now = () => Date.now()) => {
   return { pid: process.pid, hostname: os.hostname(), pidNamespace, acquiredAt: new Date(now()).toISOString() };
 };
 
-const processIsAlive = pid => {
+/** `kill(pid, 0)`: EPERM means the PID exists under another user. */
+export const processIsAlive = pid => {
   try {
     process.kill(pid, 0);
     return true;
@@ -176,4 +177,4 @@ export const withStateLock = async (name, fn, { env = process.env, fsImpl = fs, 
   }
 };
 
-export default { DEFAULT_STATE_LOCK_POLL_MS, DEFAULT_STATE_LOCK_STALE_MS, DEFAULT_STATE_LOCK_TIMEOUT_MS, STATE_LOCK_MODES, currentLockOwner, isLockOwnerDead, resolveStateLockMode, resolveStateLockPath, withStateLock };
+export default { DEFAULT_STATE_LOCK_POLL_MS, DEFAULT_STATE_LOCK_STALE_MS, DEFAULT_STATE_LOCK_TIMEOUT_MS, STATE_LOCK_MODES, currentLockOwner, isLockOwnerDead, processIsAlive, resolveStateLockMode, resolveStateLockPath, withStateLock };

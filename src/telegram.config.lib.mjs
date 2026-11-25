@@ -122,6 +122,15 @@ export const createYargsConfig = yargsInstance =>
     .option('containerCpuPenaltyTriggerWindow', { type: 'string', description: 'How long the trigger average must hold before the cap is applied (default: 15m)', alias: 'container-cpu-penalty-trigger-window', default: getenv('TELEGRAM_CONTAINER_CPU_PENALTY_TRIGGER_WINDOW', '') })
     .option('containerCpuPenaltyRelease', { type: 'string', description: 'Average share of the penalty cap the task must stay below to have the cap lifted (default: 65%)', alias: 'container-cpu-penalty-release', default: getenv('TELEGRAM_CONTAINER_CPU_PENALTY_RELEASE', '') })
     .option('containerCpuPenaltyReleaseWindow', { type: 'string', description: 'How long the release average must hold before the cap is lifted (default: 15m)', alias: 'container-cpu-penalty-release-window', default: getenv('TELEGRAM_CONTAINER_CPU_PENALTY_RELEASE_WINDOW', '') })
+    // Issue #4143: read-only instance status and drain for safe redeploys (no bot token needed).
+    .option('status', { type: 'boolean', description: 'Print the state of the bot instance using this state directory (running, queued and waiting tasks, intake) and exit', default: false })
+    .option('json', { type: 'boolean', description: 'With --status, --drain, --resume-intake or --wait-for-idle: print JSON', default: false })
+    .option('drain', { type: 'boolean', description: 'Ask the running instance to stop taking new tasks; running tasks finish and queued ones are kept for the next instance', default: false })
+    .option('drainReason', { type: 'string', description: 'Reason shown to users while draining (with --drain)', alias: 'drain-reason', default: '' })
+    .option('resumeIntake', { type: 'boolean', description: 'Cancel a drain: the running instance accepts new tasks again', alias: 'resume-intake', default: false })
+    .option('waitForIdle', { type: 'boolean', description: 'Wait until the instance has acknowledged a drain and has no running or starting tasks (exit 0), or until --wait-timeout (exit 1)', alias: 'wait-for-idle', default: false })
+    .option('waitTimeout', { type: 'number', description: 'Seconds --wait-for-idle waits before failing (0 waits forever)', alias: 'wait-timeout', default: 0 })
+    .option('stateDir', { type: 'string', description: 'Bot state directory holding hive-mind-state.lino and the link-cli store (default: $HIVE_MIND_STATE_DIR or ~/.hive-mind/state)', alias: 'state-dir', default: getenv('HIVE_MIND_STATE_DIR', '') })
     .help('h')
     .alias('h', 'help')
     .parserConfiguration({

@@ -96,6 +96,31 @@ export const GIT_TRANSIENT_PATTERNS = Object.freeze(['unexpected disconnect', 's
 export const ANONYMOUS_DOWNLOAD_LIMIT_PATTERNS = Object.freeze(['temporarily limiting some unauthenticated downloads', 'limiting some unauthenticated downloads', 'please retry later or authenticate', 'retry later or authenticate']);
 
 /**
+ * `gh` received an HTTP error from GitHub whose JSON body was empty or cut
+ * short (issue #4149). gh only parses the body of a failed response
+ * (`pkg/cmd/api/api.go` `parseErrorResponse`), so the status code is lost and
+ * all the caller sees is Go's `unexpected end of JSON input`. Observed on
+ * `GET /repos/{owner}/{repo}/actions/runs` twice within six seconds, each time
+ * failing a whole `report-checks` job on main.
+ *
+ * Deliberately NOT part of {@link ALL_TRANSIENT_PATTERNS}: the request may
+ * have been applied before the reply was lost (issue #2571 — a re-posted
+ * comment became a duplicate), so only a caller that knows the operation is
+ * read-only may treat it as transient. See `describeTransientError`'s
+ * `truncatedReplyIsTransient` option and `classifyGitHubCommand(...).readOnly`.
+ */
+export const GITHUB_TRUNCATED_REPLY_PATTERNS = Object.freeze(['unexpected end of json input']);
+
+/**
+ * True when `gh` failed because GitHub's (error) reply body was empty or
+ * truncated. Transient only for read-only operations (issue #4149).
+ *
+ * @param {unknown} error
+ * @returns {boolean}
+ */
+export const isTruncatedGitHubReply = error => matchPattern(error, GITHUB_TRUNCATED_REPLY_PATTERNS) !== null;
+
+/**
  * Union used by the general-purpose `isTransientNetworkError` helpers. Kept as
  * a single flat list so a caller cannot accidentally miss a category.
  */
@@ -203,9 +228,13 @@ export const parseGitHubRequestId = error => {
  * Full classification of a failure, for retry decisions *and* for diagnostics.
  *
  * @param {unknown} error
- * @returns {{transient: boolean, category: 'network'|'github-server'|'git-transport'|'github-anonymous-rate-limit'|null, matchedPattern: string|null, requestId: string|null, text: string}}
+ * @param {object} [options]
+ * @param {boolean} [options.truncatedReplyIsTransient] - also treat GitHub's
+ *   empty/truncated error reply as transient (category `github-truncated-reply`).
+ *   Only safe for read-only operations; see GITHUB_TRUNCATED_REPLY_PATTERNS.
+ * @returns {{transient: boolean, category: 'network'|'github-server'|'git-transport'|'github-anonymous-rate-limit'|'github-truncated-reply'|null, matchedPattern: string|null, requestId: string|null, text: string}}
  */
-export const describeTransientError = error => {
+export const describeTransientError = (error, { truncatedReplyIsTransient = false } = {}) => {
   const text = collectErrorText(error);
   const lowered = text.toLowerCase();
   const find = patterns => patterns.find(pattern => lowered.includes(pattern)) || null;
@@ -231,6 +260,12 @@ export const describeTransientError = error => {
   } else if (gitPattern) {
     category = 'git-transport';
     matchedPattern = gitPattern;
+  } else if (truncatedReplyIsTransient) {
+    const truncatedPattern = find(GITHUB_TRUNCATED_REPLY_PATTERNS);
+    if (truncatedPattern) {
+      category = 'github-truncated-reply';
+      matchedPattern = truncatedPattern;
+    }
   }
 
   return {
@@ -263,8 +298,10 @@ export default {
   NETWORK_TRANSIENT_PATTERNS,
   GITHUB_SERVER_TRANSIENT_PATTERNS,
   GIT_TRANSIENT_PATTERNS,
+  GITHUB_TRUNCATED_REPLY_PATTERNS,
   ALL_TRANSIENT_PATTERNS,
   collectErrorText,
+  isTruncatedGitHubReply,
   isAnonymousDownloadLimit,
   isTransientNetworkError,
   isGitHubServerError,

@@ -14,7 +14,7 @@ import { exec as execCallback } from 'node:child_process';
 
 import { githubLimits } from './config.lib.mjs';
 import { parseGitHubUrl } from './github.lib.mjs';
-import { ghWithRateLimitRetry } from './github-rate-limit.lib.mjs';
+import { ghWithRateLimitRetry, isReadOnlyGhCommand } from './github-rate-limit.lib.mjs';
 import { getLinkedPRsFromTimeline } from './github-merge-ready-sync.lib.mjs';
 
 const execRaw = promisify(execCallback);
@@ -22,6 +22,7 @@ const execRaw = promisify(execCallback);
 const exec = (cmd, opts = {}) =>
   ghWithRateLimitRetry(() => execRaw(cmd, { maxBuffer: githubLimits.bufferMaxSize, timeout: githubLimits.execTimeoutMs, ...opts }), {
     label: `gh exec (${cmd.split(/\s+/).slice(0, 3).join(' ')})`,
+    retryTruncatedReply: isReadOnlyGhCommand(cmd),
   });
 
 const SUPPORTED_REPOSITORY_TYPES = new Set(['repo', 'issues_list', 'pulls_list']);

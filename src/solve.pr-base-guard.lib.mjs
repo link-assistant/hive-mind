@@ -191,6 +191,7 @@ export async function getPullRequestBaseBranch({ owner, repo, prNumber, $, log }
   const result = await ghWithRateLimitRetry(() => $`gh pr view ${prNumber} --repo ${owner}/${repo} --json baseRefName --jq .baseRefName`, {
     label: 'gh pr view baseRefName',
     log,
+    retryTruncatedReply: true,
   });
   if (result.code !== 0) {
     const details = commandOutput(result) || 'unknown error';
@@ -213,6 +214,7 @@ async function getPullRequestBranchRange({ owner, repo, prNumber, $, log }) {
   const result = await ghWithRateLimitRetry(() => $`gh pr view ${prNumber} --repo ${owner}/${repo} --json baseRefName,headRefName`, {
     label: 'gh pr view baseRefName,headRefName',
     log,
+    retryTruncatedReply: true,
   });
   if (result.code !== 0) {
     const details = commandOutput(result) || 'unknown error';

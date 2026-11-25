@@ -342,6 +342,9 @@ const isTransientCompareApiError = error => {
  * @param {number} [options.transientBackoff] - backoff multiplier for transient retries (default 2).
  * @param {string} [options.label] - prefix for log messages.
  * @param {(msg: string) => Promise<void>|void} [options.log] - logger. Defaults to console.warn.
+ * @param {boolean} [options.retryTruncatedReply] - `fn` only reads, so GitHub's
+ *   empty/truncated error reply ("unexpected end of JSON input") is retried too
+ *   (issue #4149). Never set it for a write: see issue #2571.
  * @returns {Promise<T>}
  */
 export const ghWithRateLimitRetry = async (fn, options = {}) => {
@@ -363,6 +366,7 @@ export const ghWithRateLimitRetry = async (fn, options = {}) => {
   // shouldn't burn the transient-error retries, and vice versa.
   return retryGitHubOperation(fn, {
     label,
+    retryTruncatedReply: options.retryTruncatedReply === true,
     maxAttempts: transientMaxAttempts,
     delayMs: transientDelay,
     backoff: transientBackoff,
@@ -391,6 +395,16 @@ export const ghWithRateLimitRetry = async (fn, options = {}) => {
 };
 
 /**
+ * True when the `gh` command line only reads from GitHub, so a reply GitHub
+ * lost ("unexpected end of JSON input") may be asked for again (issue #4149).
+ * Pass the result as `ghWithRateLimitRetry`'s `retryTruncatedReply`.
+ *
+ * @param {string} command
+ * @returns {boolean}
+ */
+export const isReadOnlyGhCommand = command => classifyGitHubCommand(command)?.readOnly === true;
+
+/**
  * Convenience wrapper around child_process.exec that retries on rate-limit
  * errors. Use it for callers that build a `gh` command string and want the
  * existing exec-based ergonomics.
@@ -403,6 +417,7 @@ export const execGhWithRetry = async (command, options = {}) => {
   const { execOptions, ...retryOptions } = options;
   return ghWithRateLimitRetry(() => exec(command, execOptions), {
     label: retryOptions.label || `gh exec (${command.split(/\s+/).slice(0, 3).join(' ')})`,
+    retryTruncatedReply: isReadOnlyGhCommand(command),
     ...retryOptions,
   });
 };
@@ -465,6 +480,7 @@ export const wrapDollarWithGhRetry = (dollar, options = {}) => {
     }
     return ghWithRateLimitRetry(() => dollar(strings, ...values), {
       label: `$gh (${preview.trim().split(/\s+/).slice(0, 3).join(' ')})`,
+      retryTruncatedReply: operation.readOnly,
       ...options,
     });
   };
@@ -514,6 +530,7 @@ export default {
   logGitHubRateLimitUsage,
   computeRateLimitWait,
   ghWithRateLimitRetry,
+  isReadOnlyGhCommand,
   execGhWithRetry,
   wrapDollarWithGhRetry,
   wrapRunnerWithGitHubRetry,

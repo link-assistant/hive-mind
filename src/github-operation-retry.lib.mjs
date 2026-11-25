@@ -97,14 +97,75 @@ const isLocalGhCommand = tokens => {
 };
 
 /**
+ * `gh <noun> <verb>` verbs that only read from GitHub, so re-running them after
+ * a lost reply cannot apply anything twice (issue #4149).
+ */
+const READ_ONLY_GH_VERBS = Object.freeze(['view', 'list', 'status', 'checks', 'diff']);
+
+/** `gh api` flags that add request fields; without `--method` they make gh send a POST. */
+const GH_API_FIELD_FLAG = /^(?:-[fF]|--field|--raw-field|--input)(?:=|$)|^-[fF]./;
+
+/**
+ * The HTTP method `gh api` will use for these argv tokens (after `api`).
+ * Mirrors gh's own rule: an explicit `-X`/`--method` wins, otherwise any field
+ * or `--input` makes it a POST, otherwise it is a GET.
+ *
+ * @param {string[]} tokens - argv after `gh api`.
+ * @returns {string} upper-case method.
+ */
+export const ghApiMethod = tokens => {
+  let method = null;
+  let hasFields = false;
+  for (let i = 0; i < tokens.length; i++) {
+    const token = tokens[i];
+    const inline = token.match(/^(?:--method=|-X)(.+)$/);
+    if (inline) method = inline[1];
+    else if (token === '-X' || token === '--method') method = tokens[++i] ?? method;
+    else if (GH_API_FIELD_FLAG.test(token)) hasFields = true;
+  }
+  if (method)
+    return String(method)
+      .replace(/^['"]|['"]$/g, '')
+      .toUpperCase();
+  return hasFields ? 'POST' : 'GET';
+};
+
+/**
+ * True when a `gh` invocation (argv after `gh`) can only read: `gh api` with
+ * GET/HEAD, a GraphQL query that is not a mutation, `gh search ...`, or a
+ * `gh <noun> view|list|status|checks|diff`. Unknown shapes are treated as
+ * writes, so the answer errs toward not repeating a request.
+ *
+ * @param {string[]} rest
+ * @returns {boolean}
+ */
+const isReadOnlyGhCommand = rest => {
+  const [first, second] = rest;
+  if (first === 'api') {
+    const tokens = rest.slice(1);
+    if (tokens.includes('graphql')) {
+      // A GraphQL query is POSTed but reads; a mutation, or a body we cannot
+      // see (`--input`), may write.
+      return !tokens.some(token => /\bmutation\b/i.test(token) || /^--input(?:=|$)/.test(token));
+    }
+    return ['GET', 'HEAD'].includes(ghApiMethod(tokens));
+  }
+  if (first === 'search') return true;
+  return READ_ONLY_GH_VERBS.includes(second);
+};
+
+/**
  * Decide whether a command is a GitHub operation that must be retried.
  *
  * Accepts either a whole command line (`'gh api user'`, `'git -C dir push'`) or
  * the `spawn`/`execFile` form (`'gh', ['api', 'user']`).
  *
+ * `readOnly` (issue #4149) says whether the operation cannot change anything
+ * on GitHub, so a reply lost after GitHub served it is safe to ask for again.
+ *
  * @param {string} command - a command line, or the executable when `args` is given.
  * @param {string[]} [args] - argv after the executable.
- * @returns {{ tool: 'gh'|'git', subcommand: string, label: string }|null}
+ * @returns {{ tool: 'gh'|'git', subcommand: string, label: string, readOnly: boolean }|null}
  */
 export const classifyGitHubCommand = (command, args) => {
   const tokens = Array.isArray(args)
@@ -116,11 +177,11 @@ export const classifyGitHubCommand = (command, args) => {
   if (tool === 'gh') {
     if (isLocalGhCommand(rest)) return null;
     const subcommand = rest.slice(0, 2).join(' ');
-    return { tool: 'gh', subcommand, label: `gh ${subcommand}` };
+    return { tool: 'gh', subcommand, label: `gh ${subcommand}`, readOnly: isReadOnlyGhCommand(rest) };
   }
   if (tool === 'git') {
     const subcommand = matchGitNetworkCommand(tokens.join(' '));
-    return subcommand ? { tool: 'git', subcommand, label: `git ${subcommand}` } : null;
+    return subcommand ? { tool: 'git', subcommand, label: `git ${subcommand}`, readOnly: subcommand === 'fetch' || subcommand === 'ls-remote' } : null;
   }
   return null;
 };
@@ -166,6 +227,9 @@ const defaultLog = (message, { level } = {}) => {
  *   - hook run before a transient retry (git uses it to repair auth, issue #2192).
  * @param {(info: {outcome: unknown, error: unknown, threw: boolean, failed: boolean, attempt: number}) => Promise<void>} [options.afterAttempt]
  *   - hook run after every attempt (usage logging, stderr mirroring).
+ * @param {boolean} [options.retryTruncatedReply] - also retry `unexpected end of JSON input`
+ *   (GitHub's error reply lost its body). Pass it only for read-only operations,
+ *   e.g. `classifyGitHubCommand(...).readOnly` (issue #4149).
  * @returns {Promise<T>}
  */
 export const retryGitHubOperation = async (fn, options = {}) => {
@@ -261,7 +325,7 @@ export const execSyncWithRetry = (command, execOptions = {}, retryOptions = {}) 
   const operation = classifyGitHubCommand(command);
   if (!operation) return run();
   // hive-sync-ok: execSyncWithRetry is for release scripts, never the bot
-  return retryGitHubOperationSync(run, { label: operation.label, noun: operation.tool === 'git' ? 'git' : 'network', ...retryOptions });
+  return retryGitHubOperationSync(run, { label: operation.label, noun: operation.tool === 'git' ? 'git' : 'network', retryTruncatedReply: operation.readOnly, ...retryOptions });
 };
 
 /**
@@ -271,7 +335,7 @@ export const execSyncWithRetry = (command, execOptions = {}, retryOptions = {}) 
  * cannot drift apart.
  */
 const createRetryPolicy = options => {
-  const { label = 'GitHub operation', noun = 'network', maxAttempts = DEFAULT_GITHUB_RETRY.maxAttempts, delayMs = DEFAULT_GITHUB_RETRY.delayMs, backoff = DEFAULT_GITHUB_RETRY.backoff, isFailedResult = isFailedCommandResult, sharedBudget = false } = options;
+  const { label = 'GitHub operation', noun = 'network', maxAttempts = DEFAULT_GITHUB_RETRY.maxAttempts, delayMs = DEFAULT_GITHUB_RETRY.delayMs, backoff = DEFAULT_GITHUB_RETRY.backoff, isFailedResult = isFailedCommandResult, sharedBudget = false, retryTruncatedReply = false } = options;
   const faultName = noun ? `transient ${noun} error` : 'transient error';
   let attempt = 0;
   let transientAttempts = 0;
@@ -294,7 +358,7 @@ const createRetryPolicy = options => {
 
     // Classify once and log the verdict on every path, including "not
     // retrying", so the next unknown failure is diagnosable from the log.
-    const description = describeTransientError(failure);
+    const description = describeTransientError(failure, { truncatedReplyIsTransient: retryTruncatedReply });
     const diagnostics = formatTransientDiagnostics(description);
     const position = sharedBudget ? attempt : transientAttempts + 1;
     if (description.transient) transientAttempts++;
@@ -344,11 +408,11 @@ export const wrapRunnerWithTransientRetry = (run, options = {}) => {
     const operation = classifyGitHubCommand(command, args);
     if (!operation) return run(command, args, runOptions);
     const retry = operation.tool === 'gh' ? retryGh : retryGit;
-    return retry(() => run(command, args, runOptions), { label: operation.label, noun: operation.tool === 'git' ? 'git' : 'network', ...retryOptions });
+    return retry(() => run(command, args, runOptions), { label: operation.label, noun: operation.tool === 'git' ? 'git' : 'network', retryTruncatedReply: operation.readOnly, ...retryOptions });
   };
   wrapped.raw = run;
   wrapped[GITHUB_RETRY_WRAPPED] = true;
   return wrapped;
 };
 
-export default { DEFAULT_GITHUB_RETRY, GITHUB_RETRY_WRAPPED, classifyGitHubCommand, isGitHubRetryWrapped, isFailedCommandResult, execSyncWithRetry, retryGitHubOperation, retryGitHubOperationSync, wrapRunnerWithTransientRetry };
+export default { DEFAULT_GITHUB_RETRY, GITHUB_RETRY_WRAPPED, classifyGitHubCommand, ghApiMethod, isGitHubRetryWrapped, isFailedCommandResult, execSyncWithRetry, retryGitHubOperation, retryGitHubOperationSync, wrapRunnerWithTransientRetry };

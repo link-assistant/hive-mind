@@ -25,7 +25,7 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
 
-import { retryGitHubOperation } from '../src/github-operation-retry.lib.mjs';
+import { classifyGitHubCommand, retryGitHubOperation } from '../src/github-operation-retry.lib.mjs';
 import { sanitizeForPublication } from '../src/token-sanitization.lib.mjs';
 import { planReleaseRepair } from './format-release-notes.lib.mjs';
 
@@ -65,7 +65,7 @@ const gh = (args, input) =>
       const { stdout } = await child;
       return stdout;
     },
-    { label: `gh ${args.slice(0, 2).join(' ')}` }
+    { label: `gh ${args.slice(0, 2).join(' ')}`, retryTruncatedReply: input === undefined && classifyGitHubCommand('gh', args)?.readOnly === true }
   );
 
 async function loadReleases(options) {

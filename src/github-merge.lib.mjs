@@ -19,7 +19,7 @@ const execRaw = promisify(execCallback);
 import { parseGitHubUrl } from './github.lib.mjs';
 import { selectSessionPullRequest } from './session-own-pr.lib.mjs';
 import { githubLimits } from './config.lib.mjs';
-import { ghWithRateLimitRetry } from './github-rate-limit.lib.mjs';
+import { ghWithRateLimitRetry, isReadOnlyGhCommand } from './github-rate-limit.lib.mjs';
 import { getTerminalGitHubEntityErrorMessage, isTerminalGitHubEntityError } from './github-terminal-state.lib.mjs';
 import { cancellableSleep } from './interruptible-sleep.lib.mjs';
 import { dropOutOfBandChecks } from './github-ci-stuck-runs.lib.mjs';
@@ -47,6 +47,7 @@ import { closeIssuesAfterMerge, formatIssueClosingReport, issueClosingOptions, u
 const exec = (cmd, opts = {}) =>
   ghWithRateLimitRetry(() => execRaw(cmd, { maxBuffer: githubLimits.bufferMaxSize, timeout: githubLimits.execTimeoutMs, ...opts }), {
     label: `gh exec (${cmd.split(/\s+/).slice(0, 3).join(' ')})`,
+    retryTruncatedReply: isReadOnlyGhCommand(cmd),
   });
 
 // Issue #1413: Import ready tag sync, timeline, and label constant from separate module

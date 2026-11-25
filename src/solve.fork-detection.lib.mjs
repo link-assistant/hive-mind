@@ -40,7 +40,7 @@ const githubLib = await import('./github.lib.mjs');
  * conservative.
  */
 async function detectAllowForking(owner, repo) {
-  const result = await ghCmdRetry(() => $`gh api repos/${owner}/${repo} --jq .allow_forking`, { label: `allow_forking ${owner}/${repo}` });
+  const result = await ghCmdRetry(() => $`gh api repos/${owner}/${repo} --jq .allow_forking`, { retryTruncatedReply: true, label: `allow_forking ${owner}/${repo}` });
   if (result.code !== 0) return null;
   const raw = result.stdout.toString().trim();
   if (raw === 'true') return true;
@@ -75,7 +75,7 @@ export async function handleAutoForkOption({ owner, repo, argv, safeExit }) {
 
   const { detectRepositoryVisibility } = githubLib;
   await log('🔍 Checking repository access for auto-fork...');
-  const permResult = await ghCmdRetry(() => $`gh api repos/${owner}/${repo} --jq .permissions`, { label: 'auto-fork perms' });
+  const permResult = await ghCmdRetry(() => $`gh api repos/${owner}/${repo} --jq .permissions`, { retryTruncatedReply: true, label: 'auto-fork perms' });
 
   if (permResult.code === 0) {
     const permissions = JSON.parse(permResult.stdout.toString().trim());

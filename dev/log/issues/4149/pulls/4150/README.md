@@ -17,6 +17,7 @@ Analysis: [`docs/case-studies/issue-4149/README.md`](../../../../../../docs/case
 | 45618594320 | Formal AI Draft         | failure | `ci-logs/run-45618594320.log.gz` line 2892: `unexpected end of JSON input` in `report-checks` at 14:39:28 (F1)                             |
 | 45629684702 | Formal AI Draft (#4149) | failure | `ci-logs/run-45629684702.log.gz` line 3003: the same at 14:39:22 (F1); `ci-logs/job-45629684702-draft.log.gz`                              |
 | 45638103197 | Checks and release (#4143 branch) | failure | `ci-logs/run-45638103197.log.gz`: `Dependency freshness failed: 15 stale`, all pins updated here (F4) |
+| 45650846747 | Security                | failure, then success on re-run | `ci-logs/security-45650846747.log.gz`: both CodeQL `Analyze` steps fail after `Uploading results` with no error; the gate reports clean results |
 | 45647110409 | Broken Link Checker     | failure | `ci-logs/links-45647110409.log.gz`: `[503]` for a public gist, `still failing (503)` after the re-check (F5)                               |
 | 45624825910 | Cleanup Test Repositories | success | `annotations.tsv`: `1384 fixture branch(es) retained` (B1); `ruleset-21204104.json`: `deletion` on `~ALL`, no bypass actors          |
 | 4563544…    | Dependabot Updates (8)  | success | `main-runs.json`, `check-runs-45c85a4b3.tsv`                                                                                              |

@@ -187,6 +187,23 @@ repository rule that prohibits deletion`. Ruleset 21204104
   draft that produced nothing; see [`docs/FORMAL-AI-DRAFTS.md`](../../FORMAL-AI-DRAFTS.md).
 - E2E Hello World Matrix is `skipped` unless `vars.ENABLE_REAL_GITHUB_E2E` is set.
 
+### Observed, not reproducible: a silent CodeQL upload failure
+
+- **Evidence.** Security 45650846747 on c835ef450
+  (`ci-logs/security-45650846747.log.gz`): in both CodeQL jobs the `Analyze` step
+  prints `Uploading results`, then ends as `failure` 23–27 s later with no
+  `##[error]`, no "Error details" group and no annotation. The strict result gate
+  that runs next reports `1 clean report(s)`, and no code-scanning analysis exists
+  for that commit. GitHub answered other requests with 500/502 and a GraphQL
+  `Something went wrong` in the same half hour.
+- **Status.** A re-run of the failed jobs with step debug logging
+  (`gh run rerun --failed --debug`) passed, so the debug log holds no failure to
+  read. codeql-action normally reports an upload error through `setFailed`, so a
+  step that fails without one points to the runner or GitHub losing the output,
+  not to this repository. Nothing changed here: the job has no retry wrapper we
+  control, and making the upload non-blocking would hide real code-scanning
+  failures. If it happens again, re-run with `--debug` while it still fails.
+
 ## Template comparison
 
 Checked at js 8e72538, python 7a05d05, rust 1d29f55, cpp c1c60fb. F2, F4 and F5 do not

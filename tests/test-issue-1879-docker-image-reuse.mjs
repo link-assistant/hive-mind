@@ -27,6 +27,7 @@
  */
 
 import { buildDockerIsolationStartArgs, getDockerIsolationImage, resolveDockerIsolationImageTag } from '../src/isolation-runner.lib.mjs';
+import { isDockerImageTag } from '../src/hive-mind-image.lib.mjs';
 
 let passed = 0;
 let failed = 0;
@@ -65,6 +66,15 @@ assertEqual(getDockerIsolationImage({ env: { HIVE_MIND_IMAGE_VARIANT: 'dind' } }
 assertEqual(getDockerIsolationImage({ env: { HIVE_MIND_IMAGE_VARIANT: 'dind', HIVE_MIND_DOCKER_ISOLATION_IMAGE_TAG: '1.74.11' } }), 'konard/hive-mind-dind:1.74.11', 'dind image pins to requested tag');
 assertEqual(getDockerIsolationImage({ env: { HIVE_MIND_IMAGE_VARIANT: 'regular', HIVE_MIND_DOCKER_ISOLATION_IMAGE_TAG: '1.74.11' } }), 'konard/hive-mind:1.74.11', 'regular image pins to requested tag');
 assertEqual(getDockerIsolationImage({ env: { HIVE_MIND_DOCKER_ISOLATION_IMAGE: 'local/x:dev', HIVE_MIND_DOCKER_ISOLATION_IMAGE_TAG: '1.74.11' } }), 'local/x:dev', 'full image override ignores tag pin');
+
+// Issue #4144: hive-manager before the fix passed the full deployment reference
+// in the tag variable. Prefixing it with a repository yields an invalid image.
+const legacyManagerEnv = { HIVE_MIND_IMAGE_VARIANT: 'dind', HIVE_MIND_DOCKER_ISOLATION_IMAGE_TAG: 'konard/hive-mind-dind:2.49.0' };
+assertEqual(getDockerIsolationImage({ env: legacyManagerEnv }), 'konard/hive-mind-dind:2.49.0', 'a full reference in the tag variable is used as the reference (#4144)');
+assertEqual(getDockerIsolationImage({ env: { HIVE_MIND_DOCKER_ISOLATION_IMAGE_TAG: `team/hive@sha256:${'a'.repeat(64)}` } }), `team/hive@sha256:${'a'.repeat(64)}`, 'a digest reference in the tag variable is used as the reference (#4144)');
+assertEqual(getDockerIsolationImage({ env: { HIVE_MIND_IMAGE_VARIANT: 'dind', HIVE_MIND_DOCKER_ISOLATION_IMAGE: '  team/hive-dind:2.49.0  ', HIVE_MIND_DOCKER_ISOLATION_IMAGE_TAG: '2.49.0' } }), 'team/hive-dind:2.49.0', 'the full override hive-manager passes is trimmed (#4144)');
+assertEqual(isDockerImageTag('2.49.0'), true, 'a release version is a tag');
+assertEqual(isDockerImageTag('konard/hive-mind-dind:2.49.0'), false, 'a repository reference is not a tag');
 
 console.log('\n--- Native invocation reuses a locally present image (no --pull) ---');
 

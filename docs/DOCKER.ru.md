@@ -219,6 +219,13 @@ TAG="$(docker image inspect konard/hive-mind-dind:latest \
 docker pull "konard/hive-mind-dind:${TAG:-latest}"
 ```
 
+`hive-manager deploy` делает это автоматически для `--variant dind` с
+`--docker-socket`: он пинит задачи на release-tag, если этот tag указывает на тот же
+образ, что и деплой, скачивает его во время `prepare`/`apply` и передаёт полную
+ссылку и как `HIVE_MIND_DOCKER_ISOLATION_IMAGE`, и как allowlist
+`DIND_HOST_PASSTHROUGH_IMAGES`. См. [hive-manager](deployment/hive-manager.md) и
+[issue #4144](https://github.com/link-assistant/hive-mind/issues/4144).
+
 **Предстартовая проверка (preflight).** Когда включён `--isolation docker`, бот при
 запуске опрашивает внутренний daemon и логирует результат, чтобы ошибка конфигурации
 проявилась сразу, а не как неожиданная загрузка посреди задачи:
@@ -298,9 +305,10 @@ Hive Mind оставляет стартовый шлюз закрытым, по 
 когда вы не можете изменить деплой), скопируйте образ с хоста во внутренний daemon:
 
 ```bash
+IMAGE="$(docker exec hive-mind printenv HIVE_MIND_DOCKER_ISOLATION_IMAGE || true)"
 TAG="$(docker exec hive-mind printenv HIVE_MIND_DOCKER_ISOLATION_IMAGE_TAG || true)"
 node scripts/preload-dind-isolation-image.mjs \
-  --container hive-mind --image "konard/hive-mind-dind:${TAG:-latest}"
+  --container hive-mind --image "${IMAGE:-konard/hive-mind-dind:${TAG:-latest}}"
 ```
 
 Скрипт передаёт `docker save … | docker exec -i <container> docker load` потоком, так что

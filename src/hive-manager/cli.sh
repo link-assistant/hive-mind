@@ -101,6 +101,8 @@ Options (before ACTION):
   --state-dir PATH      Persistent state (default: ~/.hive-mind on the target)
   --variant plain|dind  Image variant (default: plain)
   --image IMAGE         Override the image tag or digest
+  --task-image IMAGE    Image of Docker isolation tasks (default: the deployment
+                        image, pinned to its release tag when that is the same image)
   --env-file PATH       Private Docker environment file on the target
   --bot-config PATH     Private Telegram LINO configuration on the target
   --tool-policy PATH    Global tool policy JSON on the Docker host
@@ -582,11 +584,109 @@ deployment_args() {
     group=$(stat -c '%g' -- "$socket" 2>/dev/null || stat -f '%g' "$socket")
     docker_args+=(--group-add "$group")
     if [[ $variant == dind ]]; then
-      docker_args+=(--mount "type=bind,source=$socket,target=/var/run/host-docker.sock,readonly"
-        --env DIND_HOST_PASSTHROUGH_IMAGES="$image" --env HIVE_MIND_DOCKER_ISOLATION_IMAGE_TAG="$image")
+      docker_args+=(--mount "type=bind,source=$socket,target=/var/run/host-docker.sock,readonly")
     else
       docker_args+=(--mount "type=bind,source=$socket,target=/var/run/docker.sock")
     fi
+  fi
+}
+
+# Print the last non-empty value that the environment file assigns to $1, the
+# way Docker reads it: literal VAR=value lines, or a bare VAR passed from the
+# environment of this command. Return 1 when the file leaves it unset.
+env_file_value() {
+  local key=$1 line value='' found=1
+  [[ $env_file && -r $env_file ]] || return 1
+  while IFS= read -r line || [[ $line ]]; do
+    line=${line%$'\r'}
+    line=${line#"${line%%[![:space:]]*}"}
+    if [[ $line == "$key="* ]]; then
+      value=${line#*=}
+    elif [[ $line == "$key" ]]; then
+      value=${!key-}
+    else
+      continue
+    fi
+    if [[ $value ]]; then found=0; else found=1; fi
+  done < "$env_file"
+  (( found == 0 )) || return 1
+  printf '%s' "$value"
+}
+
+# Repository part of an image reference: without the digest and the tag. A colon
+# only separates a tag in the last path segment (registry:5000/name is a port).
+image_repository() {
+  local reference=${1%%@*}
+  if [[ ${reference##*/} == *:* ]]; then reference=${reference%:*}; fi
+  printf '%s' "$reference"
+}
+
+# Issue #4144: Hive Mind reads HIVE_MIND_DOCKER_ISOLATION_IMAGE_TAG as a tag and
+# combines it with its own repository, so the manager passes the full reference
+# in HIVE_MIND_DOCKER_ISOLATION_IMAGE instead. By default tasks use the image of
+# the instance itself, so the host, the instance and the nested daemon share one
+# copy. A mutable reference such as :latest or a digest is replaced by the
+# immutable release tag baked into the image, but only when that tag names the
+# same image ID. The nested daemon keeps its images in a persistent volume, and
+# box passthrough skips a reference that is already present there, so a reused
+# :latest would keep starting tasks from an older release after an update.
+pin_task_image() {
+  local may_pull=$1 id baked repository candidate candidate_id=''
+  task_image=$image
+  id=$(docker image inspect --format '{{.Id}}' "$image" 2>/dev/null) || return 0
+  baked=$(docker image inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$id" 2>/dev/null |
+    sed -n 's/^HIVE_MIND_DOCKER_ISOLATION_IMAGE_TAG=//p' | tail -n 1) || return 0
+  [[ $baked =~ ^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$ && $baked != latest ]] || return 0
+  repository=$(image_repository "$image")
+  candidate=$repository:$baked
+  [[ $candidate != "$image" ]] || return 0
+  candidate_id=$(docker image inspect --format '{{.Id}}' "$candidate" 2>/dev/null) || candidate_id=''
+  if [[ ! $candidate_id ]] && (( may_pull )); then
+    if docker pull "$candidate" >&2; then
+      candidate_id=$(docker image inspect --format '{{.Id}}' "$candidate" 2>/dev/null) || candidate_id=''
+      if [[ $candidate_id && $candidate_id != "$id" ]]; then
+        # Do not keep an unrelated image that merely shares the release tag.
+        docker image rm "$candidate" >/dev/null 2>&1 || :
+      fi
+    else
+      printf 'hive-manager: could not pull %s; tasks use %s\n' "$candidate" "$image" >&2
+    fi
+  fi
+  if [[ $candidate_id == "$id" ]]; then task_image=$candidate; fi
+}
+
+# Select the image of Docker isolation tasks. Precedence: --task-image, then
+# HIVE_MIND_DOCKER_ISOLATION_IMAGE or HIVE_MIND_DOCKER_ISOLATION_IMAGE_TAG from
+# the environment file (a tag selects that tag of the deployment repository),
+# then the deployment image itself. Plain instances without a Docker socket run
+# tasks in Screen and get no task image unless one is requested explicitly.
+select_task_image() {
+  local may_pull=$1 tag
+  task_image=$requested_task_image
+  if [[ ! $task_image ]]; then
+    [[ $variant == dind || $socket ]] || return 0
+    if task_image=$(env_file_value HIVE_MIND_DOCKER_ISOLATION_IMAGE); then
+      :
+    elif tag=$(env_file_value HIVE_MIND_DOCKER_ISOLATION_IMAGE_TAG); then
+      [[ $tag =~ ^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$ ]] ||
+        fail "HIVE_MIND_DOCKER_ISOLATION_IMAGE_TAG must be a tag, not an image reference: $tag"
+      task_image=$(image_repository "$image"):$tag
+    else
+      pin_task_image "$may_pull"
+    fi
+  fi
+  [[ $task_image =~ ^[^[:space:]-][^[:space:]]*$ ]] || fail "Invalid task image: $task_image"
+}
+
+# Pass the selected task image as a full reference. In DinD with a host socket,
+# also limit box host-image passthrough to exactly that reference, so the nested
+# daemon receives the task image from the host instead of pulling it.
+task_image_args() {
+  [[ $task_image ]] || return 0
+  docker_args+=(--label io.github.link-assistant.hive-manager.task-image="$task_image"
+    --env HIVE_MIND_DOCKER_ISOLATION_IMAGE="$task_image")
+  if [[ $variant == dind && $socket ]]; then
+    docker_args+=(--env DIND_HOST_PASSTHROUGH_IMAGES="$task_image")
   fi
 }
 
@@ -708,13 +808,18 @@ wait_for_idle() {
   done
 }
 
-# Remove a replaced container and, when nothing else uses it, its image.
+# Remove a replaced container and, when nothing else uses it, its image. The
+# remaining arguments are image IDs to keep: the new deployment image and the
+# task image, which may be the previous release (issue #4144).
 discard_container() {
-  local image_id
-  image_id=$(docker container inspect --format '{{.Image}}' "$1") || image_id=''
-  docker rm "$1" >/dev/null
-  printf 'Removed replaced container %s\n' "$1"
-  if [[ $image_id && $image_id != "$2" ]] && docker image rm "$image_id" >/dev/null 2>&1; then
+  local container=$1 image_id keep
+  shift
+  image_id=$(docker container inspect --format '{{.Image}}' "$container") || image_id=''
+  docker rm "$container" >/dev/null
+  printf 'Removed replaced container %s\n' "$container"
+  [[ $image_id ]] || return 0
+  for keep; do [[ $image_id != "$keep" ]] || return 0; done
+  if docker image rm "$image_id" >/dev/null 2>&1; then
     printf 'Removed unused image %s\n' "$image_id"
   fi
 }
@@ -731,7 +836,12 @@ apply_deployment() {
   deployment_args
 
   if (( dry_run )); then
+    # Preview with images already present on the target; apply pulls first.
+    local task_image=''
+    select_task_image 0
+    task_image_args
     printf 'Instance %s\nImage %s\nState %s\n' "$name" "$image" "$state_dir"
+    if [[ $task_image ]]; then printf 'Task image %s\n' "$task_image"; fi
     printf 'Docker options:'
     printf ' %q' "${docker_args[@]}"
     printf '\nStartup executable: %q\n' "${startup[0]}"
@@ -759,6 +869,12 @@ apply_deployment() {
   fi
   if (( pull_image )); then docker pull "$image"; fi
   image_id=$(docker image inspect --format '{{.Id}}' "$image")
+  local task_image='' task_image_id=''
+  select_task_image "$pull_image"
+  task_image_args
+  if [[ $task_image && $task_image != "$image" ]]; then
+    task_image_id=$(docker image inspect --format '{{.Id}}' "$task_image" 2>/dev/null) || task_image_id=''
+  fi
   init_state
 
   # Validate stock binaries and the image baseline without mounting live state.
@@ -784,15 +900,16 @@ apply_deployment() {
   if [[ $old ]]; then
     # Retain the previous rollback until the candidate starts.
     if [[ $prior ]]; then
-      if (( keep_rollback )); then docker rm "$prior" >/dev/null; else discard_container "$prior" "$image_id"; fi
+      if (( keep_rollback )); then docker rm "$prior" >/dev/null; else discard_container "$prior" "$image_id" ${task_image_id:+"$task_image_id"}; fi
     fi
     if (( keep_rollback )); then
       docker rename "$old" "$name.rollback"
     else
-      discard_container "$old" "$image_id"
+      discard_container "$old" "$image_id" ${task_image_id:+"$task_image_id"}
     fi
   fi
   printf 'Deployed %s using %s\n' "$name" "$image"
+  if [[ $task_image ]]; then printf 'Tasks use %s\n' "$task_image"; fi
 }
 
 rollback_deployment() {
@@ -1792,6 +1909,7 @@ load_deploy_profile() {
       state-dir=*) state_dir=$(profile_path "$base" "${line#*=}") ;;
       variant=*) variant=${line#*=} ;;
       image=*) image=${line#*=} ;;
+      task-image=*) requested_task_image=${line#*=} ;;
       env-file=*) env_file=$(profile_path "$base" "${line#*=}") ;;
       bot-config=*) bot_config=$(profile_path "$base" "${line#*=}") ;;
       tool-policy=*) tool_policy=$(profile_path "$base" "${line#*=}") ;;
@@ -1814,11 +1932,12 @@ profile_path() {
 
 deploy() {
   local name=hive-mind state_dir='' variant=plain image='' env_file='' bot_config='' socket='' tool_policy=''
+  local requested_task_image=''
   local setup=0 pull_image=1 dry_run=0 tty=0 adopt=0 force=0 wait_seconds=0 keep_rollback=1 apply_option=''
   while (( $# )); do
     case "$1" in
       -h|--help) deploy_usage; return ;;
-      --profile|--name|--state-dir|--variant|--image|--env-file|--bot-config|--docker-socket|--tool-policy)
+      --profile|--name|--state-dir|--variant|--image|--task-image|--env-file|--bot-config|--docker-socket|--tool-policy)
         need_value "$@"
         case "$1" in
           --profile) load_deploy_profile "$2" ;;
@@ -1826,6 +1945,7 @@ deploy() {
           --state-dir) state_dir=$2 ;;
           --variant) variant=$2 ;;
           --image) image=$2 ;;
+          --task-image) requested_task_image=$2 ;;
           --env-file) env_file=$2 ;;
           --bot-config) bot_config=$2 ;;
           --tool-policy) tool_policy=$2 ;;
@@ -1938,7 +2058,16 @@ deploy() {
       (( $# == 0 )) || fail "Unexpected arguments for deploy $action"
       require docker
       case "$action" in
-        prepare) exec docker pull "$image" ;;
+        prepare)
+          docker pull "$image"
+          local task_image=''
+          select_task_image 1
+          if [[ $task_image ]]; then
+            if [[ $task_image != "$image" ]] && ! docker image inspect "$task_image" >/dev/null 2>&1; then
+              docker pull "$task_image"
+            fi
+            printf 'Task image %s\n' "$task_image"
+          fi ;;
         rollback) rollback_deployment ;;
         recover) recover_deployment ;;
         status) deploy_status ;;

@@ -24,7 +24,7 @@
  */
 
 import { assert as check, printSummary, getFailCount } from './test-helpers.mjs';
-import { DEFAULT_DOCKER_IMAGE_RECLAIM_MODE, describeDockerImageReclaimReason, formatDockerImageReclaimSummary, normalizeDockerImageReclaimMode, parseDockerImageJsonLines, parseDockerJsonLines, planDockerImageReclaim, reclaimDockerImages, resolveDockerImageReclaimMode } from '../src/docker-image-reclaim.lib.mjs';
+import { DEFAULT_DOCKER_IMAGE_RECLAIM_MODE, describeDockerImageReclaimReason, formatDockerImageReclaimSummary, normalizeDockerImageReclaimMode, parseDockerImageJsonLines, parseDockerJsonLines, planDockerImageReclaim, reclaimDockerImages, resolveDockerImageReclaimMode, resolveProtectedImageReferences } from '../src/docker-image-reclaim.lib.mjs';
 
 const IMAGES = [
   { ID: 'sha256:latest1', Repository: 'konard/hive-mind', Tag: 'latest', CreatedAt: '2026-08-30 10:00:00 +0000 UTC', Size: '12.3GB' },
@@ -97,6 +97,19 @@ check(keptBy('konard/hive-mind:v2.14.0')?.reason === 'protected_reference', 'the
 check(keptBy('sha256:dangle2')?.reason === 'in_use_by_container', 'a dangling image a running container uses is never removed');
 check(keptBy('postgres:15')?.reason === 'unmanaged_repository', 'superseded tags of unrelated repositories are never touched');
 check(keptBy('postgres:16')?.reason === 'unmanaged_repository', 'unrelated repositories are reported but left alone');
+
+// Issue #4144: hive-manager pins the task image with the full override, and an
+// older deployment may still carry a full reference in the tag variable. Both
+// must protect that exact image, and no invalid `repo:repo:tag` is produced.
+const managerProtected = resolveProtectedImageReferences({ env: { HIVE_MIND_IMAGE_VARIANT: 'dind', HIVE_MIND_DOCKER_ISOLATION_IMAGE: 'registry.example:5000/team/hive-dind:2.49.0', HIVE_MIND_DOCKER_ISOLATION_IMAGE_TAG: '2.49.0' } });
+check(managerProtected.includes('registry.example:5000/team/hive-dind:2.49.0'), 'the full task image override is protected (#4144)');
+check(managerProtected.includes('konard/hive-mind-dind:2.49.0'), 'the release tag of managed repositories is still protected (#4144)');
+const legacyProtected = resolveProtectedImageReferences({ env: { HIVE_MIND_IMAGE_VARIANT: 'dind', HIVE_MIND_DOCKER_ISOLATION_IMAGE_TAG: 'konard/hive-mind-dind:2.49.0' } });
+check(legacyProtected.includes('konard/hive-mind-dind:2.49.0'), 'a legacy full reference in the tag variable is protected as-is (#4144)');
+check(
+  legacyProtected.every(reference => !reference.includes(':konard/')),
+  `no invalid repository-prefixed reference is protected (got ${legacyProtected.join(', ')})`
+);
 
 // The maintainer's constraint, asserted directly rather than implied.
 for (const repository of ['konard/hive-mind', 'konard/hive-mind-dind']) {

@@ -31,6 +31,14 @@ export function resolveDockerIsolationImageTag({ env = process.env } = {}) {
   return explicit || DEFAULT_HIVE_MIND_IMAGE_TAG;
 }
 
+/** Docker's tag grammar: a word character, then up to 127 word characters, dots or dashes. */
+const DOCKER_IMAGE_TAG_PATTERN = /^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$/;
+
+/** Whether `value` is a Docker image tag rather than a full image reference. */
+export function isDockerImageTag(value) {
+  return DOCKER_IMAGE_TAG_PATTERN.test(String(value ?? ''));
+}
+
 /**
  * Pick the Docker image used for `--isolation docker`.
  *
@@ -40,11 +48,19 @@ export function resolveDockerIsolationImageTag({ env = process.env } = {}) {
  * `HIVE_MIND_DOCKER_ISOLATION_IMAGE` is a full override (repo:tag). Otherwise
  * the repo is chosen by image variant and the tag by
  * `resolveDockerIsolationImageTag()`.
+ *
+ * hive-manager releases before issue #4144 passed the full deployment image
+ * reference (`konard/hive-mind-dind:2.49.0`) in the tag variable of DinD and
+ * socket deployments. Prefixing it with a repository can only produce an invalid
+ * reference, so a value that is not a tag is used as the full reference instead.
  */
 export function getDockerIsolationImage({ env = process.env } = {}) {
-  if (env.HIVE_MIND_DOCKER_ISOLATION_IMAGE) return env.HIVE_MIND_DOCKER_ISOLATION_IMAGE;
+  const override = String(env.HIVE_MIND_DOCKER_ISOLATION_IMAGE || '').trim();
+  if (override) return override;
+  const tag = resolveDockerIsolationImageTag({ env });
+  if (!isDockerImageTag(tag)) return tag;
   const repo = String(env.HIVE_MIND_IMAGE_VARIANT || '').toLowerCase() === 'dind' ? HIVE_MIND_DIND_IMAGE_REPO : HIVE_MIND_IMAGE_REPO;
-  return `${repo}:${resolveDockerIsolationImageTag({ env })}`;
+  return `${repo}:${tag}`;
 }
 
 export default {
@@ -52,5 +68,6 @@ export default {
   HIVE_MIND_DIND_IMAGE_REPO,
   HIVE_MIND_IMAGE_REPO,
   getDockerIsolationImage,
+  isDockerImageTag,
   resolveDockerIsolationImageTag,
 };

@@ -162,7 +162,7 @@ export function createBotStateStore({ dir = resolveBotStateDir(), env = process.
       if (attempts < readRetries) await sleep(retryDelayMs);
     }
     if (lock) {
-      snapshot = await withStateLock(BOT_STATE_LOCK_NAME, readOnce, { env, fsImpl, lockPath, ...lockOptions });
+      snapshot = await withStateLock(BOT_STATE_LOCK_NAME, readOnce, { env, fsImpl, lockPath, log, trace, ...lockOptions });
       attempts++;
     }
     if (snapshot.agree === false) log(`⚠️ ${linoPath} and ${links.dbPath} differ; using the .lino copy, the next write repairs link-cli`);
@@ -224,7 +224,7 @@ export function createBotStateStore({ dir = resolveBotStateDir(), env = process.
           const { state, binary } = await writeUnlocked(result && result !== true ? result : draft);
           return { ...current, state, written: true, binaryWritten: binary };
         },
-        { env, fsImpl, lockPath, ...lockOptions }
+        { env, fsImpl, lockPath, log, trace, ...lockOptions }
       );
     },
   };

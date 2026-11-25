@@ -134,7 +134,7 @@ const breakStaleLock = async ({ fsp, lockPath, staleMs, now, ownerDead = async (
  * @param {{lockPath?: string}} [options] - `lockPath` puts the lock next to state kept elsewhere.
  * @returns {Promise<any>} Whatever `fn` resolves to.
  */
-export const withStateLock = async (name, fn, { env = process.env, fsImpl = fs, now = () => Date.now(), timeoutMs = DEFAULT_STATE_LOCK_TIMEOUT_MS, staleMs = DEFAULT_STATE_LOCK_STALE_MS, pollMs = DEFAULT_STATE_LOCK_POLL_MS, sleepImpl = sleep, log = null, lockPath = resolveStateLockPath(name, env), mode, isAlive = processIsAlive } = {}) => {
+export const withStateLock = async (name, fn, { env = process.env, fsImpl = fs, now = () => Date.now(), timeoutMs = DEFAULT_STATE_LOCK_TIMEOUT_MS, staleMs = DEFAULT_STATE_LOCK_STALE_MS, pollMs = DEFAULT_STATE_LOCK_POLL_MS, sleepImpl = sleep, log = null, trace = null, lockPath = resolveStateLockPath(name, env), mode, isAlive = processIsAlive } = {}) => {
   const lockMode = resolveStateLockMode(mode, env);
   if (lockMode === 'none') return fn();
   const fsp = fsImpl.promises;
@@ -143,6 +143,7 @@ export const withStateLock = async (name, fn, { env = process.env, fsImpl = fs, 
   const ownerDead = async () => lockMode === 'pid' && isLockOwnerDead(await readLockOwner(fsp, lockPath), { self, isAlive });
 
   const deadline = now() + timeoutMs;
+  let waited = false;
   for (;;) {
     try {
       await fsp.mkdir(lockPath);
@@ -161,6 +162,12 @@ export const withStateLock = async (name, fn, { env = process.env, fsImpl = fs, 
         if (await breakStaleLock({ fsp, lockPath, staleMs, now, ownerDead })) continue;
       }
 
+      // Issue #4143: with --verbose, name the holder once so a stuck lock can be diagnosed.
+      if (trace && !waited) {
+        waited = true;
+        const owner = await readLockOwner(fsp, lockPath);
+        await trace(`Waiting for the ${name} lock at ${lockPath}${owner ? ` held by pid ${owner.pid} on ${owner.hostname}` : ''}`);
+      }
       if (now() >= deadline) throw new Error(`Timed out after ${Math.round(timeoutMs / 1000)}s waiting for the ${name} lock at ${lockPath}`, { cause: error });
       await sleepImpl(pollMs);
     }

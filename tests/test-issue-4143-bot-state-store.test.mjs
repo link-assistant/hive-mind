@@ -210,5 +210,35 @@ await asyncTest('PID lock: a dead owner is broken at once, mode none skips locki
   assert(resolveStateLockMode(undefined, { HIVE_MIND_STATE_LOCK_MODE: 'age' }) === 'age', 'mode comes from HIVE_MIND_STATE_LOCK_MODE');
 });
 
+await asyncTest('PID lock: verbose trace names the live holder once, then times out', async () => {
+  const lockPath = path.join(tmp(), 'x.lock');
+  fs.mkdirSync(lockPath);
+  fs.writeFileSync(path.join(lockPath, 'owner.json'), JSON.stringify({ ...currentLockOwner(), pid: 4242 }));
+  const traces = [];
+  let error = null;
+  await withStateLock('x', async () => 'never', { lockPath, mode: 'pid', isAlive: () => true, timeoutMs: 30, pollMs: 5, trace: message => traces.push(message) }).catch(caught => (error = caught));
+  assert(error && /Timed out/.test(error.message), 'a live holder makes the waiter time out');
+  assert(traces.length === 1 && traces[0].includes('held by pid 4242'), 'the holder is traced once');
+});
+
+await asyncTest('link-cli store: every clink call is timed in the trace', async () => {
+  const dir = tmp();
+  const logs = [];
+  const run = async (command, args) => {
+    const out = args[args.indexOf('--out') + 1];
+    if (args.includes('--out')) fs.writeFileSync(out, '');
+  };
+  const store = createLinksStore({ dbPath: path.join(dir, 's.links'), command: 'clink-fake', run, log: message => logs.push(message) });
+  await store.write({ a: 'b' });
+  assert(
+    logs.some(message => /^clink --in .*s\.links: \d+ms$/.test(message)),
+    '--in is timed'
+  );
+  assert(
+    logs.some(message => /^clink --out .*s\.links: \d+ms$/.test(message)),
+    '--out is timed'
+  );
+});
+
 printSummary();
 process.exit(getFailCount() > 0 ? 1 : 0);

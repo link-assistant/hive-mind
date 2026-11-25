@@ -169,6 +169,15 @@ export function createLinksStore({ dbPath, command = resolveClinkCommand(), rete
   let availability = command ? null : false;
   const tmpPath = suffix => `${dbPath}.${process.pid}.${suffix}.lino`;
   const transactionArgs = ['--transactions', ...(retention ? ['--retention', retention] : [])];
+  // Issue #4143: time every clink call (verbose trace in the bot state store); link-cli#195 slows writes down.
+  const clink = async (args, label) => {
+    const started = Date.now();
+    try {
+      return await run(command, args, { timeoutMs });
+    } finally {
+      log(`clink ${label} ${dbPath}: ${Date.now() - started}ms`);
+    }
+  };
 
   async function available() {
     if (availability !== null) return availability;
@@ -185,7 +194,7 @@ export function createLinksStore({ dbPath, command = resolveClinkCommand(), rete
   async function exportText() {
     const out = tmpPath('out');
     try {
-      await run(command, ['--db', dbPath, '--out', out], { timeoutMs });
+      await clink(['--db', dbPath, '--out', out], '--out');
       return await fsp.readFile(out, 'utf8');
     } finally {
       await fsp.rm(out, { force: true }).catch(() => {});
@@ -196,7 +205,7 @@ export function createLinksStore({ dbPath, command = resolveClinkCommand(), rete
     const input = tmpPath('in');
     await fsp.writeFile(input, encodeDoublets(tree, rootKey));
     try {
-      await run(command, ['--db', dbPath, '--in', input, ...transactionArgs], { timeoutMs });
+      await clink(['--db', dbPath, '--in', input, ...transactionArgs], '--in');
     } finally {
       await fsp.rm(input, { force: true }).catch(() => {});
     }

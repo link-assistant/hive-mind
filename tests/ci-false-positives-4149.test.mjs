@@ -60,7 +60,7 @@ test('F1: ghApiMethod follows gh api: explicit method, else POST with fields, el
 
 test('F1: classifyGitHubCommand marks reads read-only and writes not', () => {
   const readOnly = ['gh api repos/o/r/actions/runs?head_sha=abc', 'gh pr view 1 --json state', 'gh run list --limit 5', 'gh pr checks 1', 'gh pr diff 1', 'gh search issues x', "gh api graphql -f query='query { viewer { login } }'", 'gh api search/issues -X GET -f q=x'];
-  const writes = ['gh api repos/o/r/issues/1/comments -f body=x', 'gh api repos/o/r/statuses/abc --method POST --input f.json', 'gh pr comment 1 --body x', 'gh pr merge 1', 'gh workflow run release.yml', "gh api graphql -f query='mutation { x }'", 'gh api repos/o/r/releases/1 -X PATCH --input -'];
+  const writes = ['gh api repos/o/r/issues/1/comments -f body=x', 'gh api repos/o/r/statuses/abc --method POST --input f.json', 'gh pr comment 1 --body x', 'gh pr merge 1', 'gh workflow run release.yml', "gh api graphql -f query='mutation { x }'", 'gh api repos/o/r/releases/1 -X PATCH --input -', 'gh api graphql -F query=@q.graphql'];
   for (const command of readOnly) assert.equal(classifyGitHubCommand(command)?.readOnly, true, command);
   for (const command of writes) assert.equal(classifyGitHubCommand(command)?.readOnly, false, command);
   assert.equal(classifyGitHubCommand('gh', ['api', 'repos/o/r/actions/runs', '--method', 'GET'])?.readOnly, true);

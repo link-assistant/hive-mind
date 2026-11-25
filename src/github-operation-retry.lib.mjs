@@ -145,8 +145,8 @@ const isReadOnlyGhCommand = rest => {
     const tokens = rest.slice(1);
     if (tokens.includes('graphql')) {
       // A GraphQL query is POSTed but reads; a mutation, or a body we cannot
-      // see (`--input`), may write.
-      return !tokens.some(token => /\bmutation\b/i.test(token) || /^--input(?:=|$)/.test(token));
+      // see (`--input`, `query=@file`), may write.
+      return !tokens.some(token => /\bmutation\b/i.test(token) || /^--input(?:=|$)/.test(token) || /^['"]?query=@/.test(token));
     }
     return ['GET', 'HEAD'].includes(ghApiMethod(tokens));
   }

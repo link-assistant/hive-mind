@@ -28,7 +28,7 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 
 import { formatBytes } from './cleanup.lib.mjs';
-import { HIVE_MIND_DIND_IMAGE_REPO, HIVE_MIND_IMAGE_REPO, resolveDockerIsolationImageTag } from './hive-mind-image.lib.mjs';
+import { HIVE_MIND_DIND_IMAGE_REPO, HIVE_MIND_IMAGE_REPO, getDockerIsolationImage, isDockerImageTag, resolveDockerIsolationImageTag } from './hive-mind-image.lib.mjs';
 import { parseDockerSystemDf, parseHumanBytes } from './system-cleanup-estimates.lib.mjs';
 
 const execFileAsync = promisify(execFile);
@@ -329,6 +329,18 @@ const runDocker = async (exec, args) => {
 };
 
 /**
+ * The references the isolation runner may start tasks from: the pinned tag of
+ * every managed repository, plus the exact task image, which hive-manager passes
+ * as a full reference (issue #4144) and may name an older tag of a managed
+ * repository than the release this instance runs.
+ */
+export function resolveProtectedImageReferences({ env = process.env } = {}) {
+  const isolationTag = resolveDockerIsolationImageTag({ env });
+  const references = isDockerImageTag(isolationTag) ? MANAGED_IMAGE_REPOSITORIES.map(repository => `${repository}:${isolationTag}`) : [];
+  return [...new Set([...references, getDockerIsolationImage({ env })])];
+}
+
+/**
  * Build the plan from the live daemon. Returns `null` when docker is
  * unavailable, so callers can stay silent instead of reporting an empty plan.
  */
@@ -340,8 +352,7 @@ export async function collectDockerImageReclaimPlan({ exec = execFileAsync, env 
   if (imagesOutput === null) return null;
   const containersOutput = await runDocker(exec, ['ps', '--all', '--format', '{{json .}}']);
 
-  const isolationTag = resolveDockerIsolationImageTag({ env });
-  const pinned = protectedReferences || MANAGED_IMAGE_REPOSITORIES.map(repository => `${repository}:${isolationTag}`);
+  const pinned = protectedReferences || resolveProtectedImageReferences({ env });
 
   return planDockerImageReclaim({
     images: parseDockerImageJsonLines(imagesOutput),
@@ -366,6 +377,7 @@ export default {
   PROTECTED_IMAGE_TAGS,
   collectContainerImageReferences,
   collectDockerImageReclaimPlan,
+  resolveProtectedImageReferences,
   describeDockerImageReclaimReason,
   formatDockerImageReclaimSummary,
   measureDockerReclaimableBytes,

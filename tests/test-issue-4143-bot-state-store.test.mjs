@@ -279,6 +279,15 @@ await asyncTest('link-cli store: every clink call is timed in the trace', async 
     fs.readdirSync(dir).every(name => !name.includes('.fresh.')),
     'the fresh store is renamed into place'
   );
+  // link-cli#110: names are looked up by scanning the names store without it.
+  assert(
+    calls.filter(args => args.includes('--in') || args.includes('--out')).every(args => args.includes('--indexed-lookups')),
+    'every import and export uses --indexed-lookups'
+  );
+  const plainCalls = [];
+  const plain = createLinksStore({ dbPath: path.join(tmp(), 's.links'), command: 'clink-fake', indexedLookups: false, run: async (command, args) => run(command, args).then(() => plainCalls.push(args)) });
+  await plain.write({ a: 'b' });
+  assert(plainCalls.length > 1 && plainCalls.every(args => !args.includes('--indexed-lookups')), 'indexedLookups: false leaves the flag out');
 });
 
 await asyncTest('link-cli store: real clink stores a state with many tasks', async () => {

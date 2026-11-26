@@ -191,11 +191,16 @@ export function resolveClinkCommand(env = process.env) {
  */
 export const DEFAULT_LINKS_LOG_MAX_BYTES = 64 * 1024;
 
-export function createLinksStore({ dbPath, command = resolveClinkCommand(), retention = process.env.HIVE_MIND_STATE_LINKS_RETENTION || 'sized:64', logMaxBytes = Number(process.env.HIVE_MIND_STATE_LINKS_LOG_MAX_BYTES) || DEFAULT_LINKS_LOG_MAX_BYTES, timeoutMs = Number(process.env.HIVE_MIND_STATE_LINKS_TIMEOUT_MS) || 30000, rootKey = LINO_STATE_ROOT, fsImpl = fs, run = runFile, log = () => {} } = {}) {
+export function createLinksStore({ dbPath, command = resolveClinkCommand(), retention = process.env.HIVE_MIND_STATE_LINKS_RETENTION || 'sized:64', logMaxBytes = Number(process.env.HIVE_MIND_STATE_LINKS_LOG_MAX_BYTES) || DEFAULT_LINKS_LOG_MAX_BYTES, timeoutMs = Number(process.env.HIVE_MIND_STATE_LINKS_TIMEOUT_MS) || 30000, indexedLookups = !/^(off|false|0|no)$/i.test(process.env.HIVE_MIND_STATE_LINKS_INDEXED_LOOKUPS?.trim() || ''), rootKey = LINO_STATE_ROOT, fsImpl = fs, run = runFile, log = () => {} } = {}) {
   const fsp = fsImpl.promises;
   let availability = command ? null : false;
   const tmpPath = suffix => `${dbPath}.${process.pid}.${suffix}.lino`;
   const transactionArgs = ['--transactions', ...(retention ? ['--retention', retention] : [])];
+  // Every leaf of the state is a named link, and link-cli resolves names by
+  // scanning the whole names store unless `--indexed-lookups` (link-cli 1.0.9+)
+  // is given: without it 2400 names take ~28 s to import and again to export
+  // (link-cli#110 added the flag as an opt-in decorator).
+  const lookupArgs = indexedLookups ? ['--indexed-lookups'] : [];
   // Issue #4143: time every clink call (verbose trace in the bot state store); link-cli#195 slowed 3.1.x writes down.
   const clink = async (args, label, target = dbPath) => {
     const started = Date.now();
@@ -221,7 +226,7 @@ export function createLinksStore({ dbPath, command = resolveClinkCommand(), rete
   async function exportText() {
     const out = tmpPath('out');
     try {
-      await clink(['--db', dbPath, '--out', out], '--out');
+      await clink(['--db', dbPath, '--out', out, ...lookupArgs], '--out');
       return await fsp.readFile(out, 'utf8');
     } finally {
       await fsp.rm(out, { force: true }).catch(() => {});
@@ -232,7 +237,7 @@ export function createLinksStore({ dbPath, command = resolveClinkCommand(), rete
     const input = tmpPath('in');
     await fsp.writeFile(input, encodeDoublets(tree, rootKey));
     try {
-      await clink(['--db', db, '--in', input, ...args], '--in', db);
+      await clink(['--db', db, '--in', input, ...lookupArgs, ...args], '--in', db);
     } finally {
       await fsp.rm(input, { force: true }).catch(() => {});
     }

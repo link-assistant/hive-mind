@@ -1,0 +1,10 @@
+# clink 3.2.1: clink-transactions-perf.sh /tmp/tx321 60 --transactions --retention sized:64 (files: s.links s.names.links)
+write 1: 310ms sizes: 102 2213 
+write 2: 147ms sizes: 175 2385 
+write 3: 151ms sizes: 248 2578 
+write 10: 142ms sizes: 542 3238 
+write 20: 101ms sizes: 962 4133 
+write 30: 131ms sizes: 1460 5009 
+write 40: 136ms sizes: 1970 5904 
+write 50: 86ms sizes: 2480 6779 
+write 60: 109ms sizes: 2990 7674 

@@ -1,0 +1,24 @@
+clink 3.2.1
+write 10: rebuilt, links after rebuild=39 live=23 read_ok=true files={"state.links":396,"state.links.lock":0,"state.names.links":4205,"state.transitions.log":35853}
+write 19: rebuilt, links after rebuild=39 live=23 read_ok=true files={"state.links":396,"state.links.lock":0,"state.names.links":4249,"state.transitions.log":24119}
+write 28: rebuilt, links after rebuild=39 live=23 read_ok=true files={"state.links":396,"state.links.lock":0,"state.names.links":4253,"state.transitions.log":45349}
+write 37: rebuilt, links after rebuild=39 live=23 read_ok=true files={"state.links":396,"state.links.lock":0,"state.names.links":4204,"state.transitions.log":33196}
+write 46: rebuilt, links after rebuild=39 live=23 read_ok=true files={"state.links":396,"state.links.lock":0,"state.names.links":4231,"state.transitions.log":21562}
+write 55: rebuilt, links after rebuild=39 live=23 read_ok=true files={"state.links":396,"state.links.lock":0,"state.names.links":4180,"state.transitions.log":42416}
+write 64: rebuilt, links after rebuild=39 live=23 read_ok=true files={"state.links":396,"state.links.lock":0,"state.names.links":4185,"state.transitions.log":30694}
+write 73: rebuilt, links after rebuild=39 live=23 read_ok=true files={"state.links":396,"state.links.lock":0,"state.names.links":4197,"state.transitions.log":18561}
+write 82: rebuilt, links after rebuild=39 live=23 read_ok=true files={"state.links":396,"state.links.lock":0,"state.names.links":4249,"state.transitions.log":39414}
+write 91: rebuilt, links after rebuild=39 live=23 read_ok=true files={"state.links":396,"state.links.lock":0,"state.names.links":4202,"state.transitions.log":27908}
+write 100: rebuilt, links after rebuild=39 live=23 read_ok=true files={"state.links":396,"state.links.lock":0,"state.names.links":4230,"state.transitions.log":16230}
+write 109: rebuilt, links after rebuild=39 live=23 read_ok=true files={"state.links":396,"state.links.lock":0,"state.names.links":4270,"state.transitions.log":37227}
+write 118: rebuilt, links after rebuild=39 live=23 read_ok=true files={"state.links":396,"state.links.lock":0,"state.names.links":4321,"state.transitions.log":24998}
+write 127: rebuilt, links after rebuild=39 live=23 read_ok=true files={"state.links":396,"state.links.lock":0,"state.names.links":4307,"state.transitions.log":13413}
+write 136: rebuilt, links after rebuild=39 live=23 read_ok=true files={"state.links":396,"state.links.lock":0,"state.names.links":4271,"state.transitions.log":34217}
+write 145: rebuilt, links after rebuild=39 live=23 read_ok=true files={"state.links":396,"state.links.lock":0,"state.names.links":4284,"state.transitions.log":22497}
+write 154: rebuilt, links after rebuild=39 live=23 read_ok=true files={"state.links":396,"state.links.lock":0,"state.names.links":4252,"state.transitions.log":43205}
+write 163: rebuilt, links after rebuild=39 live=23 read_ok=true files={"state.links":396,"state.links.lock":0,"state.names.links":4291,"state.transitions.log":31387}
+write 172: rebuilt, links after rebuild=39 live=23 read_ok=true files={"state.links":396,"state.links.lock":0,"state.names.links":4292,"state.transitions.log":19302}
+write 181: rebuilt, links after rebuild=39 live=23 read_ok=true files={"state.links":396,"state.links.lock":0,"state.names.links":4271,"state.transitions.log":40254}
+write 190: rebuilt, links after rebuild=39 live=23 read_ok=true files={"state.links":396,"state.links.lock":0,"state.names.links":4273,"state.transitions.log":28596}
+write 199: rebuilt, links after rebuild=39 live=23 read_ok=true files={"state.links":396,"state.links.lock":0,"state.names.links":4259,"state.transitions.log":16778}
+writes=200 rebuilds=22 max_journal_bytes=46064 slowest_write_ms=3493 final={"state.links":686,"state.links.lock":0,"state.names.links":4856,"state.transitions.log":24873}

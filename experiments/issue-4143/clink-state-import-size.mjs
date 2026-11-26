@@ -1,7 +1,9 @@
 // Issue #4143: how long a full import of a realistic bot state takes through
 // createLinksStore (first write, or a rebuild after garbage), versus the
-// 30 s clink timeout. Usage:
+// 30 s clink timeout, then an incremental (--transactions) write of one
+// changed task and a read. Usage:
 //   HIVE_MIND_CLINK=/path/to/clink node experiments/issue-4143/clink-state-import-size.mjs [tasks...]
+// HIVE_MIND_STATE_LINKS_INDEXED_LOOKUPS=off compares the default scan lookups.
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -19,6 +21,14 @@ for (const n of sizes.length ? sizes : [1, 5, 10, 20]) {
   await store.write(tree);
   const ms = Date.now() - started;
   const ok = JSON.stringify(await store.read()) === JSON.stringify(tree);
-  console.log(`tasks=${n} doublet_lines=${encodeDoublets(tree).split('\n').filter(Boolean).length} live_links=${countLiveLinks(tree)} first_write_ms=${ms} read_ok=${ok}`);
+  tree.tasks['task-0'].status = 'finished';
+  let started2 = Date.now();
+  await store.write(tree);
+  const writeMs = Date.now() - started2;
+  started2 = Date.now();
+  const back = await store.read();
+  const readMs = Date.now() - started2;
+  const ok2 = JSON.stringify(back) === JSON.stringify(tree);
+  console.log(`tasks=${n} doublet_lines=${encodeDoublets(tree).split('\n').filter(Boolean).length} live_links=${countLiveLinks(tree)} first_write_ms=${ms} read_ok=${ok} next_write_ms=${writeMs} read_ms=${readMs} read2_ok=${ok2}`);
   rmSync(dir, { recursive: true, force: true });
 }

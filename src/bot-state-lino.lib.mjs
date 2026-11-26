@@ -20,13 +20,15 @@
  * values}`, `k v` into `{id: null, values: [k, v]}` and a lone word into a
  * leaf. A container whose children are all leaves is an array; otherwise it is
  * an object. Raw words cannot hold spaces, quotes, parentheses or `:`, so other
- * values are quoted with a quote character they do not contain. links-notation
- * 0.31.8 misreads a doubled quote at the start of a value (`"""…` is a
- * triple-quoted string), so values that contain all three quote characters
- * fall back to `~b64_<base64url>`, the same escape the link-cli store uses.
- * The empty string uses it too: links-notation 0.31.8 reads `a ""` and a later
- * `b ""` as one string, and a word starting with `#` as a comment, so those
- * are encoded or quoted.
+ * values are quoted with a quote character they do not contain. A doubled
+ * quote at the start of a value opens a multi-quote string (`"""…`), so values
+ * that contain all three quote characters fall back to `~b64_<base64url>`, the
+ * same escape the link-cli store uses. The empty string uses it too, and a word
+ * starting with `#` is quoted: links-notation 0.31.8 read `a ""` and a later
+ * `b ""` as one string and dropped `#x` as a comment (links-notation#443 and
+ * #444, fixed in 0.32.0). The encoding is kept so that readers on older
+ * links-notation, such as host tools that parse the mounted `.lino` file, read
+ * the same values; 0.32.0 reads both this form and its own `~1{…}` literals.
  * Every formatted document is parsed back and compared before it is written.
  *
  * @see https://github.com/link-assistant/hive-mind/issues/4143

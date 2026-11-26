@@ -12,7 +12,7 @@
  */
 import { setTimeout as sleep } from 'node:timers/promises';
 
-import { allRunsCompleted, commitStatusForRun, missingRunStatus, selectDispatchedRuns, statusKey, unfinishedRunStatus } from './formal-ai-draft-checks.lib.mjs';
+import { allRunsCompleted, commitStatusForRun, MAX_CONSECUTIVE_POLL_FAILURES, missingRunStatus, recordPollFailure, selectDispatchedRuns, statusKey, unfinishedRunStatus } from './formal-ai-draft-checks.lib.mjs';
 import { ghApi } from './github-actions.lib.mjs';
 
 const env = process.env;
@@ -35,12 +35,30 @@ const post = async status => {
   console.log(`${status.context}: ${status.state} (${status.description})`);
 };
 
-let selected;
+let selected = selectDispatchedRuns([], { sha, workflows });
+let failedPolls = 0;
 for (;;) {
-  const response = await ghApi(`repos/${repository}/actions/runs?head_sha=${sha}&event=workflow_dispatch&per_page=100`);
-  selected = selectDispatchedRuns(response?.workflow_runs || [], { sha, workflows });
-  for (const entry of selected) if (entry.run) await post(commitStatusForRun(entry));
-  if (allRunsCompleted(selected) || Date.now() >= deadline) break;
+  let response;
+  try {
+    response = await ghApi(`repos/${repository}/actions/runs?head_sha=${sha}&event=workflow_dispatch&per_page=100`);
+    failedPolls = 0;
+  } catch (error) {
+    // Issue #4149: a missed progress read is retried on the next poll.
+    failedPolls = recordPollFailure(failedPolls, error);
+    console.log(
+      `::warning title=Checks poll failed::Poll ${failedPolls}/${MAX_CONSECUTIVE_POLL_FAILURES} failed, retrying in ${POLL_MS / 1000}s: ${
+        String(error?.stderr || error?.message || error)
+          .trim()
+          .split('\n')[0]
+      }`
+    );
+  }
+  if (response) {
+    selected = selectDispatchedRuns(response.workflow_runs || [], { sha, workflows });
+    for (const entry of selected) if (entry.run) await post(commitStatusForRun(entry));
+    if (allRunsCompleted(selected)) break;
+  }
+  if (Date.now() >= deadline) break;
   await sleep(POLL_MS);
 }
 

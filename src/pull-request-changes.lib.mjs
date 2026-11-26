@@ -294,7 +294,7 @@ export const getPullRequestChangeStats = async ({ owner, repo, prNumber, $, log 
     // (with --development-log) commits into the branch, which put the previous
     // copy of the diff inside the next one. Seven such copies grew one session
     // log to 286 MB and ended it with a V8 out-of-memory abort.
-    const result = await ghWithRateLimitRetry(() => quietProbe($)`gh pr diff ${prNumber} --repo ${owner}/${repo}`, { label: `pr diff ${owner}/${repo}#${prNumber}` });
+    const result = await ghWithRateLimitRetry(() => quietProbe($)`gh pr diff ${prNumber} --repo ${owner}/${repo}`, { label: `pr diff ${owner}/${repo}#${prNumber}`, retryTruncatedReply: true });
     if (result.code === 0) {
       diffOutput = result.stdout.toString();
       measured = true;

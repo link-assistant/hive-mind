@@ -12,7 +12,7 @@
 import { promisify } from 'util';
 import { exec as execCallback } from 'child_process';
 import { githubLimits } from './config.lib.mjs';
-import { ghWithRateLimitRetry } from './github-rate-limit.lib.mjs';
+import { ghWithRateLimitRetry, isReadOnlyGhCommand } from './github-rate-limit.lib.mjs';
 import { cancellableSleep } from './interruptible-sleep.lib.mjs';
 import { describeConsensusDisagreement, findGhostQueuedRuns, formatDuration, isAuthoritativeCleanMergeState, partitionOutOfBandChecks, queuedForMs } from './github-ci-stuck-runs.lib.mjs'; // Issue #4048
 const execRaw = promisify(execCallback);
@@ -24,6 +24,7 @@ const execRaw = promisify(execCallback);
 const exec = (cmd, opts = {}) =>
   ghWithRateLimitRetry(() => execRaw(cmd, { maxBuffer: githubLimits.bufferMaxSize, timeout: githubLimits.execTimeoutMs, ...opts }), {
     label: `gh exec (${cmd.split(/\s+/).slice(0, 3).join(' ')})`,
+    retryTruncatedReply: isReadOnlyGhCommand(cmd),
   });
 
 // Statuses we treat as "not yet finished".

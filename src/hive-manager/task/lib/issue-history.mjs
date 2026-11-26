@@ -6,10 +6,13 @@ const run = promisify(execFile);
 
 export async function githubIssueJson(args) {
   const { ghWithRateLimitRetry } = await import('../../../github-rate-limit.lib.mjs');
-  return ghWithRateLimitRetry(async () => {
-    const { stdout } = await run('gh', ['api', '--hostname', 'github.com', '--method', 'GET', ...args], { timeout: 30_000, maxBuffer: 2 * 1024 * 1024 });
-    return JSON.parse(stdout);
-  });
+  return ghWithRateLimitRetry(
+    async () => {
+      const { stdout } = await run('gh', ['api', '--hostname', 'github.com', '--method', 'GET', ...args], { timeout: 30_000, maxBuffer: 2 * 1024 * 1024 });
+      return JSON.parse(stdout);
+    },
+    { retryTruncatedReply: true }
+  );
 }
 
 async function searchIssues(query) {

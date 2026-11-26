@@ -1,0 +1,47 @@
+138170152495	Pipeline Status	success	0
+138169735588	Helm Release	success	0
+138169348624	Docker Publish (Merge)	success	0
+138169344124	Docker Publish DinD (Merge)	success	0
+138163451688	Docker Publish (linux/arm64)	success	0
+138163451682	Docker Publish DinD (linux/arm64)	success	0
+138163451678	Docker Publish DinD (linux/amd64)	success	0
+138163451604	Docker Publish (linux/amd64)	success	0
+138154568699	Docker Publish DinD Instant (Merge)	skipped	0
+138154568643	Docker Publish Instant (Merge)	skipped	0
+138154568276	Helm Release (Instant)	skipped	0
+138154568195	Docker Publish DinD Instant (${{ matrix.platform }})	skipped	0
+138154567687	Docker Publish Instant (${{ matrix.platform }})	skipped	0
+138154567036	Instant Release	skipped	0
+138154564810	Release	success	0
+138144952220	docker-pr-check	success	0
+138143836282	Verified native Codex package / Exercise installed npm runtime on linux-x64	success	0
+138143836007	Verified native Codex package / Exercise installed npm runtime on linux-arm64	success	0
+138143144284	Verified native Codex package / Verify both native platforms in the actual npm artifacts	success	0
+138095486580	test-execution	success	0
+138095486575	memory-check-linux	success	0
+138095486553	test-suites	success	0
+138094383643	helm-pr-check	skipped	0
+138094382982	Check for Changesets	skipped	0
+138094382775	Check for Manual Version Changes	skipped	0
+138094382048	Verified native Codex package / Build and exercise linux-arm64	success	0
+138094382001	Verified native Codex package / Build and exercise linux-x64	success	0
+138094381432	check-file-line-limits	success	0
+138094381358	validate-docs	success	0
+138094381276	test-compilation	success	0
+138094380663	lint	success	0
+138093950725	${{ matrix.tool }} / ${{ matrix.model }}	skipped	0
+138093949429	prepare	skipped	0
+138093908128	Create Changeset PR	skipped	0
+138093906390	Release Preflight / Probe publishing credentials	success	0
+138093906181	detect-changes	success	8
+138066725432	Security Status	success	0
+138064626768	Links Status	success	0
+138064600275	Workflows Status	success	0
+138064286509	Dependency Review	skipped	0
+138064285307	actionlint	success	0
+138064285218	zizmor	success	0
+138064284514	CodeQL (actions)	success	0
+138064284467	ShellCheck	success	0
+138064284407	CodeQL (javascript-typescript)	success	0
+138064284031	Audit npm lock	success	0
+138064283503	Check Links	success	0

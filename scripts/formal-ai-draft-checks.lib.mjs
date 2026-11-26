@@ -89,3 +89,30 @@ export const allRunsCompleted = selected => selected.every(({ run }) => run?.sta
 
 /** Identifies a status, so an unchanged one is not posted again. */
 export const statusKey = status => [status.context, status.state, status.description, status.target_url || ''].join('\u0000');
+
+/**
+ * How many polls in a row may fail before the reporter gives up.
+ *
+ * Issue #4149: one `GET /actions/runs` that GitHub answered with an empty error
+ * body ("unexpected end of JSON input") failed the whole `report-checks` job
+ * on main, twice within six seconds (runs 45629684702 and 45618594320), while
+ * the runs it was following went on to finish. The poll is only a progress
+ * read, so a missed one changes nothing: the next one 30 s later sees the same
+ * runs. Ten in a row (about five minutes) is no longer a blip, so that failure
+ * is surfaced rather than hidden until the deadline.
+ */
+export const MAX_CONSECUTIVE_POLL_FAILURES = 10;
+
+/**
+ * Count one more failed poll, rethrowing `error` once the budget is spent.
+ *
+ * @param {number} failures - consecutive failed polls so far
+ * @param {unknown} error - the poll's failure
+ * @param {number} [max]
+ * @returns {number} the new count
+ */
+export function recordPollFailure(failures, error, max = MAX_CONSECUTIVE_POLL_FAILURES) {
+  const next = failures + 1;
+  if (next >= max) throw error;
+  return next;
+}

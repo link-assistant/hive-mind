@@ -160,7 +160,7 @@ export const checkRepositoryWritePermission = async (owner, repo, options = {}) 
   try {
     await log('🔍 Checking repository write permissions...');
     // Use GitHub API to check repository permissions (issue #1536: retry on network errors)
-    const permResult = await ghCmdRetry(() => rawDollar$`gh api repos/${owner}/${repo} --jq .permissions`, { label: `write perms ${owner}/${repo}` });
+    const permResult = await ghCmdRetry(() => rawDollar$`gh api repos/${owner}/${repo} --jq .permissions`, { retryTruncatedReply: true, label: `write perms ${owner}/${repo}` });
     if (permResult.code !== 0) {
       // API call failed - might be a private repo or network issue
       const errorOutput = (permResult.stderr?.toString() ? permResult.stderr.toString() : '') + (permResult.stdout?.toString() ? permResult.stdout.toString() : '');
@@ -1210,7 +1210,7 @@ export async function handlePRNotFoundError({ prNumber, owner, repo, argv, shoul
 export async function detectRepositoryVisibility(owner, repo) {
   try {
     // Issue #1536: retry on transient network errors
-    const visibilityResult = await ghCmdRetry(() => rawDollar$(QUIET_PROBE)`gh api repos/${owner}/${repo} --jq .visibility`, { label: `visibility ${owner}/${repo}` });
+    const visibilityResult = await ghCmdRetry(() => rawDollar$(QUIET_PROBE)`gh api repos/${owner}/${repo} --jq .visibility`, { retryTruncatedReply: true, label: `visibility ${owner}/${repo}` });
     if (visibilityResult.code === 0) {
       const visibility = visibilityResult.stdout.toString().trim();
       const isPublic = visibility === 'public';

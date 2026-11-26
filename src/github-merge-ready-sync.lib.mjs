@@ -11,7 +11,7 @@
 
 import { promisify } from 'util';
 import { exec as execCallback } from 'child_process';
-import { ghWithRateLimitRetry } from './github-rate-limit.lib.mjs';
+import { ghWithRateLimitRetry, isReadOnlyGhCommand } from './github-rate-limit.lib.mjs';
 import { githubLimits } from './config.lib.mjs';
 
 const execRaw = promisify(execCallback);
@@ -20,6 +20,7 @@ const execRaw = promisify(execCallback);
 const exec = (cmd, opts) =>
   ghWithRateLimitRetry(() => execRaw(cmd, { timeout: githubLimits.execTimeoutMs, ...opts }), {
     label: `gh exec (${cmd.split(/\s+/).slice(0, 3).join(' ')})`,
+    retryTruncatedReply: isReadOnlyGhCommand(cmd),
   });
 
 import { extractLinkedIssueNumber, pullRequestClosesIssue } from './github-linking.lib.mjs';

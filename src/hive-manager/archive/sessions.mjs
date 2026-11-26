@@ -117,10 +117,13 @@ async function attributedRepository(file, tool, checkoutCache, parent) {
 }
 
 async function requirePublic(repository) {
-  const visibility = await ghWithRateLimitRetry(async () => {
-    const { stdout } = await execFileAsync('gh', ['api', '--hostname', 'github.com', `repos/${repository}`, '--jq', '.visibility'], { timeout: 15_000, maxBuffer: 4096 });
-    return stdout.trim();
-  }).catch(() => null);
+  const visibility = await ghWithRateLimitRetry(
+    async () => {
+      const { stdout } = await execFileAsync('gh', ['api', '--hostname', 'github.com', `repos/${repository}`, '--jq', '.visibility'], { timeout: 15_000, maxBuffer: 4096 });
+      return stdout.trim();
+    },
+    { retryTruncatedReply: true }
+  ).catch(() => null);
   if (visibility !== 'public') throw new Error('Could not confirm that the requested GitHub repository is public.');
 }
 

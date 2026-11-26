@@ -19,16 +19,19 @@
  * Old links stay in the store after the root is re-pointed, so the store is
  * rebuilt when garbage outgrows the live tree.
  *
- * link-cli 3.1.2 keeps one commit marker per transaction in the transitions
- * log for ever (retention only drops payloads) and replays the log on open, so
- * every import gets slower: about 0.1 s more per 10 writes. The log is rotated
- * to `<db>.transitions*.prev.links` once it passes `logMaxBytes`.
+ * link-cli 3.2+ keeps transactions in an append-only journal,
+ * `<db>.transitions.log`, which `--retention` compacts on disk, so writes stay
+ * constant-time (link-cli#195, fixed in 3.2.0). link-cli 3.1.x instead kept one
+ * commit marker per transaction in `<db>.transitions*.links` for ever and
+ * replayed it on open; for such a `clink` the legacy log is rotated to
+ * `<db>.transitions*.prev.links` once it passes `logMaxBytes`.
  *
  * @see https://github.com/link-assistant/hive-mind/issues/4143
  * @see https://github.com/link-foundation/link-cli
  */
 
 import { execFile } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -48,22 +51,44 @@ export function toLinkName(value, rootKey = LINO_STATE_ROOT) {
 
 const isPlainObject = value => value !== null && typeof value === 'object' && !Array.isArray(value);
 
-function encodeList(refs) {
-  let list = END;
-  for (let index = refs.length - 1; index >= 0; index--) list = `(${refs[index]} ${list})`;
-  return list;
+/**
+ * link-cli parses `--in` with the links-notation default nesting limit of 64,
+ * and a list cell nests one level per item, so a state with dozens of tasks
+ * failed to import. A link deeper than `MAX_LINE_DEPTH` is moved to its own
+ * line under a content-addressed name (`~c<hash>`) and referenced by that name;
+ * the stored doublets, and so the decoder, stay the same.
+ */
+export const MAX_LINE_DEPTH = 32;
+
+function createEncoder(rootKey) {
+  const lines = [];
+  const named = new Set();
+  const leaf = value => ({ text: toLinkName(value, rootKey), depth: 0 });
+  const link = (source, target) => {
+    const text = `(${source.text} ${target.text})`;
+    const depth = 1 + Math.max(source.depth, target.depth);
+    if (depth < MAX_LINE_DEPTH) return { text, depth };
+    const name = `~c${createHash('sha256').update(text).digest('base64url').slice(0, 22)}`;
+    if (!named.has(name)) {
+      named.add(name);
+      lines.push(`(${name}: ${source.text} ${target.text})`);
+    }
+    return { text: name, depth: 0 };
+  };
+  const list = refs => refs.reduceRight((rest, ref) => link(ref, rest), { text: END, depth: 0 });
+  const value = item => {
+    if (Array.isArray(item)) return link({ text: ARR, depth: 0 }, list(item.map(leaf)));
+    if (isPlainObject(item)) return link({ text: OBJ, depth: 0 }, list(Object.entries(item).map(([key, child]) => link(leaf(key), value(child)))));
+    return leaf(item);
+  };
+  return { lines, value };
 }
 
-function encodeValue(value, rootKey) {
-  if (Array.isArray(value)) return `(${ARR} ${encodeList(value.map(item => toLinkName(item, rootKey)))})`;
-  if (isPlainObject(value)) return `(${OBJ} ${encodeList(Object.entries(value).map(([key, child]) => `(${toLinkName(key, rootKey)} ${encodeValue(child, rootKey)})`))})`;
-  return toLinkName(value, rootKey);
-}
-
-/** One-line LiNo import document for a state tree. */
+/** LiNo import document for a state tree: deep links first, the root last. */
 export function encodeDoublets(tree, rootKey = LINO_STATE_ROOT) {
-  const normalized = normalizeStringTree(tree) ?? {};
-  return `(${rootKey}: ${rootKey} ${encodeValue(normalized, rootKey)})\n`;
+  const encoder = createEncoder(rootKey);
+  const root = encoder.value(normalizeStringTree(tree) ?? {});
+  return [...encoder.lines, `(${rootKey}: ${rootKey} ${root.text})`, ''].join('\n');
 }
 
 /** Parse `clink --out` lines `(id: source target)` into a map. */
@@ -159,23 +184,25 @@ export function resolveClinkCommand(env = process.env) {
 
 /**
  * Create a client for the doublets store. Callers serialize access with the
- * state lock: link-cli 3.1.2 has no lock of its own and loses concurrent
- * updates (see docs/case-studies/issue-4143).
+ * state lock. link-cli 3.2+ also locks each store itself (`--lock flock` by
+ * default, link-cli#194), but a state write spans the `.lino` file and several
+ * `clink` calls, and link-cli 3.1.x has no lock and loses concurrent updates
+ * (see docs/case-studies/issue-4143).
  */
 export const DEFAULT_LINKS_LOG_MAX_BYTES = 64 * 1024;
 
-export function createLinksStore({ dbPath, command = resolveClinkCommand(), retention = process.env.HIVE_MIND_STATE_LINKS_RETENTION || 'sized:64', logMaxBytes = Number(process.env.HIVE_MIND_STATE_LINKS_LOG_MAX_BYTES) || DEFAULT_LINKS_LOG_MAX_BYTES, timeoutMs = 30000, rootKey = LINO_STATE_ROOT, fsImpl = fs, run = runFile, log = () => {} } = {}) {
+export function createLinksStore({ dbPath, command = resolveClinkCommand(), retention = process.env.HIVE_MIND_STATE_LINKS_RETENTION || 'sized:64', logMaxBytes = Number(process.env.HIVE_MIND_STATE_LINKS_LOG_MAX_BYTES) || DEFAULT_LINKS_LOG_MAX_BYTES, timeoutMs = Number(process.env.HIVE_MIND_STATE_LINKS_TIMEOUT_MS) || 30000, rootKey = LINO_STATE_ROOT, fsImpl = fs, run = runFile, log = () => {} } = {}) {
   const fsp = fsImpl.promises;
   let availability = command ? null : false;
   const tmpPath = suffix => `${dbPath}.${process.pid}.${suffix}.lino`;
   const transactionArgs = ['--transactions', ...(retention ? ['--retention', retention] : [])];
-  // Issue #4143: time every clink call (verbose trace in the bot state store); link-cli#195 slows writes down.
-  const clink = async (args, label) => {
+  // Issue #4143: time every clink call (verbose trace in the bot state store); link-cli#195 slowed 3.1.x writes down.
+  const clink = async (args, label, target = dbPath) => {
     const started = Date.now();
     try {
       return await run(command, args, { timeoutMs });
     } finally {
-      log(`clink ${label} ${dbPath}: ${Date.now() - started}ms`);
+      log(`clink ${label} ${target}: ${Date.now() - started}ms`);
     }
   };
 
@@ -201,11 +228,11 @@ export function createLinksStore({ dbPath, command = resolveClinkCommand(), rete
     }
   }
 
-  async function importTree(tree) {
+  async function importTree(tree, { db = dbPath, args = transactionArgs } = {}) {
     const input = tmpPath('in');
     await fsp.writeFile(input, encodeDoublets(tree, rootKey));
     try {
-      await clink(['--db', dbPath, '--in', input, ...transactionArgs], '--in');
+      await clink(['--db', db, '--in', input, ...args], '--in', db);
     } finally {
       await fsp.rm(input, { force: true }).catch(() => {});
     }
@@ -213,7 +240,10 @@ export function createLinksStore({ dbPath, command = resolveClinkCommand(), rete
 
   const base = dbPath.replace(/\.links$/, '');
   const dataFiles = () => [dbPath, `${base}.names.links`];
+  // Legacy link-cli 3.1.x marker log; 3.2+ migrates it to a self-compacting `.transitions.log`.
   const logFiles = () => [`${base}.transitions.links`, `${base}.transitions.names.links`];
+
+  const ignoreMissing = error => (error.code === 'ENOENT' ? null : Promise.reject(error));
 
   async function rotateLogIfLarge() {
     let size = 0;
@@ -224,8 +254,37 @@ export function createLinksStore({ dbPath, command = resolveClinkCommand(), rete
       );
     if (size <= logMaxBytes) return false;
     log(`Rotating the link-cli transitions log of ${dbPath} (${size} bytes)`);
-    for (const file of logFiles()) await fsp.rename(file, file.replace(/\.links$/, '.prev.links')).catch(error => (error.code === 'ENOENT' ? null : Promise.reject(error)));
+    for (const file of logFiles()) await fsp.rename(file, file.replace(/\.links$/, '.prev.links')).catch(ignoreMissing);
     return true;
+  }
+
+  /**
+   * Issue #4143: link-cli 3.2.1 commits one transaction per created link with
+   * `--transactions` (link-cli#199), about 1 s per task on disk, so a full
+   * import can outlast the timeout and a crash leaves it half applied. A first
+   * write and a rebuild therefore import into a fresh store without
+   * `--transactions` and rename it over the old one: the old store stays
+   * readable until the new one is complete.
+   */
+  async function replaceWithFresh(tree) {
+    const freshBase = `${base}.${process.pid}.fresh`;
+    const freshData = [`${freshBase}.links`, `${freshBase}.names.links`];
+    const cleanup = async () => {
+      const prefix = `${path.basename(freshBase)}.`;
+      const names = await fsp.readdir(path.dirname(dbPath)).catch(() => []);
+      for (const name of names) if (name.startsWith(prefix)) await fsp.rm(path.join(path.dirname(dbPath), name), { recursive: true, force: true });
+    };
+    await cleanup();
+    try {
+      await importTree(tree, { db: freshData[0], args: [] });
+      // The journal describes the store being replaced.
+      for (const file of [`${base}.transitions.log`, ...logFiles()]) await fsp.rm(file, { force: true });
+      // Names first: `read()` treats a missing data file as "no state yet".
+      const targets = dataFiles();
+      for (const index of [1, 0]) await fsp.rename(freshData[index], targets[index]).catch(ignoreMissing);
+    } finally {
+      await cleanup();
+    }
   }
 
   return {
@@ -253,14 +312,21 @@ export function createLinksStore({ dbPath, command = resolveClinkCommand(), rete
     async write(tree) {
       if (!(await available())) return false;
       await fsp.mkdir(path.dirname(dbPath), { recursive: true });
+      const exists = await fsp.access(dbPath).then(
+        () => true,
+        () => false
+      );
+      if (!exists) {
+        await replaceWithFresh(tree);
+        return true;
+      }
       await rotateLogIfLarge();
       await importTree(tree);
       const total = parseDoubletsExport(await exportText()).size;
       const live = countLiveLinks(tree) + 8;
       if (total > Math.max(256, live * 4)) {
         log(`Rebuilding ${dbPath}: ${total} links, ${live} live`);
-        for (const file of dataFiles()) await fsp.rm(file, { force: true });
-        await importTree(tree);
+        await replaceWithFresh(tree);
       }
       return true;
     },

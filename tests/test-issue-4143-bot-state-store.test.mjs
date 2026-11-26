@@ -15,7 +15,7 @@ import path from 'node:path';
 
 import { assert, asyncTest, printSummary, getFailCount, skip } from './test-helpers.mjs';
 import { formatLinoTree, formatVerifiedLinoTree, normalizeStringTree, parseLinoTree, quoteLinoScalar, stringTreesEqual } from '../src/bot-state-lino.lib.mjs';
-import { createLinksStore, decodeDoublets, encodeDoublets, resolveClinkCommand, toLinkName } from '../src/bot-state-links.lib.mjs';
+import { MAX_LINE_DEPTH, createLinksStore, decodeDoublets, encodeDoublets, resolveClinkCommand, toLinkName } from '../src/bot-state-links.lib.mjs';
 import { createBotStateStore, stateToStringTree, stringTreeToState } from '../src/bot-state-store.lib.mjs';
 import { currentLockOwner, isLockOwnerDead, resolveStateLockMode, withStateLock } from '../src/state-lock.lib.mjs';
 
@@ -63,17 +63,13 @@ await asyncTest('LiNo: quoting picks the cheapest safe form', async () => {
   assert(formatLinoTree({ a: { b: 'c' } }).includes('\n    b c'), 'nested object is indented');
 });
 
-await asyncTest('doublets: encode/decode round trip and safe names', async () => {
-  const tree = sampleTree();
-  const document = encodeDoublets(tree);
-  assert(document.startsWith('(hive_mind_state: hive_mind_state (~obj '), 'root link points at an object');
-  assert(toLinkName('hive_mind_state').startsWith('~b64_'), 'root name inside values is encoded');
-  assert(toLinkName('123').startsWith('~b64_'), 'numeric names are encoded (link-cli treats them as ids)');
-  // Build a fake export: assign ids to every sub-link, as clink --out would print.
+// Build a fake export: assign ids to every sub-link, as clink --out would print.
+const fakeExport = document => {
+  const defined = new Set(document.trim().split('\n').map(line => /^\(([^:\s]+):/.exec(line)[1]));
   const ids = new Map();
   const lines = [];
   const point = name => {
-    if (!ids.has(name)) {
+    if (!ids.has(name) && !defined.has(name)) {
       ids.set(name, name);
       lines.push(`(${name}: ${name} ${name})`);
     }
@@ -83,8 +79,8 @@ await asyncTest('doublets: encode/decode round trip and safe names', async () =>
   const parse = (text, at = 0) => {
     if (text[at] !== '(') {
       const end = text.slice(at).search(/[\s)]/);
-      const name = text.slice(at, at + end);
-      return [point(name), at + end];
+      const name = text.slice(at, end < 0 ? text.length : at + end);
+      return [point(name), at + name.length];
     }
     const [left, next] = parse(text, at + 1);
     const [right, after] = parse(text, next + 1);
@@ -96,12 +92,44 @@ await asyncTest('doublets: encode/decode round trip and safe names', async () =>
     }
     return [ids.get(key), after + 1];
   };
-  const body = document.trim().slice('(hive_mind_state: hive_mind_state '.length, -1);
-  const [rootValue] = parse(body);
-  lines.push(`(hive_mind_state: hive_mind_state ${rootValue})`);
-  const decoded = decodeDoublets(lines.join('\n'));
-  assert(same(decoded, tree), 'decoded tree equals the input');
+  for (const line of document.trim().split('\n')) {
+    const [, name, body] = /^\(([^:\s]+): (.*)\)$/.exec(line);
+    const [left, next] = parse(body);
+    const [right] = parse(body, next + 1);
+    lines.push(`(${name}: ${left} ${right})`);
+  }
+  return lines.join('\n');
+};
+const maxLineDepth = document =>
+  Math.max(
+    ...document
+      .trim()
+      .split('\n')
+      .map(line => {
+        let depth = 0;
+        let max = 0;
+        for (const char of line) max = Math.max(max, (depth += char === '(' ? 1 : char === ')' ? -1 : 0));
+        return max;
+      })
+  );
+
+await asyncTest('doublets: encode/decode round trip and safe names', async () => {
+  const tree = sampleTree();
+  const document = encodeDoublets(tree);
+  assert(document.startsWith('(hive_mind_state: hive_mind_state (~obj '), 'root link points at an object');
+  assert(toLinkName('hive_mind_state').startsWith('~b64_'), 'root name inside values is encoded');
+  assert(toLinkName('123').startsWith('~b64_'), 'numeric names are encoded (link-cli treats them as ids)');
+  assert(same(decodeDoublets(fakeExport(document)), tree), 'decoded tree equals the input');
   assert(decodeDoublets('(1: 1 1)') === null, 'no root link decodes to null');
+});
+
+await asyncTest('doublets: long lists stay under the link-cli nesting limit of 64', async () => {
+  const tree = { tasks: Object.fromEntries(Array.from({ length: 300 }, (_, index) => [`task-${index}`, { url: `u${index}`, args: Array.from({ length: 80 }, (_, item) => `a${item}`) }])) };
+  const document = encodeDoublets(tree);
+  assert(maxLineDepth(document) <= MAX_LINE_DEPTH + 1, `every line nests at most ${MAX_LINE_DEPTH + 1} levels (got ${maxLineDepth(document)})`);
+  assert(document.trim().split('\n').at(-1).startsWith('(hive_mind_state: hive_mind_state '), 'the root link comes last');
+  assert(same(decodeDoublets(fakeExport(document)), tree), 'decoded tree equals the input');
+  assert(encodeDoublets(tree) === document, 'the encoding is deterministic');
 });
 
 await asyncTest('link-cli store: disabled and missing binaries degrade to .lino only', async () => {
@@ -224,12 +252,16 @@ await asyncTest('PID lock: verbose trace names the live holder once, then times 
 await asyncTest('link-cli store: every clink call is timed in the trace', async () => {
   const dir = tmp();
   const logs = [];
+  const calls = [];
   const run = async (command, args) => {
-    const out = args[args.indexOf('--out') + 1];
-    if (args.includes('--out')) fs.writeFileSync(out, '');
+    calls.push(args);
+    const db = args[args.indexOf('--db') + 1];
+    if (args.includes('--in')) fs.writeFileSync(db, 'x');
+    if (args.includes('--out')) fs.writeFileSync(args[args.indexOf('--out') + 1], '');
   };
   const store = createLinksStore({ dbPath: path.join(dir, 's.links'), command: 'clink-fake', run, log: message => logs.push(message) });
   await store.write({ a: 'b' });
+  await store.write({ a: 'c' });
   assert(
     logs.some(message => /^clink --in .*s\.links: \d+ms$/.test(message)),
     '--in is timed'
@@ -238,6 +270,49 @@ await asyncTest('link-cli store: every clink call is timed in the trace', async 
     logs.some(message => /^clink --out .*s\.links: \d+ms$/.test(message)),
     '--out is timed'
   );
+  // link-cli#199: a full import with --transactions commits once per link.
+  const imports = calls.filter(args => args.includes('--in'));
+  assert(imports.length === 2, 'one import per write');
+  assert(!imports[0].includes('--transactions') && /\.fresh\.links$/.test(imports[0][imports[0].indexOf('--db') + 1]), 'the first write builds a fresh store without --transactions');
+  assert(imports[1].includes('--transactions') && imports[1][imports[1].indexOf('--db') + 1] === store.dbPath, 'later writes import into the store with --transactions');
+  assert(
+    fs.readdirSync(dir).every(name => !name.includes('.fresh.')),
+    'the fresh store is renamed into place'
+  );
+});
+
+await asyncTest('link-cli store: real clink stores a state with many tasks', async () => {
+  if (!clinkAvailable) return skip('clink is not installed');
+  const store = createLinksStore({ dbPath: path.join(tmp(), 's.links') });
+  const tree = { tasks: Object.fromEntries(Array.from({ length: 120 }, (_, index) => [`task-${index}`, { url: `https://github.com/o/r/issues/${index}`, args: ['--model', 'opus'] }])) };
+  await store.write(tree);
+  assert(same(await store.read(), tree), '120 tasks read back (a one-line import nested past 64 levels)');
+  tree.tasks['task-7'].url = 'changed';
+  await store.write(tree);
+  assert(same(await store.read(), tree), 'an incremental write of the large state reads back');
+});
+
+await asyncTest('link-cli store: real clink rebuild replaces the store atomically', async () => {
+  if (!clinkAvailable) return skip('clink is not installed');
+  const dir = tmp();
+  const logs = [];
+  const store = createLinksStore({ dbPath: path.join(dir, 's.links'), log: message => logs.push(message) });
+  let tree;
+  for (let index = 0; index < 12 && !logs.some(message => message.startsWith('Rebuilding')); index++) {
+    tree = { ...sampleTree(), counter: String(index), [`k${index}`]: Array.from({ length: 12 }, (_, item) => `v${index}-${item}`) };
+    await store.write(tree);
+  }
+  assert(
+    logs.some(message => message.startsWith('Rebuilding')),
+    'garbage triggers a rebuild'
+  );
+  assert(same(await store.read(), tree), 'the rebuilt store reads back the last tree');
+  assert(
+    fs.readdirSync(dir).every(name => !name.includes('.fresh.')),
+    'no fresh store files are left behind'
+  );
+  await store.write({ ...tree, counter: 'after' });
+  assert((await store.read()).counter === 'after', 'transactional writes work on the rebuilt store');
 });
 
 printSummary();

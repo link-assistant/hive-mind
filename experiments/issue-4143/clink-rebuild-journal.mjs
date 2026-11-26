@@ -44,6 +44,13 @@ for (let i = 1; i <= writes; i++) {
 }
 const sorted = [...times].sort((a, b) => a - b);
 const pct = q => sorted[Math.min(sorted.length - 1, Math.floor(q * sorted.length))];
-console.log(`write ms: p50=${pct(0.5)} p95=${pct(0.95)} max=${worst} at write ${worstAt}; over 1s: ${times.map((t, k) => (t > 1000 ? `#${k + 1}=${t}` : '')).filter(Boolean).join(' ') || 'none'}`);
+console.log(
+  `write ms: p50=${pct(0.5)} p95=${pct(0.95)} max=${worst} at write ${worstAt}; over 1s: ${
+    times
+      .map((t, k) => (t > 1000 ? `#${k + 1}=${t}` : ''))
+      .filter(Boolean)
+      .join(' ') || 'none'
+  }`
+);
 console.log(`writes=${writes} rebuilds=${rebuilds} max_journal_bytes=${maxJournal} slowest_write_ms=${worst} final=${JSON.stringify(sizes())}`);
 fs.rmSync(dir, { recursive: true, force: true });

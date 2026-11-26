@@ -31,28 +31,28 @@ done
 ### clink 3.2.1, overlay disk
 
 | Lines | Without `--transactions` | With `--transactions` | Store saves (without/with) | Commits (with) |
-|---:|---:|---:|---:|---:|
-| 1 | 12 ms | 152 ms | 4 / 26 | 10 |
-| 10 | 29 ms | 1835 ms | 4 / 206 | 100 |
-| 50 | 163 ms | 9307 ms | 4 / 1006 | 500 |
-| 100 | 384 ms | 19267 ms | 4 / 2006 | 1000 |
+| ----: | -----------------------: | --------------------: | -------------------------: | -------------: |
+|     1 |                    12 ms |                152 ms |                     4 / 26 |             10 |
+|    10 |                    29 ms |               1835 ms |                    4 / 206 |            100 |
+|    50 |                   163 ms |               9307 ms |                   4 / 1006 |            500 |
+|   100 |                   384 ms |              19267 ms |                   4 / 2006 |           1000 |
 
 ### The same run on tmpfs (`/dev/shm`)
 
-| Lines | Without | With |
-|---:|---:|---:|
-| 10 | 21 ms | 63 ms |
-| 100 | 299 ms | 1569 ms |
+| Lines | Without |    With |
+| ----: | ------: | ------: |
+|    10 |   21 ms |   63 ms |
+|   100 |  299 ms | 1569 ms |
 
 On tmpfs the gap shrinks a lot, which points at fsync and file IO as the main cost. The work also grows with the store size, because every commit saves the whole store.
 
 ### clink 3.1.2 baseline
 
 | Lines | With `--transactions` |
-|---:|---:|
-| 10 | 5490 ms |
-| 50 | 44884 ms |
-| 100 | 158555 ms |
+| ----: | --------------------: |
+|    10 |               5490 ms |
+|    50 |              44884 ms |
+|   100 |             158555 ms |
 
 ### Crash atomicity
 
@@ -87,10 +87,10 @@ Re-importing an unchanged file commits nothing (0 commits, 40 ms for 20 lines), 
 Run each CLI invocation (one `--in` import, or one query/`--update`) inside a single explicit transaction. Call `begin_transaction()` before `import_lino_file` and `commit()` after it, and roll back on error. Then one import is one atomic commit: one store save and one journal fsync. That matches the "a write costs one append" model in `HOW-IT-WORKS.md`, and the import becomes all-or-nothing when the process dies mid-import, which completes #129 for crashes.
 
 A regression test could:
+
 - count `Committed tx` in `--trace` for a 10-line `--in` with `--transactions` (expect 1);
 - kill the process mid-import and expect 0 or N lines.
 
 ## Workaround
 
 hive-mind ([hive-mind#4143](https://github.com/link-assistant/hive-mind/issues/4143)) imports a full tree without `--transactions` into a fresh store and renames it over the old one. It does this on a first write and on a rebuild. That gives atomic replacement and avoids the per-link commit. It keeps `--transactions` only for incremental writes, which create just a few links each.
-

@@ -65,7 +65,12 @@ await asyncTest('LiNo: quoting picks the cheapest safe form', async () => {
 
 // Build a fake export: assign ids to every sub-link, as clink --out would print.
 const fakeExport = document => {
-  const defined = new Set(document.trim().split('\n').map(line => /^\(([^:\s]+):/.exec(line)[1]));
+  const defined = new Set(
+    document
+      .trim()
+      .split('\n')
+      .map(line => /^\(([^:\s]+):/.exec(line)[1])
+  );
   const ids = new Map();
   const lines = [];
   const point = name => {

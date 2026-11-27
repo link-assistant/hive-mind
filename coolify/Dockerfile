@@ -19,7 +19,7 @@
 #
 # Build: docker build -f coolify/Dockerfile -t konard/hive-mind .
 
-ARG FORMAL_AI_VERSION=0.356.11
+ARG FORMAL_AI_VERSION=0.357.2
 # Bookworm's glibc 2.36 remains compatible with the Ubuntu 24.04 Box runtime.
 FROM rust:1.100-slim-bookworm AS formal-ai-builder
 ARG FORMAL_AI_VERSION
@@ -40,14 +40,14 @@ RUN apt-get update && \
 ENV OPENSSL_STATIC=1
 RUN cargo install formal-ai --version "${FORMAL_AI_VERSION}" --locked
 
-# Box 2.10.5 retains the box#112 one-toolchain invariant and the base
+# Box 2.10.6 retains the box#112 one-toolchain invariant and the base
 # runtimes: Node.js v24.21.0, Bun 1.4.2 and stable Rust 1.98.1. Box PR #120
 # repaired the Docker Hub multi-arch publishing failure reported in box#119;
 # both registries now carry amd64 and arm64 manifests. Keep GHCR, Box's registry
 # of record, as the reproducible source for this pin. Box #129 also adds file
-# for validating downloaded attachments. Box 2.10.5 enables Docker live
+# for validating downloaded attachments. Box 2.10.5 introduced Docker live
 # restore in the nested DinD daemon (box#131).
-FROM ghcr.io/link-foundation/box:2.10.5
+FROM ghcr.io/link-foundation/box:2.10.6
 # Coolify can launch tasks through a mounted host socket without a local daemon.
 COPY --from=docker:29.9.2-cli /usr/local/bin/docker /usr/local/bin/docker
 RUN docker --version
@@ -145,7 +145,7 @@ RUN command -v jq >/dev/null || HOMEBREW_NO_AUTO_UPDATE=1 brew install jq
 # need something newer used to download their own node/bun into /tmp on every
 # run and leave the copy behind — a second accumulation of versions on top of
 # the image's own. Reported upstream as link-foundation/box#112 and fixed in
-# box 2.7.0. The current 2.10.5 base keeps one version per language. When a
+# box 2.7.0. The current 2.10.6 base keeps one version per language. When a
 # pin below differs from the base, replace the runtime and repoint the default
 # before pruning superseded Node.js versions (the prune behavior is covered
 # by tests/test-issue-2187-runtime-versions.mjs).

@@ -197,7 +197,10 @@ stream_max_retries = 0
             allowed = scenario in ("healthy", "rotation")
             bypass = negative and scenario in ("account-switch", "api-key-login", "api-key-with-stale-tokens", "legacy-fresh-owned-login")
             if allowed:
-                assert observed == [("synthetic-account-A", True)], "The healthy native identity control must reach the model."
+                assert observed == [("synthetic-account-A", True)], (
+                    f"The {scenario} native identity control must reach the model. "
+                    f"Registration generations: {registrations!r}; model requests: {len(observed)}."
+                )
             if replacement is None:
                 assert not auth.exists(), "Identity publication must not recreate logged-out credentials."
             else:

@@ -85,6 +85,7 @@ export const CODEX_HOSTED_APPS_DISABLE_ARGS = Object.freeze(['-c', 'features.app
 export const CODEX_CURATED_SYNC_PATHS = Object.freeze(['.tmp/plugins', '.tmp/plugins.sha', '.tmp/plugins.sync.lock']);
 
 const LOG_PREFIX = 'agent-config-audit';
+const AUDIT_PATH_SELECTORS = ['CLAUDE_CONFIG_DIR', 'CODEX_HOME', 'BUN_INSTALL', 'HIVE_MIND_IMAGE_NATIVE_BIN', 'HIVE_MIND_STATE_DIR'];
 
 const isTruthyFlag = value => value === '1' || value === 'true' || value === 'yes' || value === 'on';
 const isFalsyFlag = value => value === '0' || value === 'false' || value === 'no' || value === 'off';
@@ -512,9 +513,9 @@ export const runAgentConfigAudit = async ({ tool = 'all', homeDir = os.homedir()
   const selectedEnv = env;
   const selectedSystemRoots = systemRoots;
   systemRoots = { claude: systemRoots.claude, codex: systemRoots.codex };
-  env = { CLAUDE_CONFIG_DIR: env.CLAUDE_CONFIG_DIR, CODEX_HOME: env.CODEX_HOME };
+  env = Object.fromEntries(AUDIT_PATH_SELECTORS.map(name => [name, selectedEnv[name]]));
   const requireSamePaths = () => {
-    if (selectedEnv.CLAUDE_CONFIG_DIR !== env.CLAUDE_CONFIG_DIR || selectedEnv.CODEX_HOME !== env.CODEX_HOME) throw new Error('Global agent configuration has unsafe effective path changes; no repair or admission is permitted.');
+    if (AUDIT_PATH_SELECTORS.some(name => selectedEnv[name] !== env[name])) throw new Error('Global agent configuration has unsafe effective path changes; no repair or admission is permitted.');
     if (selectedSystemRoots.claude !== systemRoots.claude || selectedSystemRoots.codex !== systemRoots.codex) throw new Error('Managed agent configuration has unsafe effective path changes; no repair or admission is permitted.');
   };
   const auditOptions = { tool: scope, homeDir, env, systemRoots, fsImpl, allowedMcpServers };

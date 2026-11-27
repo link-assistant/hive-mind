@@ -8,7 +8,7 @@ import { test } from 'node:test';
 import { promisify } from 'node:util';
 import { AGENTIC_CLI_TARGETS, isAgenticCliAutoUpdateEnabled, listAgenticCliUpdateTargets, rememberInstalledCodexStock, updateAgenticClisWhenIdle } from '../src/agentic-cli-updater.lib.mjs';
 import { buildStartCommandArgs } from '../src/isolation-runner.lib.mjs';
-import { validateAgentConfigAuditInputs } from '../src/agent-config-audit-inputs.lib.mjs';
+import { runAgentConfigAudit } from '../src/agent-config-audit.lib.mjs';
 import { CodexStockBaselineError } from '../src/codex-stock-skills.lib.mjs';
 
 const execFileAsync = promisify(execFile);
@@ -89,6 +89,7 @@ test('the new Codex catalog and its recorded predecessor are audited by content'
   const command = path.join(bin, 'codex');
   await mkdir(bin, { recursive: true });
   await mkdir(path.join(stock, 'new-skill'), { recursive: true });
+  await writeFile(path.join(home, '.codex/config.toml'), '[features]\nremote_plugin = false\nplugins = false\napps = false\n');
   const install = (version, content) =>
     writeFile(
       command,
@@ -113,7 +114,7 @@ if (process.argv.includes('--version')) {
       { mode: 0o700 }
     );
   const env = { HIVE_MIND_IMAGE_NATIVE_BIN: path.join(root, 'native'), BUN_INSTALL: path.dirname(bin), HIVE_MIND_STATE_DIR: path.join(root, 'state') };
-  const check = () => validateAgentConfigAuditInputs({ tool: 'codex', homeDir: home, env, systemRoots: { codex: path.join(root, 'managed') } });
+  const check = () => runAgentConfigAudit({ tool: 'codex', homeDir: home, env, systemRoots: { codex: path.join(root, 'managed') }, autoRepair: false, requireClean: true });
   const skill = path.join(stock, 'new-skill', 'SKILL.md');
   await install('0.171.0', 'previous upstream content');
   await writeFile(skill, 'previous upstream content');

@@ -50,11 +50,11 @@ test('an empty stock directory is not a pristine CLI baseline', async t => {
 });
 
 for (const dockerfile of ['Dockerfile', 'Dockerfile.dind', 'coolify/Dockerfile']) {
-  test(`${dockerfile} pins the CLI version used to generate the stock baseline`, async () => {
+  test(`${dockerfile} keeps the native adapter tied to the reviewed stock baseline`, async () => {
     const content = await readFile(new URL(`../${dockerfile}`, import.meta.url), 'utf8');
     const version = CODEX_STOCK_SKILLS.cliVersion.replace('codex-cli ', '');
-    assert.ok(content.includes(`bun install --backend=copyfile -g @openai/codex@${version}`));
-    assert.match(content, /bash \/tmp\/claude-code-install\.sh 2\.1\.319(?:\s|$)/);
+    assert.ok(content.includes(`BUN_INSTALL=/home/box/.hive-native bun install --backend=copyfile -g @openai/codex@${version}`));
+    assert.match(content, /bash \/tmp\/claude-code-install\.sh latest(?:\s|$)/);
   });
 }
 

@@ -57,18 +57,18 @@ for verified_image in "${IMAGE_NAME}:test" "${DIND_IMAGE_NAME}:test"; do
       set -euo pipefail
       native_hive_root=$(dirname "$(dirname "$(readlink -f "$(command -v hive)")")")
       node --max-old-space-size=128 /probe-formal-ai-codex-auth.mjs "$(command -v formal-ai)" "$native_hive_root"
-      python3 /probe-codex-native-auth-identity.py "$(command -v codex)"
+      python3 /probe-codex-native-auth-identity.py "$HIVE_MIND_IMAGE_NATIVE_BIN/codex"
       for mutation in none logout replace malformed; do
-        python3 /probe-codex-native-limits-generation.py "$(command -v codex)" --mutation "$mutation"
+        python3 /probe-codex-native-limits-generation.py "$HIVE_MIND_IMAGE_NATIVE_BIN/codex" --mutation "$mutation"
       done
       for scenario in directory database; do
-        python3 /hive-native-probes/probe-codex-native-sqlite-lifetime.py "$(command -v codex)" --case "$scenario"
+        python3 /hive-native-probes/probe-codex-native-sqlite-lifetime.py "$HIVE_MIND_IMAGE_NATIVE_BIN/codex" --case "$scenario"
       done
       for scenario in recovery peers startup; do
-        python3 "/hive-native-probes/probe-codex-native-sqlite-$scenario.py" "$(command -v codex)"
-        python3 "/hive-native-probes/probe-codex-native-sqlite-$scenario.py" "$(command -v codex)" --without-path-selector
+        python3 "/hive-native-probes/probe-codex-native-sqlite-$scenario.py" "$HIVE_MIND_IMAGE_NATIVE_BIN/codex"
+        python3 "/hive-native-probes/probe-codex-native-sqlite-$scenario.py" "$HIVE_MIND_IMAGE_NATIVE_BIN/codex" --without-path-selector
       done
-      python3 /hive-native-probes/probe-codex-native-sqlite-performance.py "$(command -v codex)"
+      python3 /hive-native-probes/probe-codex-native-sqlite-performance.py "$HIVE_MIND_IMAGE_NATIVE_BIN/codex"
     '
 done
 

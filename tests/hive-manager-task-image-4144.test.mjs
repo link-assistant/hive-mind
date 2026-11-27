@@ -224,3 +224,17 @@ test('plain instances pass a task image only when they use the host Docker socke
   assert.equal(deployedTaskImage(host, 'plain'), `konard/hive-mind:${RELEASE}`);
   assert.equal(plannedEnvironment(host).DIND_HOST_PASSTHROUGH_IMAGES, undefined);
 });
+
+test('prepare pulls a configured task tag again when the local copy is stale', t => {
+  const { cwd, image, log, run } = fixture(t);
+  const task = 'team/tasks:custom';
+  image('registry', 'konard/hive-mind-dind:latest', LATEST_ID);
+  image('images', task, OTHER_ID);
+  image('registry', task, LATEST_ID);
+
+  const result = run(['deploy', '--variant', 'dind', '--task-image', task, 'prepare']);
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /^Task image team\/tasks:custom$/mu);
+  assert.match(log(), /^pull team\/tasks:custom$/mu);
+  assert.equal(readFileSync(join(cwd, 'images', key(task)), 'utf8').trim(), LATEST_ID);
+});

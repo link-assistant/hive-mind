@@ -673,9 +673,13 @@ select_task_image() {
       task_image=$(image_repository "$image"):$tag
     else
       pin_task_image "$may_pull"
+      return 0
     fi
   fi
   [[ $task_image =~ ^[^[:space:]-][^[:space:]]*$ ]] || fail "Invalid task image: $task_image"
+  if (( may_pull )) && [[ $task_image != "$image" ]]; then
+    docker pull "$task_image" >&2
+  fi
 }
 
 # Pass the selected task image as a full reference. In DinD with a host socket,
@@ -2063,9 +2067,6 @@ deploy() {
           local task_image=''
           select_task_image 1
           if [[ $task_image ]]; then
-            if [[ $task_image != "$image" ]] && ! docker image inspect "$task_image" >/dev/null 2>&1; then
-              docker pull "$task_image"
-            fi
             printf 'Task image %s\n' "$task_image"
           fi ;;
         rollback) rollback_deployment ;;

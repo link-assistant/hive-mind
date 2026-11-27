@@ -16,6 +16,10 @@ on:
         type: choice
         default: checks
         options: [checks, release]
+      build_docker:
+        description: Build and verify the selected branch's Docker images
+        type: boolean
+        default: false
       release_mode:
         description: 'Manual release mode'
         required: true
@@ -399,14 +403,14 @@ jobs:
   native-codex-build:
     name: Verified native Codex package
     needs: [detect-changes, changeset-check]
-    if: ${{ !cancelled() && (needs.changeset-check.result == 'success' || needs.changeset-check.result == 'skipped') && (needs.detect-changes.outputs.docker-changed == 'true' || needs.detect-changes.outputs.workflow-changed == 'true' || (github.ref == 'refs/heads/main' && ((github.event_name == 'push' && needs.detect-changes.outputs.any-code-changed == 'true') || (github.event_name == 'workflow_dispatch' && inputs.mode == 'release')))) }}
+    if: ${{ !cancelled() && (needs.changeset-check.result == 'success' || needs.changeset-check.result == 'skipped') && (needs.detect-changes.outputs.docker-changed == 'true' || needs.detect-changes.outputs.workflow-changed == 'true' || (github.event_name == 'workflow_dispatch' && inputs.build_docker) || (github.ref == 'refs/heads/main' && ((github.event_name == 'push' && needs.detect-changes.outputs.any-code-changed == 'true') || (github.event_name == 'workflow_dispatch' && inputs.mode == 'release')))) }}
     uses: ./.github/workflows/native-codex-build.yml
   docker-pr-check:
     runs-on: ubuntu-24.04
     # Issue #3785: 16-25 min builds + ~4 min lifecycle gate per Docker daemon layout.
     timeout-minutes: 45
     needs: [detect-changes, changeset-check, test-compilation, lint, check-file-line-limits, native-codex-build]
-    # Real PR builds stay opt-in (#4017); main publication candidates are always verified (#3785).
+    # PR builds stay opt-in (#4017). Manual checks can request Docker verification.
     if: |
       !cancelled() &&
       needs.native-codex-build.result == 'success' &&
@@ -418,6 +422,7 @@ jobs:
       ((vars.ENABLE_DOCKER_PR_BUILDS == 'true' &&
         github.event_name == 'pull_request' &&
         (needs.detect-changes.outputs.docker-changed == 'true' || needs.detect-changes.outputs.workflow-changed == 'true')) ||
+       (github.event_name == 'workflow_dispatch' && inputs.build_docker) ||
        (github.ref == 'refs/heads/main' &&
         ((github.event_name == 'push' && needs.detect-changes.outputs.any-code-changed == 'true') ||
          (github.event_name == 'workflow_dispatch' && inputs.mode == 'release'))))
@@ -645,6 +650,7 @@ jobs:
           platforms: ${{ matrix.platform }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
+            HIVE_MIND_AGENTIC_CLI_REFRESH=${{ github.run_id }}-${{ github.run_attempt }}
             HIVE_MIND_VERSION=${{ needs.release.outputs.published_version }}
           # Registry cache for faster parallel export. See: docs/case-studies/issue-1415/README.md
           cache-from: type=registry,ref=${{ env.IMAGE_NAME }}:buildcache-${{ matrix.cache_suffix }}
@@ -774,6 +780,7 @@ jobs:
           platforms: ${{ matrix.platform }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
+            HIVE_MIND_AGENTIC_CLI_REFRESH=${{ github.run_id }}-${{ github.run_attempt }}
             HIVE_MIND_VERSION=${{ needs.release.outputs.published_version }}
           cache-from: type=registry,ref=${{ env.IMAGE_NAME }}:buildcache-dind-${{ matrix.cache_suffix }}
           cache-to: type=registry,ref=${{ env.IMAGE_NAME }}:buildcache-dind-${{ matrix.cache_suffix }},mode=max,image-manifest=true,ignore-error=true
@@ -1010,6 +1017,7 @@ jobs:
           platforms: ${{ matrix.platform }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
+            HIVE_MIND_AGENTIC_CLI_REFRESH=${{ github.run_id }}-${{ github.run_attempt }}
             HIVE_MIND_VERSION=${{ needs.instant-release.outputs.published_version }}
           # Registry cache for faster parallel export. See: docs/case-studies/issue-1415/README.md
           cache-from: type=registry,ref=${{ env.IMAGE_NAME }}:buildcache-${{ matrix.cache_suffix }}
@@ -1139,6 +1147,7 @@ jobs:
           platforms: ${{ matrix.platform }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
+            HIVE_MIND_AGENTIC_CLI_REFRESH=${{ github.run_id }}-${{ github.run_attempt }}
             HIVE_MIND_VERSION=${{ needs.instant-release.outputs.published_version }}
           cache-from: type=registry,ref=${{ env.IMAGE_NAME }}:buildcache-dind-${{ matrix.cache_suffix }}
           cache-to: type=registry,ref=${{ env.IMAGE_NAME }}:buildcache-dind-${{ matrix.cache_suffix }},mode=max,image-manifest=true,ignore-error=true

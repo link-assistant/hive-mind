@@ -109,12 +109,13 @@ echo "This image adds AI-specific tools on top of the Box base."
 echo "Installing the checked-out branch as an npm package; all runtime checks are required."
 echo ""
 
-docker build --progress=plain --build-arg HIVE_MIND_INSTALL_SOURCE=true -t "${IMAGE_NAME}:test" . 2>&1 | tee build-output.log
+cli_refresh="${GITHUB_RUN_ID:-$(date +%s)}-${GITHUB_RUN_ATTEMPT:-1}"
+docker build --progress=plain --build-arg HIVE_MIND_INSTALL_SOURCE=true --build-arg HIVE_MIND_AGENTIC_CLI_REFRESH="$cli_refresh" -t "${IMAGE_NAME}:test" . 2>&1 | tee build-output.log
 
 echo ""
 restart_dockerd
 echo "Building Docker-in-Docker image from ${BOX_DIND_BASE} base..."
-docker build --progress=plain -f Dockerfile.dind --build-arg HIVE_MIND_INSTALL_SOURCE=true -t "${DIND_IMAGE_NAME}:test" . 2>&1 | tee build-dind-output.log
+docker build --progress=plain -f Dockerfile.dind --build-arg HIVE_MIND_INSTALL_SOURCE=true --build-arg HIVE_MIND_AGENTIC_CLI_REFRESH="$cli_refresh" -t "${DIND_IMAGE_NAME}:test" . 2>&1 | tee build-dind-output.log
 
 echo ""
 echo "Docker images built successfully"

@@ -6,7 +6,7 @@ import { installNativeCodexCommand } from './native-codex-command.lib.mjs';
 
 if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
   try {
-    await installNativeCodexCommand();
+    await installNativeCodexCommand({ command: process.argv[2] });
     console.log('Installed and verified the pinned native Codex adapter.');
   } catch {
     // Issue #4050: the executable is the optional dependency alias, not part of this package.

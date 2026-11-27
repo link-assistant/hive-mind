@@ -193,6 +193,9 @@ export async function buildDockerIsolationStartArgs(command, args = [], options 
   startArgs.push('--shell', DOCKER_ISOLATION_SHELL);
   // The image already sets HOME=/home/box and WORKDIR /home/box; pass HOME explicitly anyway so the credential mounts under /home/box resolve even if a future image forgets to. start-command has no --workdir flag, so the working directory comes from the image's WORKDIR.
   startArgs.push('-e', `HOME=${DOCKER_CONTAINER_HOME}`, '-e', `HIVE_MIND_PARENT_SESSION_ID=${sessionId || ''}`, '-e', `HIVE_MIND_IMAGE_VARIANT=${resolveImageVariant(image, env)}`);
+  for (const name of ['HIVE_MIND_AGENTIC_CLI_AUTO_UPDATE', 'HIVE_MIND_AGENTIC_CLI_UPDATE_ONLY', 'HIVE_MIND_AGENTIC_CLI_UPDATE_EXCLUDE']) {
+    if (env[name] !== undefined) startArgs.push('-e', `${name}=${env[name]}`);
+  }
   if (normalizeTool(tool) === 'claude') {
     for (const [name, value] of Object.entries(buildClaudePromptCacheEnv(env))) startArgs.push('-e', `${name}=${value}`);
   }

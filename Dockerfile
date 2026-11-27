@@ -248,33 +248,15 @@ RUN mkdir -p /home/box/.local/bin && \
 # Global bun packages for AI coding assistants and workflow utilities
 # Every install must fail the build on error — no silent fallbacks (see issue #1505)
 
-# Install Claude Code through Anthropic's native installer. Bun blocks the
-# @anthropic-ai/claude-code postinstall that links the native binary (issue #1633).
-ENV DISABLE_AUTOUPDATER=1
-# Keep the content-attested runtimes pinned through Hive Mind's idle updater too.
-ENV HIVE_MIND_AGENTIC_CLI_UPDATE_EXCLUDE=claude,codex,agent,opencode,gemini,qwen
-RUN curl -fsSL https://claude.ai/install.sh -o /tmp/claude-code-install.sh && \
-    bash /tmp/claude-code-install.sh 2.1.319 && \
-    rm /tmp/claude-code-install.sh && \
-    test "$(claude --version)" = '2.1.319 (Claude Code)'
-
-# Install AI coding assistant CLIs
-# Native storage probes and clean-runtime manifests attest these exact versions.
-# Upgrade them together with the storage adapters and their lifecycle evidence.
-# Copy package bytes independently of Bun's cache for native runtime admission.
-RUN bun install --backend=copyfile -g @openai/codex@0.164.0 # https://github.com/link-assistant/hive-mind/issues/4027
-RUN test "$(codex --version)" = 'codex-cli 0.164.0'
-RUN bun install --backend=copyfile -g @qwen-code/qwen-code@0.27.0 # https://github.com/link-assistant/hive-mind/issues/4027
-RUN bun install --backend=copyfile -g @google/gemini-cli@0.65.0 # https://github.com/link-assistant/hive-mind/issues/4027
-RUN bun install --backend=copyfile -g @github/copilot
-RUN bun install --backend=copyfile -g opencode-ai@1.19.5 # https://github.com/link-assistant/hive-mind/issues/4027
-RUN test "$(opencode --version)" = '1.19.5'
+# Keep the verified storage adapters in a separate package directory.
+ENV HIVE_MIND_IMAGE_NATIVE_BIN=/home/box/.hive-native/bin
+RUN BUN_INSTALL=/home/box/.hive-native bun install --backend=copyfile -g @openai/codex@0.164.0 @google/gemini-cli@0.65.0 # https://github.com/link-assistant/hive-mind/issues/4027
 
 # Agent must search without executing binaries from its shared data directory.
-# Use the architecture-matched executable supplied by the pinned Codex package.
+# Use the architecture-matched executable supplied by the native adapter input.
 RUN --mount=type=bind,source=.,target=/tmp/hive-mind-source,readonly \
     node /tmp/hive-mind-source/scripts/install-image-ripgrep.mjs \
-      /home/box/.bun/install/global/node_modules/@openai/codex /home/box/.local/bin/rg
+      /home/box/.hive-native/install/global/node_modules/@openai/codex /home/box/.local/bin/rg
 
 # Install hive-mind workflow utilities
 # Release builds pass HIVE_MIND_VERSION after npm publish, so Docker installs
@@ -351,20 +333,6 @@ RUN --mount=type=bind,source=.,target=/tmp/hive-mind-source,readonly \
 # START_EXECUTION_ID/START_SESSION_NAME/START_ATTEMPT, adds aliases and
 # continuation chains; start#229-#231). Hive Mind passes `--session`, not
 # `--session-id`, so the refusal does not affect its launches.
-# `@link-assistant/agent` is pinned to current 0.27.2. Version 0.26.1 stopped the
-# unbounded snapshot leak of issue #2186. Up to 0.26.0 `Snapshot.track()` built a
-# standalone git object store per project — keyed on the worktree's root commit,
-# with no `objects/info/alternates` and no garbage collection — so a harness that
-# runs the agent in throwaway `git init` checkouts left one full ~270 MB copy of
-# the repository behind per invocation: 115 orphaned stores / 31 GB in a single
-# task, growing at ~5 GB/h, in `~/.local/share/link-assistant-agent/snapshot/`
-# where none of Hive Mind's `/tmp`-scoped disk checks could see it.
-# link-assistant/agent#298 (PR #300) shares the repository's objects and prunes
-# projects whose recorded worktree is gone. `src/agent.lib.mjs` enforces the same
-# floor at runtime, so the pin and the guard cannot drift apart.
-# 0.26.14 reports a failed tool call only on its tool_use event instead of a
-# top-level error event (link-assistant/agent#332), so a missing file read no
-# longer ends the run.
 RUN --mount=type=bind,source=.,target=/tmp/hive-mind-source,readonly \
     if [ "${HIVE_MIND_INSTALL_SOURCE}" = "true" ]; then \
       bash /tmp/hive-mind-source/scripts/install-image-package.sh /tmp/hive-mind-source; \
@@ -375,7 +343,6 @@ RUN --mount=type=bind,source=.,target=/tmp/hive-mind-source,readonly \
       test "$(hive --version)" = "${HIVE_MIND_VERSION}"; \
     fi && \
     bun install --backend=copyfile -g @link-assistant/claude-profiles && \
-    bun install --backend=copyfile -g @link-assistant/agent@0.27.2 && \
     bun install --backend=copyfile -g start-command@0.45.0 && \
     bun install --backend=copyfile -g gh-setup-git-identity && \
     bun install --backend=copyfile -g gh-pull-all && \
@@ -383,11 +350,22 @@ RUN --mount=type=bind,source=.,target=/tmp/hive-mind-source,readonly \
     bun install --backend=copyfile -g gh-load-pull-request && \
     bun install --backend=copyfile -g gh-upload-log@latest
 
-# Activate the adapters from the installed Hive Mind artifact after global installs.
-RUN --network=none node "$(dirname "$(readlink -f "$(command -v hive)")")/install-native-gemini.mjs"
-# Debug output prints only on a refusal: the admission phase and error code, e.g.
-# MODULE_NOT_FOUND when Bun skipped a variant npm had not finished processing (#4055).
-RUN --network=none HIVE_MIND_NATIVE_CODEX_DEBUG=1 node "$(dirname "$(readlink -f "$(command -v hive)")")/install-native-codex.mjs"
+# Resolve upstream CLI releases again for each CI publication attempt.
+# Claude's native installer provides the binary used by explicit `claude update`.
+ENV DISABLE_AUTOUPDATER=1
+ARG HIVE_MIND_AGENTIC_CLI_REFRESH=local
+RUN printf 'Installing agentic CLIs (%s)\n' "$HIVE_MIND_AGENTIC_CLI_REFRESH" && \
+    curl -fsSL https://claude.ai/install.sh -o /tmp/claude-code-install.sh && \
+    bash /tmp/claude-code-install.sh latest && \
+    rm /tmp/claude-code-install.sh && \
+    bun install --backend=copyfile -g @openai/codex@latest @qwen-code/qwen-code@latest \
+      @google/gemini-cli@latest @github/copilot@latest opencode-ai@latest @link-assistant/agent@latest
+
+# Verify and activate the adapters from the installed Hive Mind package.
+RUN --network=none node "$(dirname "$(readlink -f "$(command -v hive)")")/install-native-gemini.mjs" "$HIVE_MIND_IMAGE_NATIVE_BIN/gemini"
+RUN --network=none HIVE_MIND_NATIVE_CODEX_DEBUG=1 node "$(dirname "$(readlink -f "$(command -v hive)")")/install-native-codex.mjs" "$HIVE_MIND_IMAGE_NATIVE_BIN/codex"
+COPY --chmod=0755 scripts/image-agentic-cli.sh /home/box/.local/bin/codex
+COPY --chmod=0755 scripts/image-agentic-cli.sh /home/box/.local/bin/gemini
 
 # --- Playwright MCP Setup ---
 # Box 2.1.1 pre-installs Playwright browsers and @playwright/test.

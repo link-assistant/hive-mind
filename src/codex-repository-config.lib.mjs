@@ -24,22 +24,20 @@ import path from 'node:path';
 import { parse as parseToml, stringify as stringifyToml } from 'smol-toml';
 
 import { CODEX_STOCK_SKILLS } from './codex-stock-skills.lib.mjs';
+import { getInstalledCodexStockManifest } from './codex-installed-stock.lib.mjs';
 
 export const REPOSITORY_CODEX_CONFIG = path.join('.codex', 'config.toml');
 const MAX_REPOSITORY_CONFIG_BYTES = 256 * 1024;
 const PLUGIN_ID = /^[a-z0-9][a-z0-9._-]*@[a-z0-9][a-z0-9._-]*$/iu;
 const SERVER_NAME = /^[a-z0-9][a-z0-9_-]*$/iu;
 
-/** Names of the system skills bundled with the pinned Codex CLI. */
-export const CODEX_SYSTEM_SKILL_NAMES = Object.freeze(
-  [
-    ...new Set(
-      Object.keys(CODEX_STOCK_SKILLS.files)
-        .filter(file => /^[^/]+\/SKILL\.md$/u.test(file))
-        .map(file => file.split('/')[0])
-    ),
-  ].sort()
-);
+const systemSkillNames = ({ files }) =>
+  Object.keys(files)
+    .filter(file => /^[^/]+\/SKILL\.md$/u.test(file))
+    .map(file => file.split('/')[0])
+    .sort();
+
+export const CODEX_SYSTEM_SKILL_NAMES = Object.freeze(systemSkillNames(CODEX_STOCK_SKILLS));
 
 export const isCodexSystemSkillsEnabled = (env = process.env) => /^(?:1|true|yes|on)$/iu.test(String(env?.HIVE_MIND_CODEX_SYSTEM_SKILLS || ''));
 
@@ -137,7 +135,12 @@ export async function applyRepositoryCodexConfig({ codexHome, projectDir, env = 
 
   const skillEntries = [];
   const required = new Set(requiredSkills.map(skill => String(skill).toLowerCase()));
-  const disabledSystemSkills = isCodexSystemSkillsEnabled(env) ? [] : CODEX_SYSTEM_SKILL_NAMES.filter(name => !required.has(name));
+  const enabledSystemSkills = isCodexSystemSkillsEnabled(env);
+  const stockNames = new Set(CODEX_SYSTEM_SKILL_NAMES);
+  if (!enabledSystemSkills && env.HIVE_MIND_IMAGE_NATIVE_BIN && env.BUN_INSTALL) {
+    for (const name of systemSkillNames(await getInstalledCodexStockManifest(env))) stockNames.add(name);
+  }
+  const disabledSystemSkills = enabledSystemSkills ? [] : [...stockNames].filter(name => !required.has(name));
   const homes = [...new Set([codexHome, (await realpathOrNull(codexHome)) || codexHome])];
   for (const name of disabledSystemSkills) {
     for (const home of homes) skillEntries.push({ path: path.join(home, 'skills', '.system', name, 'SKILL.md'), enabled: false });

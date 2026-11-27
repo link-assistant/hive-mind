@@ -193,6 +193,37 @@ utilities (`claude-profiles`, `gh-setup-git-identity`, `gh-pull-all`,
 same idle condition. The environment variables for both are documented in
 [Configuration](CONFIGURATION.md#41-docker-isolation-settings).
 
+#### Updating task images and their CLIs
+
+Releases rebuild the plain and DinD images with the current stable CLI packages
+and publish both the release tag and `latest`. Updating tools inside the bot
+container updates that installation. Each new task starts from the task image
+selected by the deployment and checks its own CLI before running.
+
+Run `hive-manager deploy update` with the same profile or options used to deploy
+the bot. It pulls the deployment image and any separately configured task tag,
+then recreates the bot so new tasks use the refreshed image. Use
+`hive-manager deploy prepare` to pre-pull those images during staging. For a
+custom image, publish the rebuilt task tag before updating the deployment.
+
+To rebuild a custom DinD task tag from this checkout, supply the Hive Mind
+package release that supports this image recipe and a fresh CLI build argument:
+
+```bash
+docker build -f Dockerfile.dind \
+  --build-arg HIVE_MIND_VERSION="$HIVE_MIND_VERSION" \
+  --build-arg HIVE_MIND_AGENTIC_CLI_REFRESH="$(date +%s)" \
+  -t "$TASK_IMAGE" .
+docker push "$TASK_IMAGE"
+hive-manager deploy --variant dind --task-image "$TASK_IMAGE" update
+```
+
+To pin the tools to the versions in a particular image, deploy its release
+tag or digest and set `HIVE_MIND_AGENTIC_CLI_AUTO_UPDATE=0`. Set
+`HIVE_MIND_AGENTIC_CLI_UPDATE_EXCLUDE` to freeze selected CLIs instead. An
+explicit empty value clears the exclusion list. A single `solve` or `/task`
+can use `--no-tool-update` to skip its launch-time CLI check.
+
 #### Host-image passthrough (avoid re-downloading multi-GB images)
 
 When the bot runs with `--isolation docker` inside a release DinD image, each
@@ -524,11 +555,11 @@ Hive Mind creates the session directories on the host before launching a task. T
 
 For Claude, `CLAUDE_CONFIG_DIR` selects the host source of `projects/` and `sessions/`; otherwise their source is `~/.claude`. The task receives these two directories under its private `/home/box/.claude`, without mounting the operator's configuration root or changing its settings. A missing selected history directory blocks mount selection even when conventional history exists. Preparation refuses linked or unsafe selected storage. Dedicated credential-parent selection remains independent, and this projection does not establish complete Claude history or default authentication migration.
 
-The root Telegram bot and every `solve`/`hive` start audit the known global Claude/Codex configuration surfaces before tool connection checks. Repair is enabled by default. Disable repair with `--no-agent-config-auto-repair` or `HIVE_MIND_AGENT_CONFIG_AUTO_REPAIR=0`; remaining findings or repair failures still block execution. Dry-run/command-preparation inspection does not repair state. Installed Codex stock runtime files are checked against a pristine 0.164.0 content manifest. Both images pin Codex 0.164.0 and Claude 2.1.319; CLI upgrades require a reviewed stock manifest. Changed, incomplete or linked stock content blocks admission before repair. Complete alternate/managed discovery and packaged-image lifecycle/deployment validation remain open.
+The root Telegram bot and every `solve`/`hive` start audit the known global Claude/Codex configuration surfaces before tool connection checks. Repair is enabled by default. Disable repair with `--no-agent-config-auto-repair` or `HIVE_MIND_AGENT_CONFIG_AUTO_REPAIR=0`; remaining findings or repair failures still block execution. Dry-run/command-preparation inspection does not repair state. The audit checks bundled Codex skills against an independently generated reference from the installed CLI, or the reviewed native 0.164.0 manifest. Hive Mind records previous stock fingerprints before it updates Codex so a clean cache from the previous version can still be recognized. Changed, incomplete or linked stock files block admission before repair.
+
+Codex and Gemini tasks that explicitly select Hive Mind's native storage adapters use the separately verified adapter versions. Ordinary tasks use the upstream CLIs, which update independently.
 
 TOML repairs preserve unrelated setting values, normalize formatting and remove comments. Clean configuration is left unchanged.
-
-Images set `HIVE_MIND_AGENTIC_CLI_UPDATE_EXCLUDE=claude,codex` to preserve those pinned versions during idle and command-triggered updates. Other agentic and operational CLIs continue to update. Keep this exclusion when overriding updater settings; change the CLI pins and reviewed stock manifest together when upgrading an image.
 
 The audit also rejects known global instruction files, rules, legacy prompts and hook manifests. Instruction files and hook manifests require explicit removal or quarantine; inline global hooks/instructions and unapproved Codex profile/agent registrations can be repaired automatically. Clean profiles and unrelated model, permission and concurrency settings are preserved.
 

@@ -148,6 +148,12 @@ While the host runs no task, the bot compares each installed agentic CLI and ope
 | `HIVE_MIND_AGENTIC_CLI_UPDATE_ONLY`    | _(unset)_ | Comma-separated allow-list of agentic and operational target ids; the defaults are listed above. |
 | `HIVE_MIND_AGENTIC_CLI_UPDATE_EXCLUDE` | _(unset)_ | Comma-separated deny-list using the same ids.                                                    |
 
+Docker tasks inherit these three settings from the launcher, including an empty
+`HIVE_MIND_AGENTIC_CLI_UPDATE_EXCLUDE=` to clear exclusions. Use
+`--no-tool-update` on an individual `solve` or Telegram `/task` to skip the
+launch-time check. See [updating task images](DOCKER.md#updating-task-images-and-their-clis)
+for pinning to a particular image release.
+
 `formal-ai` remains opt-in. The default models do not change until the coding ladder described in [the issue #2059 case study](case-studies/issue-2059/capability-gate.md) demonstrates reliable code edits and complete issue-to-PR runs.
 
 ### 4.2. Codex Capability Preflight

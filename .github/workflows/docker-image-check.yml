@@ -27,7 +27,7 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 24.x
-      - uses: ./.github/actions/assemble-native-codex
+      - uses: ./.github/actions/assemble-native-codex # zizmor: ignore[self-repository] Checkout supplies this action; actionlint 1.7.12 cannot parse `$/`.
       - name: Verify Docker release-order contract
         if: ${{ !inputs.coolify }}
         run: node tests/test-docker-release-order.mjs && node tests/test-docker-pr-memory.mjs

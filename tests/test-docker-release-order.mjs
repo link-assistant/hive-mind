@@ -31,14 +31,16 @@ for (const file of dockerfiles) {
 
 const releaseYml = await read('.github/workflows/release.yml');
 const dockerPrStart = releaseYml.indexOf('  docker-pr-check:');
-const helmPrStart = releaseYml.indexOf('  helm-pr-check:', dockerPrStart);
-assert.ok(dockerPrStart >= 0 && helmPrStart > dockerPrStart, 'the Docker PR contract must inspect exactly its named job');
-const dockerPrSection = releaseYml.slice(dockerPrStart, helmPrStart);
+const coolifyStart = releaseYml.indexOf('  docker-coolify-check:', dockerPrStart);
+assert.ok(dockerPrStart >= 0 && coolifyStart > dockerPrStart, 'the Docker PR contract must inspect exactly its named job');
+const dockerPrSection = releaseYml.slice(dockerPrStart, coolifyStart);
 assert.match(dockerPrSection, /^ {6}\(\(vars\.ENABLE_DOCKER_PR_BUILDS == 'true' &&\n {8}github\.event_name == 'pull_request' &&$/m, 'real PR Docker builds require an explicit repository opt-in (#4017)');
 assert.ok(!/vars\.ENABLE_DOCKER_PR_BUILDS[^\n]*\n[^\n]*github\.ref == 'refs\/heads\/main'/.test(dockerPrSection), 'the PR opt-in must not gate the main publication verification');
 assert.match(dockerPrSection, /^ {7}\(github\.ref == 'refs\/heads\/main' &&\n {8}\(\(github\.event_name == 'push' && needs\.detect-changes\.outputs\.any-code-changed == 'true'\) \|\|\n {9}\(github\.event_name == 'workflow_dispatch' && inputs\.mode == 'release'\)\)\)\)$/m, 'release and instant-release require this job, so main publication candidates are always verified (#3785)');
 assert.match(releaseYml, /needs\.docker-pr-check\.result == 'success' && github\.ref == 'refs\/heads\/main' && github\.event_name == 'push'/, 'npm release waits for the verified publication candidate');
-assert.ok(dockerPrSection.includes('    timeout-minutes: 45'), 'the retained real build keeps its finite job budget');
+assert.ok(dockerPrSection.includes('uses: ./.github/workflows/docker-image-check.yml'), 'Docker PR checks call the reusable image workflow');
+const imageCheck = await read('.github/workflows/docker-image-check.yml');
+assert.ok(imageCheck.includes('    timeout-minutes: 45'), 'the real build keeps its finite job budget');
 
 // When explicitly enabled, docker-pr-check must (1) run the release-order contract test AND
 // (2) actually build the Docker image using a packed copy of the PR branch
@@ -49,9 +51,10 @@ assert.ok(dockerPrSection.includes('    timeout-minutes: 45'), 'the retained rea
 // the job name: it checks that docker-pr-check invokes each script AND that the
 // script still does the thing the job is named for. Asserting only the `bash ...`
 // line would pass against an empty script.
-assert.ok(dockerPrSection.includes('node tests/test-docker-release-order.mjs'), 'docker-pr-check should run this static release-order contract test');
-assert.ok(dockerPrSection.includes('bash scripts/docker-pr-build.sh'), 'docker-pr-check should build the Docker images on PRs');
-assert.ok(dockerPrSection.includes('bash scripts/docker-pr-verify-containers.sh'), 'docker-pr-check should verify the built containers on PRs');
+assert.ok(imageCheck.includes('node tests/test-docker-release-order.mjs'), 'docker-pr-check should run this static release-order contract test');
+assert.match(imageCheck, /run: bash scripts\/docker-pr-build\.sh\n/u, 'docker-pr-check should build the Docker images on PRs');
+assert.ok(imageCheck.includes('bash scripts/docker-pr-verify-containers.sh'), 'docker-pr-check should verify the built containers on PRs');
+assert.ok(imageCheck.includes('bash scripts/docker-pr-build.sh coolify'), 'the reusable workflow can build the Coolify image');
 
 const dockerPrBuild = await read('scripts/docker-pr-build.sh');
 assert.ok(dockerPrBuild.includes('docker build --progress=plain'), 'docker-pr-build.sh should build the Docker image on PRs');

@@ -75,19 +75,17 @@ assertIncludes(dockerDocs, '--privileged', 'docs/DOCKER.md');
 assertIncludes(dockerDocs, '--runtime=sysbox-runc', 'docs/DOCKER.md');
 
 const releaseYml = await read('.github/workflows/release.yml');
-
-const dockerPrStart = releaseYml.indexOf('  docker-pr-check:');
-const helmPrStart = releaseYml.indexOf('  # === HELM PR CHECK', dockerPrStart);
-const dockerPrSection = releaseYml.slice(dockerPrStart, helmPrStart);
+const imageCheckPath = '.github/workflows/docker-image-check.yml';
+const imageCheck = await read(imageCheckPath);
 
 // The DinD build/verify commands were moved out of release.yml into scripts/ to
 // keep that file under the 1500-line limit (issue #2082). The job still supplies
 // DIND_IMAGE_NAME via env; the scripts consume it as "${DIND_IMAGE_NAME}". Assert
 // both halves of that contract — a script invocation alone would pass against an
 // empty script, and an env var alone proves nothing is built.
-assertIncludes(dockerPrSection, 'DIND_IMAGE_NAME: konard/hive-mind-dind', '.github/workflows/release.yml');
-assertIncludes(dockerPrSection, 'bash scripts/docker-pr-build.sh', '.github/workflows/release.yml');
-assertIncludes(dockerPrSection, 'bash scripts/docker-pr-verify-containers.sh', '.github/workflows/release.yml');
+assertIncludes(imageCheck, 'DIND_IMAGE_NAME: konard/hive-mind-dind', imageCheckPath);
+assertIncludes(imageCheck, 'bash scripts/docker-pr-build.sh', imageCheckPath);
+assertIncludes(imageCheck, 'bash scripts/docker-pr-verify-containers.sh', imageCheckPath);
 
 const dockerPrBuild = await read('scripts/docker-pr-build.sh');
 assertIncludes(dockerPrBuild, 'docker build --progress=plain -f Dockerfile.dind', 'scripts/docker-pr-build.sh');

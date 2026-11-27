@@ -74,6 +74,7 @@ for (const workflow of dispatchedWorkflows()) {
 
 test('the parser sees the inputs a manual release still needs', () => {
   const inputs = dispatchInputs(read('.github/workflows/release.yml'));
-  assert.deepEqual(Object.keys(inputs), ['mode', 'release_mode', 'bump_type', 'description']);
+  assert.deepEqual(Object.keys(inputs), ['mode', 'build_docker', 'release_mode', 'bump_type', 'description']);
+  assert.equal(inputs.build_docker.default, 'false');
   assert.equal(inputs.release_mode.default, "'checks'");
 });

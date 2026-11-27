@@ -61,11 +61,12 @@ assertExcludes(verifyScript, 'Expected user sandbox', 'scripts/verify-docker-ima
 assertExcludes(verifyScript, 'id -nG sandbox', 'scripts/verify-docker-image.sh');
 
 const releaseWorkflow = await read('.github/workflows/release.yml');
+const imageCheck = await read('.github/workflows/docker-image-check.yml');
 const dockerPrBuild = await read('scripts/docker-pr-build.sh');
 // The workflow's build script reads the base reference rather than
 // naming a registry, so the pin can move between registries (issue #2187)
 // without the reporting step silently printing an empty version.
-assertIncludes(releaseWorkflow, 'bash scripts/docker-pr-build.sh', '.github/workflows/release.yml');
+assertIncludes(imageCheck, 'bash scripts/docker-pr-build.sh', '.github/workflows/docker-image-check.yml');
 assertIncludes(dockerPrBuild, "sed -n 's|^FROM \\(.*/box:[^[:space:]]*\\).*|\\1|p' Dockerfile", 'scripts/docker-pr-build.sh');
 assertIncludes(dockerPrBuild, "sed -n 's|^FROM \\(.*/box-dind:[^[:space:]]*\\).*|\\1|p' Dockerfile.dind", 'scripts/docker-pr-build.sh');
 assertExcludes(releaseWorkflow, 'konard/sandbox', '.github/workflows/release.yml');

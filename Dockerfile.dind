@@ -29,7 +29,7 @@
 # (issue #2187, item A). See the FROM line below for the exact release.
 # Latest Box releases: https://github.com/link-foundation/box/releases
 
-ARG FORMAL_AI_VERSION=0.356.11
+ARG FORMAL_AI_VERSION=0.357.2
 # Bookworm's glibc 2.36 remains compatible with the Ubuntu 24.04 Box runtime.
 FROM rust:1.100-slim-bookworm AS formal-ai-builder
 ARG FORMAL_AI_VERSION
@@ -57,7 +57,7 @@ RUN cargo install formal-ai --version "${FORMAL_AI_VERSION}" --locked
 # of record, as the reproducible source for this pin. Box #129 also adds file
 # for validating downloaded attachments. Box 2.10.5 enables Docker live
 # restore in the nested DinD daemon (box#131).
-FROM ghcr.io/link-foundation/box-dind:2.10.5
+FROM ghcr.io/link-foundation/box-dind:2.10.6
 ARG HIVE_MIND_VERSION=latest
 ARG HIVE_MIND_INSTALL_SOURCE=false
 # Task-container prerequisite installs stay within the workspace (formal-ai#1159).

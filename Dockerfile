@@ -19,7 +19,7 @@
 #
 # Build: docker build -t konard/hive-mind .
 
-ARG FORMAL_AI_VERSION=0.356.11
+ARG FORMAL_AI_VERSION=0.357.2
 # Bookworm's glibc 2.36 remains compatible with the Ubuntu 24.04 Box runtime.
 FROM rust:1.100-slim-bookworm AS formal-ai-builder
 ARG FORMAL_AI_VERSION
@@ -47,7 +47,7 @@ RUN cargo install formal-ai --version "${FORMAL_AI_VERSION}" --locked
 # of record, as the reproducible source for this pin. Box #129 also adds file
 # for validating downloaded attachments. Box 2.10.5 enables Docker live
 # restore in the nested DinD daemon (box#131).
-FROM ghcr.io/link-foundation/box:2.10.5
+FROM ghcr.io/link-foundation/box:2.10.6
 # Host-socket task isolation needs an explicitly installed client even when
 # its daemon runs outside this image.
 COPY --from=docker:29.9.2-cli /usr/local/bin/docker /usr/local/bin/docker

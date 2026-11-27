@@ -451,6 +451,20 @@ jobs:
         if: ${{ failure() }}
         uses: actions/upload-artifact@v7
         with: { name: synthetic-tool-data-gate, path: '${{ runner.temp }}/hive-tool-data-*.log', if-no-files-found: ignore, retention-days: 7 }
+  docker-coolify-check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    needs: [native-codex-build]
+    # Coolify builds from the checkout and does not participate in publication.
+    if: ${{ !cancelled() && needs.native-codex-build.result == 'success' && github.event_name == 'workflow_dispatch' && inputs.build_docker }}
+    steps:
+      - uses: actions/checkout@v7
+        with: { persist-credentials: false }
+      - uses: ./.github/actions/assemble-native-codex
+      - name: Free up disk space
+        run: node scripts/free-disk-space.mjs
+      - name: Build and verify the Coolify image
+        run: bash scripts/docker-pr-build.sh coolify
   helm-pr-check:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
@@ -1332,6 +1346,7 @@ jobs:
       - validate-docs
       - native-codex-build
       - docker-pr-check
+      - docker-coolify-check
       - helm-pr-check
       - release-preflight
       - release

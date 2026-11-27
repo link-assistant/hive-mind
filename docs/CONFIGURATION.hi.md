@@ -148,6 +148,8 @@ Update कभी आँख मूँदकर image नहीं बदलता
 | `HIVE_MIND_AGENTIC_CLI_UPDATE_ONLY`    | _unset_ | Agentic और operational target ids की comma-separated allow list; default targets ऊपर हैं। |
 | `HIVE_MIND_AGENTIC_CLI_UPDATE_EXCLUDE` | _unset_ | उन्हीं identifiers की comma-separated exclude list।                                       |
 
+Docker tasks launcher से ये तीनों settings लेते हैं। Exclusions हटाने के लिए `HIVE_MIND_AGENTIC_CLI_UPDATE_EXCLUDE=` दें। अलग `solve` या Telegram `/task` के लिए `--no-tool-update` देने पर launch-time check छूट जाता है। किसी निश्चित image release पर बने रहने के लिए [task image अपडेट करने के निर्देश](DOCKER.md#updating-task-images-and-their-clis) देखें।
+
 `formal-ai` अभी opt-in है। [Issue #2059 case study](case-studies/issue-2059/capability-gate.md) की coding ladder द्वारा reliable code edits और पूरा issue-to-PR flow सिद्ध होने तक default models नहीं बदलते।
 
 ### 4.2. Codex Capability Preflight

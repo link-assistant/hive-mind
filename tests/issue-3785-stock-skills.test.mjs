@@ -112,9 +112,9 @@ test('concurrent stock edits reject verification without exposing content', asyn
   await assert.rejects(validateCodexStockSkills({ directory: stock, fsImpl, manifest }), error => /stock/.test(error.message) && !error.message.includes('sentinel'));
 });
 
-test('PR image builds install this branch as a package in both images', async () => {
+test('PR and manual image builds install this branch as a package in all three images', async () => {
   const build = await readFile(new URL('../scripts/docker-pr-build.sh', import.meta.url), 'utf8');
-  assert.equal((build.match(/--build-arg HIVE_MIND_INSTALL_SOURCE=true/g) || []).length, 2, 'both actual image builds must select the branch package');
+  assert.equal((build.match(/--build-arg HIVE_MIND_INSTALL_SOURCE=true/g) || []).length, 3, 'each actual image build must select the branch package');
   for (const dockerfile of ['Dockerfile', 'Dockerfile.dind', 'coolify/Dockerfile']) {
     const content = await readFile(new URL(`../${dockerfile}`, import.meta.url), 'utf8');
     assert.ok(content.includes('ARG HIVE_MIND_INSTALL_SOURCE=false'));

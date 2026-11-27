@@ -12,6 +12,7 @@
 // importers (and tests) can keep importing them from either module.
 
 import { normalizePluginSelector } from './codex-capability-preflight.lib.mjs';
+import { codexCodeModeHostFailure, isCodexCodeModeHostError } from './codex-code-mode-failure.lib.mjs';
 import { isENOSPC } from './lib.mjs';
 
 const unwrapCodexErrorMessage = value => {
@@ -54,9 +55,9 @@ export const getCodexErrorEventSummary = codexJsonState => {
   const ignoredEvents = [];
 
   // Issue #1955: When the codex turn genuinely completed (a `turn.completed`
-  // event was observed) and codex never emitted a `turn.failed`, the session
-  // SUCCEEDED. Any stray top-level `error` (stream) or nested item `error` event
-  // in that case is non-fatal and must not fail the run. Two things produce such
+  // event was observed) and codex never emitted a `turn.failed`, stray stream
+  // or item errors are usually non-fatal. A required Code Mode runtime that
+  // failed closed is an exception (Issue #4173). Two things produce stray
   // strays:
   //   1. A transient error codex itself retried/recovered from before completing
   //      the turn (e.g. a momentary stream blip).
@@ -79,6 +80,10 @@ export const getCodexErrorEventSummary = codexJsonState => {
   const addEvents = (type, items = []) => {
     for (const item of items) {
       const message = unwrapCodexErrorMessage(item?.message);
+      if (isCodexCodeModeHostError(message)) {
+        events.push({ type, message: codexCodeModeHostFailure });
+        continue;
+      }
       const event = { type, message: message || 'Codex emitted an error event' };
       const nonFatal = type === 'item' ? findNonFatalCodexItemError(message) : null;
       if (nonFatal) {

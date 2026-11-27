@@ -1,0 +1,83 @@
+{
+  "attempt": {
+    "execution": "4c3cad72-6ca7-40bc-afbe-c42c922fac86",
+    "number": 1,
+    "container": "680b6aa1-264b-459c-a9a2-12c26dabafc5",
+    "hiveMind": "2.50.0",
+    "startCommand": "0.45.0",
+    "start": "2026-11-26T19:53:58.192Z",
+    "containerStarted": "2026-11-26T19:53:59.584228486Z",
+    "end": "2026-11-26T20:05:18.889843408Z",
+    "status": "executed",
+    "exitCode": 1,
+    "originalSignature": "no-progress",
+    "oomKilled": false,
+    "memoryMaxBytes": 3135365120,
+    "peakMemoryBytes": 853827584,
+    "oomEvents": 0,
+    "oomKills": 0,
+    "recoveryRecorded": false,
+    "sources": ["bundle.log:14-102", "bundle.log:153-506", "wrapper.log:1511-1524", "issue.json"]
+  },
+  "codexTurns": [
+    {
+      "iteration": 0,
+      "hostErrorAt": "2026-11-26T19:55:18.018Z",
+      "turnCompletedAt": "2026-11-26T19:55:50.990Z",
+      "hostErrorIgnoredAt": "2026-11-26T19:55:52.484Z",
+      "sources": ["session-main.log:458,473,491", "wrapper.log:549,582", "docker.log:525,558"]
+    },
+    {
+      "iteration": 1,
+      "hostErrorAt": "2026-11-26T19:58:44.200Z",
+      "turnCompletedAt": "2026-11-26T19:59:21.763Z",
+      "hostErrorIgnoredAt": "2026-11-26T19:59:22.845Z",
+      "sources": ["session-restart-1.log:905,918,936", "wrapper.log:996,1027", "docker.log:972,1003"]
+    },
+    {
+      "iteration": 2,
+      "hostErrorAt": "2026-11-26T20:02:03.068Z",
+      "turnCompletedAt": "2026-11-26T20:02:34.975Z",
+      "hostErrorIgnoredAt": "2026-11-26T20:02:36.086Z",
+      "sources": ["session-restart-2.log:1251,1264,1284", "wrapper.log:1342,1375", "docker.log:1318,1351"]
+    }
+  ],
+  "git": {
+    "branch": "issue-16-fb080613587e",
+    "head": "71b55a6a41842628f2def0290fcc08060d1bcd4d",
+    "uncommittedFiles": 0,
+    "unpushedCommits": 0,
+    "netDiffFiles": 0,
+    "sources": ["bundle.log:804-845", "wrapper.log:708-722,1454"]
+  },
+  "stop": {
+    "at": "2026-11-26T20:05:09.623Z",
+    "checksPassed": 26,
+    "checksTotal": 26,
+    "repeated": true,
+    "inputChanged": true,
+    "occurrences": 2,
+    "stallEvidence": true,
+    "retriesRemaining": 3,
+    "restoredReadyState": true,
+    "sources": ["wrapper.log:1445-1469,1501-1508", "docker.log:1477-1484"]
+  },
+  "journal": {
+    "attributedExitTimeOomOrDaemonRestart": false,
+    "sources": ["bundle.log:507-803", "wrapper.log:1511"]
+  },
+  "dockerComparison": {
+    "tailRows": 80,
+    "unmatchedRows": 1,
+    "row": { "line": 1416, "bytes": 36029, "sha256": "51b363f78ada2496bd33c87577c94de8208ae9d240758875ccecf885695b0779", "content": "Concatenated Universal Translator GitHub API output" },
+    "sources": ["issue.json", "docker.log:1416", "wrapper.log:1440", "bundle.log:846-1019"]
+  },
+  "bot": {
+    "persistedAt": "2026-11-26T20:05:05.600Z",
+    "notifiedAt": "2026-11-26T20:05:35.266Z",
+    "completedEventAt": "2026-11-26T20:05:35.271Z",
+    "exitCode": 1,
+    "status": "failed",
+    "sources": ["bot.log:1580,1617-1619", "bundle.log:1020-1169"]
+  }
+}

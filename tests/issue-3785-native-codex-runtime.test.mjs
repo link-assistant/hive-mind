@@ -45,6 +45,35 @@ test('complete packaging identities publish one verified idempotent generation',
   assert.equal((await fs.readdir(f.root)).filter(name => name.startsWith('.hive-native-codex-')).length, 1);
 });
 
+test('a missing or corrupt stock host prevents native runtime publication', { timeout: 10000, skip: !supported }, async t => {
+  const f = await packagingFixture(t);
+  const host = await fs.readFile(f.stockHost);
+  await fs.unlink(f.stockHost);
+  await assert.rejects(f.api.installNativeCodexRuntime({ destination: f.destination }), /execution were refused/u);
+  host[64] ^= 255;
+  await fs.writeFile(f.stockHost, host, { mode: 0o755 });
+  await assert.rejects(f.api.installNativeCodexRuntime({ destination: f.destination }), /execution were refused/u);
+  assert.equal(
+    (await fs.readdir(f.root)).some(name => name.startsWith('.hive-native-codex-')),
+    false
+  );
+  await assert.rejects(fs.lstat(f.destination), { code: 'ENOENT' });
+});
+
+test('installed verification requires an executable, intact sibling even if the stock host is healthy', { timeout: 10000, skip: !supported }, async t => {
+  const f = await packagingFixture(t);
+  const ready = await f.api.installNativeCodexRuntime({ destination: f.destination });
+  const host = path.join(path.dirname(ready.entrypoint), 'codex-code-mode-host');
+  assert.deepEqual(await fs.readFile(host), await fs.readFile(f.stockHost));
+  assert.notEqual((await fs.stat(host)).ino, (await fs.stat(f.stockHost)).ino);
+  await fs.chmod(host, 0o644);
+  await assert.rejects(f.api.verifyNativeCodexRuntime(f.destination), /execution were refused/u);
+  await fs.unlink(host);
+  await assert.rejects(f.api.verifyNativeCodexRuntime(f.destination), /execution were refused/u);
+  await fs.symlink(f.stockHost, host);
+  await assert.rejects(f.api.verifyNativeCodexRuntime(f.destination), /execution were refused/u);
+});
+
 test('observed optimized native size installs and verifies with bounded reads', { timeout: 45000, skip: !supported }, async t => {
   // The optimized x64 output from run 41189998708 is this large. Synthetic
   // sparse bytes verify actual package installation; they are never executed.

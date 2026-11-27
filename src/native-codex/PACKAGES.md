@@ -42,6 +42,14 @@ Each executable is now its own npm package. This follows the approach used by
   It admits the variant only if its `name` matches the main package and its
   `version` is `<main version>-native-codex-<platform>`. It then applies the
   same byte, manifest and license checks as before.
+- **The Code Mode host comes from the pinned OpenAI platform package.** Both
+  Docker images already install `@openai/codex@0.164.0` with its optional
+  platform package. Activation locates `codex-code-mode-host` in that package,
+  checks the platform and executable digest against the recipe, and copies it
+  beside the Hive Mind CLI in the same verified generation. The variant tarball
+  size and offline installation stay the same. Both executables are required
+  at runtime admission. Reactivating a managed CLI-only installation publishes a
+  new generation and switches its command link after verification.
 
 ## Size budget
 
@@ -100,10 +108,13 @@ reported once with an annotation and stops the run before the main package
 ## Troubleshooting
 
 - **`installation and execution were refused`** / **`Native Codex installation
-failed`**: the variant for this machine is missing or does not match. Install without
+failed`**: the Hive Mind variant or the pinned OpenAI platform package for this
+  machine is missing or does not match. Install both without
   `--omit=optional` / `--no-optional`. Confirm that
   `node_modules/@link-assistant/hive-mind-native-codex-linux-<arch>/package.json`
   has the main package's version followed by `-native-codex-linux-<arch>`.
+  Confirm the matching `@openai/codex-linux-<arch>` alias is installed for
+  `@openai/codex@0.164.0`, then rerun `install-native-codex.mjs`.
 - **`HIVE_MIND_NATIVE_CODEX_DEBUG=1`** (off by default) prints the refused
   phase and error code to stderr, for example
   `[native-codex] Refused during packaged artifact admission (MODULE_NOT_FOUND).`

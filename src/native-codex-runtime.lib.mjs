@@ -17,6 +17,7 @@ import { isDeepStrictEqual } from 'node:util';
 
 const bundled = fileURLToPath(new URL('./native-codex/', import.meta.url));
 const packageRoot = fileURLToPath(new URL('../', import.meta.url));
+const codeModeHost = 'codex-code-mode-host';
 const refusal = () => new Error('The pinned native Codex runtime could not be verified; installation and execution were refused.');
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
 const identity = info => `${info.dev}:${info.ino}`;
@@ -77,6 +78,8 @@ async function recipe(platform) {
   const input = await read(path.join(bundled, 'recipe.json'));
   const data = JSON.parse(input.bytes);
   if (data.schema !== 1 || data.version !== '0.164.0' || data.profile !== 'release' || !data.targets[platform] || !Number.isSafeInteger(data.maxBinaryBytes) || data.maxBinaryBytes <= 0 || data.maxBinaryBytes > 402653184) throw refusal();
+  const host = data.targets[platform].codeModeHost;
+  if (!host || !/^(?:x86_64|aarch64)-unknown-linux-musl$/u.test(host.target) || !Number.isSafeInteger(host.bytes) || host.bytes <= 0 || host.bytes > data.maxBinaryBytes || !/^[a-f0-9]{64}$/u.test(host.sha256)) throw refusal();
   const files = new Set(['codex', 'manifest.json', 'source.json', 'recipe.json']);
   for (const name of Object.keys(data.licenses)) {
     if (!safeName(name) || !/^[a-f0-9]{64}$/u.test(data.licenses[name])) throw refusal();
@@ -109,9 +112,18 @@ async function entries(root, files) {
   if (!isDeepStrictEqual(seen, files)) throw refusal();
 }
 
+async function verifyExecutable(file, binary, max, machine) {
+  if (!binary || !Number.isSafeInteger(binary.bytes) || binary.bytes <= 0 || !/^[a-f0-9]{64}$/u.test(binary.sha256)) throw refusal();
+  const { header } = await read(file, { max, size: binary.bytes, digest: binary.sha256, metadata: false, executable: true });
+  if (header?.length !== 64 || !header.subarray(0, 7).equals(Buffer.from([127, 69, 76, 70, 2, 1, 1])) || ![2, 3].includes(header.readUInt16LE(16)) || header.readUInt16LE(18) !== machine) throw refusal();
+}
+
 async function verify(root, prepared, expectedManifest) {
   const rootIdentity = await directory(root);
-  await entries(root, prepared.files);
+  // Only installed generations include the host. The platform variant still
+  // carries the adapted CLI, and the recipe pins the upstream companion bytes.
+  const installed = expectedManifest !== undefined;
+  await entries(root, installed ? new Set([...prepared.files, codeModeHost]) : prepared.files);
   const manifestInput = await read(path.join(root, 'manifest.json'), { digest: expectedManifest });
   const manifest = JSON.parse(manifestInput.bytes);
   const { data, platform } = prepared;
@@ -120,11 +132,8 @@ async function verify(root, prepared, expectedManifest) {
   if (manifest.schema !== 1 || manifest.version !== data.version || manifest.platform !== platform || manifest.target !== target.target || manifest.upstreamCommit !== data.upstreamCommit || manifest.recipeSha256 !== prepared.digest || !isDeepStrictEqual(manifest.cargoEnvironment, data.cargoEnvironment) || !isDeepStrictEqual(manifest.licenses, data.licenses)) throw refusal();
   if (source.schema !== 1 || source.recipeSha256 !== prepared.digest || source.upstreamCommit !== data.upstreamCommit || !isDeepStrictEqual(source.cargoEnvironment, data.cargoEnvironment) || sourceDigest(source.sourceFiles) !== data.sourceInventorySha256 || source.compiler !== manifest.compiler || !source.compiler.startsWith(`rustc ${data.rustToolchain} `) || !source.compiler.split('\n').includes(`host: ${target.target}`)) throw refusal();
   await read(path.join(root, 'recipe.json'), { digest: prepared.digest });
-  const binary = manifest.binary;
-  if (!binary || !Number.isSafeInteger(binary.bytes) || binary.bytes <= 0 || !/^[a-f0-9]{64}$/u.test(binary.sha256)) throw refusal();
-  const inspected = await read(path.join(root, 'codex'), { max: data.maxBinaryBytes, size: binary.bytes, digest: binary.sha256, metadata: false, executable: true });
-  const header = inspected.header;
-  if (header?.length !== 64 || !header.subarray(0, 7).equals(Buffer.from([127, 69, 76, 70, 2, 1, 1])) || ![2, 3].includes(header.readUInt16LE(16)) || header.readUInt16LE(18) !== target.elfMachine) throw refusal();
+  await verifyExecutable(path.join(root, 'codex'), manifest.binary, data.maxBinaryBytes, target.elfMachine);
+  if (installed) await verifyExecutable(path.join(root, codeModeHost), target.codeModeHost, target.codeModeHost.bytes, target.elfMachine);
   for (const [name, digest] of Object.entries(data.licenses)) await read(path.join(root, 'licenses', name), { digest });
   if ((await directory(root)) !== rootIdentity) throw refusal();
   return { root, entrypoint: path.join(root, 'codex'), version: data.version, platform, manifestSha256: manifestInput.digest };
@@ -152,6 +161,15 @@ async function bundle(platform) {
   const prepared = await recipe(platform);
   const root = await packaged(platform);
   return { prepared, verified: await verify(root, prepared) };
+}
+
+async function stockCodeModeHost(prepared, stockPackage) {
+  const require = stockPackage ? createRequire(path.join(stockPackage, 'package.json')) : createRequire(import.meta.url);
+  const manifest = require.resolve(`@openai/codex-${prepared.platform}/package.json`);
+  const pkg = JSON.parse((await read(manifest)).bytes);
+  if (pkg.name !== '@openai/codex' || pkg.version !== `${prepared.data.version}-${prepared.platform}`) throw refusal();
+  const { target } = prepared.data.targets[prepared.platform].codeModeHost;
+  return path.join(path.dirname(manifest), 'vendor', target, 'bin', codeModeHost);
 }
 
 /** The installed generation must match this npm package's admitted manifest. */
@@ -200,7 +218,7 @@ async function copy(source, target, mode, max) {
 /** Installation owns its package/output directory exclusively. Publish a new
  * private generation only after all copied native bytes and notices verify.
  */
-export async function installNativeCodexRuntime({ destination, platform = `linux-${process.arch}` } = {}) {
+export async function installNativeCodexRuntime({ destination, stockPackage, platform = `linux-${process.arch}` } = {}) {
   let generation;
   let published = false;
   let phase = 'packaged artifact admission';
@@ -215,8 +233,13 @@ export async function installNativeCodexRuntime({ destination, platform = `linux
       return null;
     });
     if (existing) return await verify(await fs.realpath(destination), prepared, verified.manifestSha256);
+    phase = 'stock Code Mode host admission';
+    const source = await stockCodeModeHost(prepared, stockPackage);
+    const host = prepared.data.targets[platform].codeModeHost;
+    await verifyExecutable(source, host, host.bytes, prepared.data.targets[platform].elfMachine);
     generation = await fs.mkdtemp(path.join(parent, '.hive-native-codex-'));
     phase = 'native generation copy';
+    await copy(source, path.join(generation, codeModeHost), 0o755, host.bytes);
     for (const name of prepared.files) {
       const target = path.join(generation, name);
       await fs.mkdir(path.dirname(target), { recursive: true, mode: 0o755 });

@@ -7,6 +7,22 @@ import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
 
+export async function stockCodexCodeModeHostFixture(scope) {
+  const recipe = JSON.parse(await fs.readFile(new URL('../../src/native-codex/recipe.json', import.meta.url), 'utf8'));
+  const platform = `linux-${process.arch}`;
+  const target = recipe.targets[platform];
+  const stock = path.join(scope, `codex-${platform}`);
+  const host = path.join(stock, 'vendor', target.codeModeHost.target, 'bin', 'codex-code-mode-host');
+  const bytes = Buffer.alloc(128);
+  bytes.set([127, 69, 76, 70, 2, 1, 1]);
+  bytes.writeUInt16LE(3, 16);
+  bytes.writeUInt16LE(target.elfMachine, 18);
+  await fs.mkdir(path.dirname(host), { recursive: true });
+  await fs.writeFile(path.join(stock, 'package.json'), JSON.stringify({ name: '@openai/codex', version: `${recipe.version}-${platform}` }));
+  await fs.writeFile(host, bytes, { mode: 0o755 });
+  return { host, bytes };
+}
+
 // Issue #4050: the executable lives in the per-platform variant version of the
 // package, installed under its optional-dependency alias next to the main one.
 export async function nativeCodexPackagingFixture(t, { binaryBytes = 128, maxBinaryBytes, variantVersion } = {}) {
@@ -28,6 +44,8 @@ export async function nativeCodexPackagingFixture(t, { binaryBytes = 128, maxBin
   const recipe = JSON.parse(await fs.readFile(new URL('../../src/native-codex/recipe.json', import.meta.url), 'utf8'));
   if (maxBinaryBytes !== undefined) recipe.maxBinaryBytes = maxBinaryBytes;
   const sha256 = bytes => createHash('sha256').update(bytes).digest('hex');
+  const stock = await stockCodexCodeModeHostFixture(path.join(root, 'node_modules/@openai'));
+  Object.assign(recipe.targets[platform].codeModeHost, { bytes: stock.bytes.length, sha256: sha256(stock.bytes) });
   const license = Buffer.from('Synthetic packaging fixture license, not upstream license text.\n');
   recipe.licenses = { LICENSE: sha256(license) };
   const recipeBytes = Buffer.from(JSON.stringify(recipe));
@@ -52,5 +70,5 @@ export async function nativeCodexPackagingFixture(t, { binaryBytes = 128, maxBin
   for (const name of ['native-codex-command.lib.mjs', 'native-agent-command.lib.mjs']) await fs.copyFile(new URL(`../../src/${name}`, import.meta.url), path.join(src, name));
   const commandApi = await import(pathToFileURL(path.join(src, 'native-codex-command.lib.mjs')));
   const api = await import(pathToFileURL(path.join(src, 'native-codex-runtime.lib.mjs')));
-  return { root, runtime, variant, api, commandApi, destination: path.join(root, 'native') };
+  return { root, runtime, variant, api, commandApi, stockHost: stock.host, destination: path.join(root, 'native') };
 }

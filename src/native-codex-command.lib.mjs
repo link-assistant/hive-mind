@@ -7,6 +7,7 @@ import { locateNativeCommand as locate, nativeCommandRevision as revision } from
 import { installNativeCodexRuntime, verifyNativeCodexRuntime } from './native-codex-runtime.lib.mjs';
 
 const refusal = () => new Error('The installed native Codex command could not be verified; installation and execution were refused.');
+const legacyNativeDirectory = 'codex-hive-0.164.0';
 
 async function stockRoot(entrypoint) {
   if (path.basename(entrypoint) !== 'codex.js' || path.basename(path.dirname(entrypoint)) !== 'bin') throw refusal();
@@ -52,10 +53,19 @@ export async function installNativeCodexCommand({ command = 'codex', searchPath 
     if (!before.isSymbolicLink()) throw refusal();
     const link = await fs.readlink(bin);
     const entrypoint = await fs.realpath(bin);
-    if (path.basename(entrypoint) === 'codex') return await verifyNativeCodexCommand({ command: bin });
-    const upstream = await stockRoot(entrypoint);
-    const destination = path.join(path.dirname(upstream), 'codex-hive-0.164.0');
-    const ready = await installNativeCodexRuntime({ destination });
+    let launcher = entrypoint;
+    if (path.basename(entrypoint) === 'codex') {
+      const generation = path.dirname(entrypoint);
+      const scope = path.dirname(generation);
+      const legacy = path.join(scope, legacyNativeDirectory);
+      if (!path.basename(generation).startsWith('.hive-native-codex-') || (await fs.realpath(legacy).catch(() => null)) !== generation) return await verifyNativeCodexCommand({ command: bin });
+      // Migrate a selected CLI-only generation without editing it in place.
+      launcher = path.join(scope, 'codex', 'bin', 'codex.js');
+      if ((await fs.realpath(launcher)) !== launcher) throw refusal();
+    }
+    const upstream = await stockRoot(launcher);
+    const destination = path.join(path.dirname(upstream), `${legacyNativeDirectory}-code-mode`);
+    const ready = await installNativeCodexRuntime({ destination, stockPackage: upstream });
     const staged = path.join(path.dirname(bin), `.hive-codex-bin-${randomUUID()}`);
     await fs.symlink(ready.entrypoint, staged);
     temporary = staged;

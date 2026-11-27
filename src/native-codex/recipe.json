@@ -52,12 +52,22 @@
     "linux-x64": {
       "runner": "ubuntu-24.04",
       "target": "x86_64-unknown-linux-gnu",
-      "elfMachine": 62
+      "elfMachine": 62,
+      "codeModeHost": {
+        "target": "x86_64-unknown-linux-musl",
+        "bytes": 76997904,
+        "sha256": "8ee4f472e92ac226a189e98998633b2d07f989f208515750764db660369f2926"
+      }
     },
     "linux-arm64": {
       "runner": "ubuntu-24.04-arm",
       "target": "aarch64-unknown-linux-gnu",
-      "elfMachine": 183
+      "elfMachine": 183,
+      "codeModeHost": {
+        "target": "aarch64-unknown-linux-musl",
+        "bytes": 70117728,
+        "sha256": "7d28b996b825b13ea058af67655b619a26a125d61d4fb2985694a9c4e77d2e21"
+      }
     }
   },
   "cargoEnvironment": {

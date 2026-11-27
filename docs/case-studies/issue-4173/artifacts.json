@@ -77,6 +77,36 @@
       "url": "https://github.com/link-assistant/hive-mind-control-center/issues/5",
       "bytes": 3794,
       "sha256": "7f00c4d7448cf43b10f1df131a433e529017f5ac0e248b65852ceddaaf0b4b9d"
+    },
+    {
+      "file": "related-issue-4159.json",
+      "url": "https://github.com/link-assistant/hive-mind/issues/4159",
+      "bytes": 9226,
+      "sha256": "d76df75f10b3ba6d92b1a33549d53f002b12da6b0216457a4cbf86ac1527a79e"
+    },
+    {
+      "file": "related-pr-4160.json",
+      "url": "https://github.com/link-assistant/hive-mind/pull/4160",
+      "bytes": 4435,
+      "sha256": "46d4d6edb85f1ec020627db21089593f17db8496ccd38c3a9ffdc47d8a662551"
+    },
+    {
+      "file": "related-pr-4160-inline.json",
+      "url": "https://api.github.com/repos/link-assistant/hive-mind/pulls/4160/comments",
+      "bytes": 2,
+      "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    {
+      "file": "related-pr-4160.diff",
+      "url": "https://github.com/link-assistant/hive-mind/pull/4160.diff",
+      "bytes": 1589182,
+      "sha256": "465862212e2b9a206b1e5fff6752187d178475e90421d26832af789aa6208e23"
+    },
+    {
+      "file": "related-solver-4160.log",
+      "url": "https://github.com/link-assistant/hive-mind/blob/b6fc2ef67ae269ebf5a81346c760e3fbb3c43e38/dev/log/issues/4159/pulls/4160/sessions/ses_de66b0b10ffeAlasGh1bnXeXAF/solve.log",
+      "bytes": 1569100,
+      "sha256": "dcae085830443e642a152f7087fbd5ee95d6024f077f22adb7dbd09eee0f2fa4"
     }
   ],
   "collectorFiles": [

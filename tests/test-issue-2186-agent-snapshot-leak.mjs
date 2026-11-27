@@ -21,8 +21,7 @@
  *   1. the floor constant and its predicate,
  *   2. that `validateAgentConnection` refuses a leaking CLI *before* asking it
  *      to answer anything, and accepts the fixed one,
- *   3. that both images pin a current version at or above the runtime guard,
- *      so dependency refreshes do not require weakening the safety floor.
+ *   3. that every image verifies the Agent snapshot floor at build time.
  *
  * @hive-mind-test-suite default
  * @see https://github.com/link-assistant/hive-mind/issues/2186
@@ -105,25 +104,17 @@ await withFakeAgentCli(MIN_AGENT_SNAPSHOT_HYGIENE_VERSION, async ({ requested })
 });
 
 // ---------------------------------------------------------------------------
-// 3. Both images pin a current version that satisfies the runtime guard
+// 3. Image builds enforce the runtime floor
 // ---------------------------------------------------------------------------
-console.log('\n3. Image pins match the runtime floor\n');
+console.log('\n3. Image builds enforce the runtime floor\n');
 
-// The exact current version is owned by test-issue-2187-current-dependency-pins
-// (updated with every pin refresh). A second hard-coded copy here went stale
-// at the 0.27.1 refresh and failed main (issue #4025), so this only checks what
-// #2186 needs: one exact pin per image, the same in both, at or above the floor.
-const imagePins = new Set();
-for (const file of ['Dockerfile', 'Dockerfile.dind']) {
+const verifier = fs.readFileSync(path.join(repoRoot, 'src/verify-agent-runtime.mjs'), 'utf8');
+check(/assert\.ok\(agentCliPrunesOrphanSnapshots\(agentVersion\)/u.test(verifier), 'the image verifier checks the installed Agent CLI against the snapshot floor');
+for (const file of ['Dockerfile', 'Dockerfile.dind', 'coolify/Dockerfile']) {
   const text = fs.readFileSync(path.join(repoRoot, file), 'utf8');
-  const installs = [...text.matchAll(/bun install --backend=copyfile -g @link-assistant\/agent(@[^\s\\]+)?/g)].map(match => match[1]);
-  check(installs.length > 0, `${file} installs the Agent CLI`);
-  const exact = installs.every(pin => /^@\d+\.\d+\.\d+$/.test(pin ?? ''));
-  check(exact, `${file} pins an exact @link-assistant/agent version (found ${JSON.stringify(installs)})`);
-  for (const pin of installs) imagePins.add(pin?.slice(1));
-  check(exact && installs.every(pin => asNumber(pin.slice(1)) >= asNumber(MIN_AGENT_SNAPSHOT_HYGIENE_VERSION)), `${file} pins an Agent CLI at or above the ${MIN_AGENT_SNAPSHOT_HYGIENE_VERSION} snapshot floor (found ${JSON.stringify(installs)})`);
+  check(/bun install [^\n]* @link-assistant\/agent@latest(?:\s|$)/u.test(text.replaceAll('\\\n', '')), `${file} installs the latest Agent CLI`);
+  check(/^RUN --network=none .*\/verify-agent-runtime\.mjs"$/mu.test(text), `${file} runs the offline image verifier`);
 }
-check(imagePins.size === 1, `Dockerfile and Dockerfile.dind pin the same Agent CLI (found ${JSON.stringify([...imagePins])})`);
 
 console.log('\nIssue #2186 — Agent snapshot store hygiene');
 printSummary();

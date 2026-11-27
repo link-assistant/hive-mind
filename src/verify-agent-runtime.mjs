@@ -13,6 +13,7 @@ import { verifyNativeCodexCommand } from './native-codex-command.lib.mjs';
 import { discoverCodexStock, executeVersionProbe, probeEnvironment, withRuntimeProbeHome } from './agent-runtime-probe.lib.mjs';
 import { getInstalledCodexStockManifest } from './codex-installed-stock.lib.mjs';
 import { rememberInstalledCodexStock } from './agentic-cli-updater.lib.mjs';
+import { agentCliPrunesOrphanSnapshots, MIN_AGENT_SNAPSHOT_HYGIENE_VERSION } from './agent.version-gates.lib.mjs';
 
 async function verifyPinnedCodexStock(command, { home, cwd, env }) {
   const result = await discoverCodexStock(command, cwd, { ...env, CODEX_SQLITE_HOME: path.join(home, '.codex') });
@@ -70,8 +71,11 @@ export async function verifyAgentRuntime(options = {}) {
   await verifyNativeGeminiCommand({ command: options.geminiCommand });
   await withRuntimeProbeHome(async ({ home, cwd, env: probeEnv }) => {
     await verifyPinnedCodexStock(codexCommand, { home, cwd, env: probeEnv });
-    for (const command of [options.claudeCommand ?? 'claude', options.agentCommand ?? 'agent', options.opencodeCommand ?? 'opencode', options.geminiCommand ?? 'gemini', options.qwenCommand ?? 'qwen', 'copilot', 'rg']) {
-      const { stdout } = await executeVersionProbe(command, { env: probeEnv, cwd, maxBuffer: 64 * 1024 });
+    const probeOptions = { env: probeEnv, cwd, maxBuffer: 64 * 1024 };
+    const { stdout: agentVersion } = await executeVersionProbe(options.agentCommand ?? 'agent', probeOptions);
+    assert.ok(agentCliPrunesOrphanSnapshots(agentVersion), `Installed Agent runtime requires version ${MIN_AGENT_SNAPSHOT_HYGIENE_VERSION} or later.`);
+    for (const command of [options.claudeCommand ?? 'claude', options.opencodeCommand ?? 'opencode', options.geminiCommand ?? 'gemini', options.qwenCommand ?? 'qwen', 'copilot', 'rg']) {
+      const { stdout } = await executeVersionProbe(command, probeOptions);
       assert.match(stdout.trim(), /(?:^|\s)\d+\.\d+\.\d+\b/u, `Installed ${command} runtime did not report a version.`);
     }
   });

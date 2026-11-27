@@ -25,7 +25,7 @@ for (const filePath of dockerfiles) {
   // pipeline repair. Pin the current multi-arch release from GHCR, box's
   // registry of record, rather than leaving the image on the affected 2.7.0
   // release after the upstream blocker has closed.
-  assertIncludes(content, 'FROM ghcr.io/link-foundation/box:2.10.5', filePath);
+  assertIncludes(content, 'FROM ghcr.io/link-foundation/box:2.10.6', filePath);
   assertExcludes(content, 'FROM konard/box:', filePath);
   assertIncludes(content, 'Keep this in lockstep with the DinD base-image release.', filePath);
   assertIncludes(content, 'USER box', filePath);

@@ -125,7 +125,7 @@ const createSecretGist = async (logContent, filename) => {
 const createSecretGistFromFile = async (logFilePath, filename) => {
   const tempFile = `/tmp/${filename}`;
   try {
-    await sanitizeLogFileToFileBounded({ sourcePath: logFilePath, destPath: tempFile });
+    await sanitizeLogFileToFileBounded({ sourcePath: logFilePath, destPath: tempFile, omitResidualBlocks: true });
     const result = await $`gh gist create ${tempFile} --secret --desc "Error log for hive-mind"`;
     if (result.exitCode === 0) {
       return result.stdout.toString().trim();

@@ -54,6 +54,7 @@ import fsPromises from 'node:fs/promises';
 import { StringDecoder } from 'node:string_decoder';
 import { previousRecordSeparator, wrappedBase64HoldStart } from './encoded-credential-detection.lib.mjs';
 import { findCredentialFindings } from './sensitive-data-sanitizer.lib.mjs';
+import { CREDENTIAL_SANITIZATION_ERROR_CODE, OMITTED_DIAGNOSTIC } from './credential-sanitization-core.lib.mjs';
 import { sanitizeForPublication } from './token-sanitization.lib.mjs';
 
 /** Bytes read from the source per iteration. */
@@ -169,14 +170,37 @@ export async function forEachLogBlock(sourcePath, onBlock, options = {}) {
   }
 }
 
+const isEngineResidual = error => error?.code === CREDENTIAL_SANITIZATION_ERROR_CODE && error.sanitizerCode === 'ERR_RESIDUAL';
+
+async function retryTranscriptBlock(text, sanitize) {
+  // The detector supplies UTF-16 ranges. Remove each entire opaque span, then
+  // verify the recombined block, including the text on both sides of each span.
+  const opaque = findCredentialFindings(text).filter(finding => finding.type === 'ENCODED_LIMIT');
+  if (opaque.length > 0) {
+    let candidate = '';
+    let offset = 0;
+    for (const { start, end } of opaque.sort((a, b) => a.start - b.start)) {
+      if (start >= offset) candidate += text.slice(offset, start) + OMITTED_DIAGNOSTIC;
+      offset = Math.max(offset, end);
+    }
+    try {
+      return { text: await sanitize(candidate + text.slice(offset)), omitted: false };
+    } catch (error) {
+      if (!isEngineResidual(error)) throw error;
+    }
+  }
+  return { text: await sanitize(`${OMITTED_DIAGNOSTIC}\n`), omitted: true };
+}
+
 /**
  * Sanitize `sourcePath` into `destPath` without ever holding the whole file.
  *
  * The destination is created exclusively (`wx`, mode 0600) exactly like
  * {@link writeSanitizedPublicationFile}, so a pre-planted symlink in a shared
  * temporary directory cannot be followed. If any block fails the fail-closed
- * publication scan the partial destination is removed and the error rethrown —
- * a partially-sanitized file is never left behind for a caller to upload.
+ * publication scan the partial destination is removed and the error rethrown.
+ * Transcript callers may opt in to recovering from an engine residual error
+ * by removing opaque spans or replacing the block with a verified notice.
  *
  * @param {object} options
  * @param {string} options.sourcePath - Log to sanitize
@@ -186,19 +210,21 @@ export async function forEachLogBlock(sourcePath, onBlock, options = {}) {
  * @param {number} [options.startByte=0] - First source byte to copy
  * @param {number|null} [options.endByte=null] - Source byte to stop at; defaults to EOF
  * @param {Function} [options.sanitize=sanitizeForPublication] - `(text) => Promise<string>`
+ * @param {boolean} [options.omitResidualBlocks=false] - Allow a verified notice in place of an unverifiable diagnostic block
  * @param {Function} [options.transform] - Optional per-block post-transform (e.g. markdown escaping)
  * @param {object} [options.fsImpl=fsPromises]
  * @param {Function} [options.onProgress] - `({bytesRead, sourceSize, blocks}) => void`
- * @returns {Promise<{sourceSize: number, bytesRead: number, charsWritten: number, blocks: number, forcedReleases: number}>}
+ * @returns {Promise<{sourceSize: number, bytesRead: number, charsWritten: number, blocks: number, forcedReleases: number, omittedBlocks: number}>}
  */
 export async function sanitizeLogFileToFile(options = {}) {
-  const { sourcePath, destPath, chunkBytes = DEFAULT_SANITIZE_CHUNK_BYTES, maxHoldBytes = DEFAULT_MAX_HOLD_BYTES, startByte = 0, endByte = null, sanitize = sanitizeForPublication, transform = null, fsImpl = fsPromises, onProgress = null } = options;
+  const { sourcePath, destPath, chunkBytes = DEFAULT_SANITIZE_CHUNK_BYTES, maxHoldBytes = DEFAULT_MAX_HOLD_BYTES, startByte = 0, endByte = null, sanitize = sanitizeForPublication, omitResidualBlocks = false, transform = null, fsImpl = fsPromises, onProgress = null } = options;
   if (!sourcePath) throw new TypeError('sanitizeLogFileToFile requires a sourcePath');
   if (!destPath) throw new TypeError('sanitizeLogFileToFile requires a destPath');
 
   let dest = null;
   let destCreated = false;
   let charsWritten = 0;
+  let omittedBlocks = 0;
 
   try {
     dest = await fsImpl.open(destPath, 'wx', 0o600);
@@ -212,7 +238,14 @@ export async function sanitizeLogFileToFile(options = {}) {
         blockIndex += 1;
         let sanitized;
         try {
-          sanitized = String(await sanitize(text));
+          try {
+            sanitized = String(await sanitize(text));
+          } catch (error) {
+            if (!omitResidualBlocks || !isEngineResidual(error)) throw error;
+            const recovery = await retryTranscriptBlock(text, sanitize);
+            sanitized = String(recovery.text);
+            if (recovery.omitted) omittedBlocks += 1;
+          }
         } catch (error) {
           // Issue #2397: say where in the log publication was blocked.
           if (error && typeof error === 'object' && !Number.isFinite(error.blockIndex)) {
@@ -232,7 +265,7 @@ export async function sanitizeLogFileToFile(options = {}) {
     );
 
     await dest.chmod(0o600);
-    return { ...stats, charsWritten };
+    return { ...stats, charsWritten, omittedBlocks };
   } catch (error) {
     if (destCreated) {
       try {

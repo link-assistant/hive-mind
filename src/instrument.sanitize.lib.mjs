@@ -14,7 +14,7 @@
  * @see https://github.com/link-assistant/hive-mind/issues/2189
  */
 
-import { sanitizeCredentialText } from './credential-sanitization-core.lib.mjs';
+import { sanitizeDiagnosticText } from './credential-sanitization-core.lib.mjs';
 
 /**
  * Recursively mask credentials in a Sentry payload, in place.
@@ -29,7 +29,7 @@ import { sanitizeCredentialText } from './credential-sanitization-core.lib.mjs';
  * @returns {*} The same value with every string masked
  */
 export const sanitizeSentryValue = (value, seen = new WeakSet()) => {
-  if (typeof value === 'string') return sanitizeCredentialText(value);
+  if (typeof value === 'string') return sanitizeDiagnosticText(value, 'sentry');
   if (!value || typeof value !== 'object') return value;
   if (seen.has(value)) return value;
   seen.add(value);

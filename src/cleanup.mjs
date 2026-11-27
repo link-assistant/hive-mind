@@ -41,7 +41,7 @@ import { getTempRoot, listTempEntries, getPathSize, readFolderGitInfo, listProce
 import { formatProcessDebugReport } from './process-debug.lib.mjs';
 import { classifyAgentSnapshotStores, describeAgentSnapshotReason, getAgentDataHome } from './agent-snapshot-store.lib.mjs';
 import { setupStdioLogInterceptor } from './lib.mjs';
-import { sanitizeCredentialText } from './credential-sanitization-core.lib.mjs';
+import { sanitizeDiagnosticText } from './credential-sanitization-core.lib.mjs';
 
 setupStdioLogInterceptor();
 
@@ -190,7 +190,7 @@ const scriptDir = path.dirname(process.argv[1]);
 const logFile = path.join(scriptDir, `cleanup-${timestamp}.log`);
 
 async function log(message, { level = 'info' } = {}) {
-  const sanitizedMessage = sanitizeCredentialText(message);
+  const sanitizedMessage = sanitizeDiagnosticText(message, 'cleanup-log');
   await fsp
     .appendFile(logFile, `[${new Date().toISOString()}] [${level.toUpperCase()}] ${sanitizedMessage}\n`, { mode: 0o600 })
     .then(() => fsp.chmod(logFile, 0o600))
@@ -203,7 +203,7 @@ async function log(message, { level = 'info' } = {}) {
 function vlog(message) {
   if (options.verbose) return log(message);
   return fsp
-    .appendFile(logFile, `[${new Date().toISOString()}] [DEBUG] ${sanitizeCredentialText(message)}\n`, { mode: 0o600 })
+    .appendFile(logFile, `[${new Date().toISOString()}] [DEBUG] ${sanitizeDiagnosticText(message, 'cleanup-log')}\n`, { mode: 0o600 })
     .then(() => fsp.chmod(logFile, 0o600))
     .catch(() => {});
 }

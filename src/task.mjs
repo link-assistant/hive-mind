@@ -14,7 +14,7 @@ import { parseTaskArguments } from './task.config.lib.mjs';
 import { resolveRuntimeDefaultModel, validateRuntimeModelName } from './models/index.mjs';
 import { appendOrReplaceParentSplitSection, buildAddSubIssueApiArgs, buildIssueRestIdApiArgs, buildTaskSplitPrompt, buildTaskSplitSystemPrompt, extractTaskSplitJson, formatChildIssueBody, normalizeSplitTasks, parseParentSplitSection, parseTaskIssueUrl } from './task.split.lib.mjs';
 import { setupStdioLogInterceptor } from './lib.mjs';
-import { sanitizeCredentialText } from './credential-sanitization-core.lib.mjs';
+import { sanitizeDiagnosticText } from './credential-sanitization-core.lib.mjs';
 import { sanitizeForPublication } from './token-sanitization.lib.mjs';
 
 setupStdioLogInterceptor();
@@ -86,7 +86,7 @@ const logFile = path.join(scriptDir, `task-${timestamp}.log`);
 async function log(message, options = {}) {
   const { level = 'info', verbose = false } = options;
   if (verbose && !argv.verbose) return;
-  const sanitizedMessage = sanitizeCredentialText(message);
+  const sanitizedMessage = sanitizeDiagnosticText(message, 'task-log');
   await fs
     .appendFile(logFile, `[${new Date().toISOString()}] [${level.toUpperCase()}] ${sanitizedMessage}\n`, { mode: 0o600 })
     .then(() => fs.chmod(logFile, 0o600))

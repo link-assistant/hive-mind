@@ -1,17 +1,17 @@
 // Sentry integration library for hive-mind
 import { isSentryEnabled, captureException, captureMessage, startTransaction } from './instrument.mjs';
-import { sanitizeCredentialText } from './credential-sanitization-core.lib.mjs';
+import { sanitizeDiagnosticText } from './credential-sanitization-core.lib.mjs';
 
 const sanitizeError = error => {
   const source = error instanceof Error ? error : new Error(String(error));
-  const sanitized = new Error(sanitizeCredentialText(source.message));
+  const sanitized = new Error(sanitizeDiagnosticText(source.message, 'sentry'));
   sanitized.name = source.name;
-  if (source.stack) sanitized.stack = sanitizeCredentialText(source.stack);
+  if (source.stack) sanitized.stack = sanitizeDiagnosticText(source.stack, 'sentry');
   return sanitized;
 };
 
 const sanitizeContext = (value, seen = new WeakSet()) => {
-  if (typeof value === 'string') return sanitizeCredentialText(value);
+  if (typeof value === 'string') return sanitizeDiagnosticText(value, 'sentry');
   if (value instanceof Error) return sanitizeError(value);
   if (!value || typeof value !== 'object') return value;
   if (seen.has(value)) return '[Circular]';
@@ -158,7 +158,7 @@ export const logToSentry = (message, level = 'info', context = {}) => {
     return;
   }
 
-  captureMessage(sanitizeCredentialText(message), level, sanitizeContext(context));
+  captureMessage(sanitizeDiagnosticText(message, 'sentry'), level, sanitizeContext(context));
 };
 
 /**

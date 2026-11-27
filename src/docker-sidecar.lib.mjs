@@ -23,7 +23,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
 
-import { sanitizeCredentialText } from './credential-sanitization-core.lib.mjs';
+import { sanitizeDiagnosticText } from './credential-sanitization-core.lib.mjs';
 import { resolveBotStateDir } from './session-store.lib.mjs';
 
 const execFileAsync = promisify(execFile);
@@ -67,7 +67,7 @@ export const dockerOk = async (run, args, options) => {
  * goes through the shared @link-foundation/sensitive-data-sanitizer engine
  * (#3739/#3740) like any other text meant for a human.
  */
-const maskDockerArgvSecrets = text => sanitizeCredentialText(String(text ?? '').replace(/(--env[= ])([A-Za-z_][A-Za-z0-9_]*)=(\S+)/g, '$1$2=***'));
+const maskDockerArgvSecrets = text => sanitizeDiagnosticText(String(text ?? '').replace(/(--env[= ])([A-Za-z_][A-Za-z0-9_]*)=(\S+)/g, '$1$2=***'), 'docker-error');
 
 /** The message a failed `docker` invocation should be reported with. */
 export const dockerErrorMessage = error => maskDockerArgvSecrets(error?.stderr?.toString?.().trim() || error?.message || String(error));

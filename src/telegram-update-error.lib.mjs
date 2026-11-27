@@ -10,7 +10,7 @@
  * @see https://github.com/link-assistant/hive-mind/issues/3206
  */
 
-import { sanitizeCredentialText } from './credential-sanitization-core.lib.mjs';
+import { sanitizeDiagnosticText } from './credential-sanitization-core.lib.mjs';
 import { extractCommandFromText } from './telegram-message-filters.lib.mjs';
 import { isTelegramFormattingError, isTelegramMessageTooLongError, safeReply as defaultSafeReply, TELEGRAM_TEXT_LIMIT } from './telegram-safe-reply.lib.mjs';
 import { isTelegramRateLimitError } from './telegram-rate-limit.lib.mjs';
@@ -35,7 +35,7 @@ export function isTelegrafHandlerTimeoutError(error) {
 // @link-foundation/sensitive-data-sanitizer engine, like every other text
 // Hive Mind publishes.
 function redactSecrets(text) {
-  return sanitizeCredentialText(text);
+  return sanitizeDiagnosticText(text, 'telegram-error');
 }
 
 function logInputContext({ ctx, errorKind, failedCommand, logger }) {
@@ -140,7 +140,7 @@ export function createUpdateErrorHandler({ verbose = false, reportError = () => 
     const errorMessage = buildUpdateErrorMessage(error, ctx, { verbose, failedCommand, logger });
     safeReply(ctx, errorMessage, { fallbackLocale: resolveLocale(ctx), verbose }).catch(replyError => {
       logger.error('Failed to send error message to user:', replyError);
-      const plainMessage = `An error occurred while processing your request. Please try again or contact support.\n\nError: ${error?.message || 'Unknown error'}`;
+      const plainMessage = `An error occurred while processing your request. Please try again or contact support.\n\nError: ${redactSecrets(error?.message || 'Unknown error')}`;
       Promise.resolve(ctx.reply(plainMessage)).catch(fallbackError => {
         logger.error('Failed to send fallback error message:', fallbackError);
       });

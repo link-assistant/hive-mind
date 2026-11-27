@@ -10,7 +10,7 @@
 import path from 'node:path';
 
 import { extractTaskRefsFromCommand } from './cleanup.lib.mjs';
-import { sanitizeCredentialText } from './credential-sanitization-core.lib.mjs';
+import { sanitizeDiagnosticText } from './credential-sanitization-core.lib.mjs';
 
 const AGENT_KINDS = ['claude', 'codex', 'gemini', 'qwen', 'opencode'];
 const RUNNING_STATUSES = new Set(['executing', 'running']);
@@ -126,7 +126,7 @@ export function detectAgentKind(processRecord) {
  * @returns {string}
  */
 export function redactProcessText(text) {
-  return sanitizeCredentialText(String(text ?? ''));
+  return sanitizeDiagnosticText(text, 'process-debug');
 }
 
 /**

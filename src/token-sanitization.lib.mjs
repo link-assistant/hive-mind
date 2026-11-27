@@ -22,7 +22,7 @@
 import { log, isENOSPC } from './lib.mjs';
 import { CREDENTIAL_SANITIZATION_ERROR_CODE, CREDENTIAL_SANITIZATION_FAILURE_MESSAGE, createCredentialStreamSanitizer, findCredentialResiduals, maskToken, sanitizeCredentialText } from './credential-sanitization-core.lib.mjs';
 import { findDecodableRuns, findEncodedKnownTokenRuns, sanitizeEncodedCredentials } from './encoded-credential-detection.lib.mjs'; // issue #2156: credentials that only appear re-encoded
-import { findCredentialFindings, loadSensitiveDataSanitizer } from './sensitive-data-sanitizer.lib.mjs'; // issues #3739, #3740: the library is the engine
+import { findCredentialFindings, getSanitizerErrorCode, loadSensitiveDataSanitizer, traceSanitizerFailure } from './sensitive-data-sanitizer.lib.mjs'; // issues #3739, #3740: the library is the engine
 import { reportError } from './sentry.lib.mjs';
 import { redactTelemetryIdentity } from './telemetry-identity-redaction.lib.mjs'; // issue #4079: account ids in Codex telemetry
 
@@ -532,11 +532,12 @@ const maskEncodedSecretsWithSecretlint = async (text, excludedSet) => {
  * @param {boolean} options.skipOutputSanitization - Skip pattern-based output sanitization. Does not skip known active-token masking.
  * @param {boolean} options.skipActiveTokensOutputSanitization - Also skip known active-token masking. Dangerous; intended only for explicit debugging.
  * @param {Array<string>} options.excludeTokens - Issue #1745 carve-out: token VALUES that were already in user-provided content (issue body, non-bot comments, pre-existing code). These will be left untouched and counted in `excluded` stats so we don't shock users by mangling tokens they typed themselves.
+ * @param {boolean} options.throwOnFailure - Preserve the original exception for the publication boundary.
  * @returns {Promise<string>} Sanitized output with tokens masked
  */
 export const sanitizeOutput = async (output, options = {}) => {
   let sanitized = String(output ?? '');
-  const { warnOnMismatch = global.verboseMode, skipOutputSanitization = false, skipActiveTokensOutputSanitization = false, excludeTokens = [] } = options;
+  const { warnOnMismatch = global.verboseMode, skipOutputSanitization = false, skipActiveTokensOutputSanitization = false, excludeTokens = [], throwOnFailure = false } = options;
   const excludedSet = new Set((excludeTokens || []).filter(t => typeof t === 'string' && t.length > 0));
   const isExcluded = token => excludedSet.has(token);
 
@@ -728,9 +729,10 @@ export const sanitizeOutput = async (output, options = {}) => {
     if (isNoSpace) {
       await log(`  ❌ ENOSPC: No space left on device during output sanitization. Output was blocked.`);
       await log(`     Consider freeing disk space (e.g., rm -rf ~/.claude/debug/*.txt) and retrying.`);
-    } else {
+    } else if (!throwOnFailure) {
       await log(`  ⚠️  Warning: Output sanitization failed; unsafe output was blocked.`, { verbose: true });
     }
+    if (throwOnFailure) throw error;
     return CREDENTIAL_SANITIZATION_FAILURE_MESSAGE;
   }
 
@@ -746,6 +748,7 @@ export class CredentialSanitizationError extends Error {
     // identifiers are kept here — never the matched text — so they are safe to
     // print in logs and in the "Log Upload Failed" comment.
     this.stage = options.stage || null;
+    this.sanitizerCode = getSanitizerErrorCode(options.cause);
     this.findings = Array.isArray(options.findings) ? options.findings : [];
   }
 }
@@ -778,6 +781,7 @@ export const describeCredentialSanitizationFailure = error => {
   if (error?.code !== CREDENTIAL_SANITIZATION_ERROR_CODE) return message;
   const details = [];
   if (error.stage) details.push(`stage: ${error.stage}`);
+  if (error.sanitizerCode) details.push(`sanitizer: ${error.sanitizerCode}`);
   if (Array.isArray(error.findings) && error.findings.length > 0) details.push(`findings: ${error.findings.map(f => `${f.ruleId}×${f.count}`).join(', ')}`);
   if (Number.isFinite(error.blockIndex)) details.push(`log block ${error.blockIndex}${Number.isFinite(error.blockStartChar) ? ` starting at character ${error.blockStartChar}` : ''}${Number.isFinite(error.blockChars) ? `, ${error.blockChars} characters` : ''}`);
   const causeMessage = error.cause?.message;
@@ -798,24 +802,22 @@ export const sanitizeForPublication = async (input, options = {}) => {
   // Issue #2397: remember which step failed so the error can say so.
   let stage = 'primary';
   let findings = [];
+  let text = '';
   try {
+    text = String(input ?? '');
     const scanner =
       options.scanner ||
-      (async value => {
-        const sanitized = await sanitizeOutput(value, {
+      (value =>
+        sanitizeOutput(value, {
           warnOnMismatch: false,
+          throwOnFailure: true,
           // Publication boundaries intentionally ignore all dangerous bypass
           // flags and user-content exclusions.
           skipOutputSanitization: false,
           skipActiveTokensOutputSanitization: false,
           excludeTokens: [],
-        });
-        if (sanitized === CREDENTIAL_SANITIZATION_FAILURE_MESSAGE) {
-          throw new Error('Primary sanitizer failed.');
-        }
-        return sanitized;
-      });
-    const sanitized = String(await scanner(String(input ?? '')));
+        }));
+    const sanitized = String(await scanner(text));
     stage = 'residual-scan';
     const residualScanner =
       options.residualScanner ||
@@ -836,6 +838,7 @@ export const sanitizeForPublication = async (input, options = {}) => {
     }
     return sanitized;
   } catch (cause) {
+    traceSanitizerFailure(stage, text.length, cause);
     reportError(new Error('Credential publication boundary blocked unsafe output.'), {
       context: 'credential_publication_boundary',
       level: 'warning',

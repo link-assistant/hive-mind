@@ -12,10 +12,11 @@
 
 import { StringDecoder } from 'node:string_decoder';
 import { previousRecordSeparator, wrappedBase64HoldStart } from './encoded-credential-detection.lib.mjs';
-import { credentialEnvironmentValues, sanitizeWithPolicy } from './sensitive-data-sanitizer.lib.mjs';
+import { credentialEnvironmentValues, sanitizeWithPolicy, traceSanitizerFailure } from './sensitive-data-sanitizer.lib.mjs';
 
 export const CREDENTIAL_SANITIZATION_ERROR_CODE = 'ERR_CREDENTIAL_SANITIZATION';
 export const CREDENTIAL_SANITIZATION_FAILURE_MESSAGE = 'Credential sanitization failed; publication was blocked.';
+export const OMITTED_DIAGNOSTIC = '[Output omitted because credential sanitization failed.]';
 
 /**
  * Hive Mind's mask format, identical to the library's `hive-mask`
@@ -75,6 +76,23 @@ export const sanitizeCredentialText = (input, options = {}) => {
   return output;
 };
 
+/** Fail closed at a diagnostic sink without propagating data-dependent errors to its caller. */
+export const sanitizeDiagnosticText = (input, source, options) => {
+  const text = String(input ?? '');
+  try {
+    return sanitizeCredentialText(text, options);
+  } catch (error) {
+    traceSanitizerFailure(source, text.length, error);
+    const delimiter = text.match(/(?:\r\n|\r|\n)$/)?.[0] ?? '';
+    try {
+      return sanitizeCredentialText(OMITTED_DIAGNOSTIC, options) + delimiter;
+    } catch {
+      // The notice can also collide with a configured secret.
+      return delimiter;
+    }
+  }
+};
+
 /**
  * Return a non-sensitive indication that another sanitizer pass would change
  * the text. Callers never receive the matching value.
@@ -92,6 +110,7 @@ export const findCredentialResiduals = input => {
 export const createCredentialStreamSanitizer = options => {
   let pending = '';
   let decoder = new StringDecoder('utf8');
+  const sanitize = options?.diagnosticSource ? text => sanitizeDiagnosticText(text, options.diagnosticSource, options) : text => sanitizeCredentialText(text, options);
 
   const appendChunk = chunk => {
     if (Buffer.isBuffer(chunk) || ArrayBuffer.isView(chunk)) {
@@ -117,14 +136,14 @@ export const createCredentialStreamSanitizer = options => {
           // Text before the marker can be released, but the marker and every
           // following byte stay private until the matching end or flush.
           if (begin.index > 0) {
-            output += sanitizeCredentialText(pending.slice(0, begin.index), options);
+            output += sanitize(pending.slice(0, begin.index));
             pending = pending.slice(begin.index);
           }
           break;
         }
 
         const keyEnd = endIndex + endMarker.length;
-        output += sanitizeCredentialText(pending.slice(0, keyEnd), options);
+        output += sanitize(pending.slice(0, keyEnd));
         pending = pending.slice(keyEnd);
         continue;
       }
@@ -140,7 +159,7 @@ export const createCredentialStreamSanitizer = options => {
       // same way an unterminated PEM block is held above.
       const releaseEnd = wrappedBase64HoldStart(pending, boundary + 1) ?? boundary + 1;
       if (releaseEnd <= 0) break;
-      output += sanitizeCredentialText(pending.slice(0, releaseEnd), options);
+      output += sanitize(pending.slice(0, releaseEnd));
       pending = pending.slice(releaseEnd);
     }
 
@@ -157,7 +176,7 @@ export const createCredentialStreamSanitizer = options => {
       decoder = new StringDecoder('utf8');
       const complete = pending;
       pending = '';
-      return sanitizeCredentialText(complete, options);
+      return sanitize(complete);
     },
   };
 };

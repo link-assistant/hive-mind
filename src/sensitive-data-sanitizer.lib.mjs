@@ -30,15 +30,23 @@ export const loadSensitiveDataSanitizer = () => (library ??= require(`${SENSITIV
 export const credentialEnvironmentValues = (env = process.env) => loadSensitiveDataSanitizer().knownSecretsFromEnv(env);
 
 const DEBUG = /^(?:1|true|yes)$/i.test(process.env.HIVE_MIND_SANITIZER_DEBUG || '');
+// Keep sanitizer tracing out of the stdio interceptor that invokes the sanitizer.
+const writeDiagnostic = process.stderr.write.bind(process.stderr);
 const trace = event => {
   if (!DEBUG) return;
   try {
     // Copy only explicitly value-free metadata, never arbitrary callback data.
-    const safe = Object.fromEntries(Object.entries(event).filter(([key, value]) => ['event', 'rule', 'ruleId', 'inputLength', 'elapsedMs', 'round', 'findings', 'redactions'].includes(key) && ['string', 'number'].includes(typeof value)));
-    process.stderr.write(`[hive-mind sanitizer] ${JSON.stringify(safe)}\n`);
+    const safe = Object.fromEntries(Object.entries(event).filter(([key, value]) => ['event', 'source', 'code', 'rule', 'ruleId', 'inputLength', 'elapsedMs', 'round', 'findings', 'redactions'].includes(key) && ['string', 'number'].includes(typeof value)));
+    writeDiagnostic(`[hive-mind sanitizer] ${JSON.stringify(safe)}\n`);
   } catch {
     // Tracing must never affect sanitization.
   }
+};
+
+export const getSanitizerErrorCode = error => (/^ERR_(?:SANITIZATION|RESIDUAL|LIMIT|CONFIG|FINDING|INPUT|JSON)$/.test(error?.code) ? error.code : null);
+
+export const traceSanitizerFailure = (source, inputLength, error) => {
+  trace({ event: 'blocked', source, inputLength, code: getSanitizerErrorCode(error) || 'unknown' });
 };
 
 const sanitizers = new Map();
@@ -55,7 +63,9 @@ const getSanitizer = ({ knownSecrets = [], knownOnly = false } = {}) => {
       knownOnly,
       preserveEncoding: true,
       transformation: { mode: 'hive-mask' },
-      transformations: { PRIVATE_KEY: { mode: 'redact' } },
+      // The detector could not inspect these bytes. Keeping even a preview is
+      // appropriate only for credentials whose contents have been identified.
+      transformations: { PRIVATE_KEY: { mode: 'redact' }, ENCODED_LIMIT: { mode: 'redact' } },
       ...(DEBUG ? { debug: trace } : {}),
     });
     if (sanitizers.size >= MAX_CACHED_SANITIZERS) sanitizers.delete(sanitizers.keys().next().value);

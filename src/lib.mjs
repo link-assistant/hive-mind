@@ -2,7 +2,7 @@
 import * as fsModule from 'node:fs';
 import path from 'node:path';
 import { ensureUseM } from './use-m-bootstrap.lib.mjs';
-import { createCredentialStreamSanitizer, maskToken, sanitizeCredentialText } from './credential-sanitization-core.lib.mjs';
+import { createCredentialStreamSanitizer, maskToken, sanitizeDiagnosticText } from './credential-sanitization-core.lib.mjs';
 import { recordLogBytes, resetLogGrowth } from './log-growth.lib.mjs'; // issue #2135: notice a session log that is running away
 import { isPlaceholderErrorText, isOpaqueErrorText, isSourceFragmentErrorText } from './error-text.lib.mjs'; // issue #2141/#3759/#4077: reject placeholders, opaque dumps and source/debug fragments
 import { isTransientNetworkError as isTransientNetworkErrorShared } from './transient-errors.lib.mjs'; // issue #2168: one shared transient-fault vocabulary for git + gh
@@ -126,7 +126,7 @@ export const log = async (message, options = {}) => {
     return;
   }
 
-  const sanitizedMessage = sanitizeCredentialText(message);
+  const sanitizedMessage = sanitizeDiagnosticText(message, stream === 'stdout' || stream === 'stderr' ? stream : 'log');
 
   // Issue #2140: mirrored child output must stay attributable to the stream it
   // came from. Both Codex streams used to be written as plain [INFO], so a run
@@ -212,7 +212,7 @@ export const setupVerboseLogInterceptor = () => {
     if (logFile && args.length > 0) {
       const firstArg = String(args[0]);
       if (firstArg.includes('[VERBOSE]')) {
-        const message = sanitizeCredentialText(args.map(a => String(a)).join(' '));
+        const message = sanitizeDiagnosticText(args.map(a => String(a)).join(' '), 'verbose-log');
         const logMessage = `[${new Date().toISOString()}] [VERBOSE] ${message}`;
         _writingFromLog = true;
         fs.appendFile(logFile, logMessage + '\n', { mode: 0o600 })
@@ -225,7 +225,7 @@ export const setupVerboseLogInterceptor = () => {
 
     // Always call original console.log (with guard flag set if [VERBOSE])
     try {
-      originalConsoleLog(...args.map(value => (typeof value === 'string' || Buffer.isBuffer(value) ? sanitizeCredentialText(value) : value)));
+      originalConsoleLog(...args.map(value => (typeof value === 'string' || Buffer.isBuffer(value) ? sanitizeDiagnosticText(value, 'console') : value)));
     } finally {
       _writingFromLog = false;
     }
@@ -270,7 +270,7 @@ const appendInternalDiagnostic = async message => {
   if (!logFile) return;
   const prefix = `[${new Date().toISOString()}] [INTERNAL]`;
   await fs
-    .appendFile(logFile, `${prefix} ${sanitizeCredentialText(message)}\n`, { mode: 0o600 })
+    .appendFile(logFile, `${prefix} ${sanitizeDiagnosticText(message, 'internal-log')}\n`, { mode: 0o600 })
     .then(() => fs.chmod(logFile, 0o600))
     .catch(() => {
       // Silent fail to avoid recursive logging errors
@@ -344,8 +344,8 @@ export const setupStdioLogInterceptor = () => {
 
   const originalStdoutWrite = process.stdout.write.bind(process.stdout);
   const originalStderrWrite = process.stderr.write.bind(process.stderr);
-  const stdoutSanitizer = createCredentialStreamSanitizer();
-  const stderrSanitizer = createCredentialStreamSanitizer();
+  const stdoutSanitizer = createCredentialStreamSanitizer({ diagnosticSource: 'stdout' });
+  const stderrSanitizer = createCredentialStreamSanitizer({ diagnosticSource: 'stderr' });
   installBrokenPipeGuard(process.stdout, 'stdout');
   installBrokenPipeGuard(process.stderr, 'stderr');
 

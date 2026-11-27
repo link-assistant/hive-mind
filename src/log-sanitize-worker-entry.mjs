@@ -30,7 +30,7 @@ try {
   // Issue #2397: carry the non-sensitive diagnostics (failed stage, rule ids,
   // block position) across the thread boundary; the cause itself is not sent.
   const diagnostics = {};
-  for (const key of ['stage', 'findings', 'blockIndex', 'blockStartChar', 'blockChars']) {
+  for (const key of ['stage', 'sanitizerCode', 'findings', 'blockIndex', 'blockStartChar', 'blockChars']) {
     if (error?.[key] !== undefined && error?.[key] !== null) diagnostics[key] = error[key];
   }
   parentPort.postMessage({ type: 'error', message: error?.message || String(error), name: error?.name || 'Error', code: error?.code || null, diagnostics });

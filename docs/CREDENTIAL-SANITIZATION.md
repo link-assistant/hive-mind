@@ -25,7 +25,7 @@ The synchronous core runs on [`@link-foundation/sensitive-data-sanitizer`](https
 - Format context around a credential stays readable, and only the credential itself is masked. This covers the scheme word of an `Authorization` header (`Authorization: token ghp…b4N`, `Authorization: CustomScheme f3a…3e5`), a URL user name, cookie names, PEM markers, and webhook endpoints ([#3739](https://github.com/link-assistant/hive-mind/issues/3739)).
 - Shell expressions such as `Authorization: token $(gh auth token)` are kept, because they reference a credential without containing one.
 - Option placeholders such as `--secrets <path>`, `--password <value>` and `[file]`, and expressions such as `${{ secrets.GITHUB_TOKEN }}`, stay unchanged. A real value after the same option is masked: `--password Xy7…R8k` ([#4043](https://github.com/link-assistant/hive-mind/issues/4043)).
-- Set `HIVE_MIND_SANITIZER_DEBUG=1` to trace sanitizer decisions on stderr. The trace shows rule ids, input lengths, rounds, and counts, but never the matched text.
+- Set `HIVE_MIND_SANITIZER_DEBUG=1` to trace sanitizer decisions on stderr. The trace shows diagnostic sources, scan stages, error codes, rule IDs, input lengths, rounds, and counts. It excludes matched text.
 
 ## Log upload through gh-upload-log
 

@@ -554,6 +554,7 @@ export const uploadLogWithGhUploadLog = async ({ logFile, isPublic, description,
         sanitize({
           sourcePath: logFile,
           destPath: privateLogFile,
+          omitResidualBlocks: true,
           onWorkerFallback: ({ error }) => log(`  ⚠️  Sanitize worker unavailable (${error?.message || error}); sanitizing in-process`, { verbose: true }),
         }),
       {
@@ -568,6 +569,9 @@ export const uploadLogWithGhUploadLog = async ({ logFile, isPublic, description,
     );
     if (sanitizing.timedOut) throw new Error(`sanitizing the log did not finish within ${formatDelay(watch.sanitizeDeadlineMs ?? LOG_SANITIZE_DEADLINE_MS)}`);
     const sanitizeStats = sanitizing.value || {};
+    if (sanitizeStats.omittedBlocks > 0) {
+      await log(`  ⚠️  Omitted ${sanitizeStats.omittedBlocks} log block(s) that could not be verified for publication.`);
+    }
     if (verbose) {
       await log(`  🧼 Streamed sanitize: ${sanitizeStats.sourceSize} bytes in ${sanitizeStats.blocks} block(s)${sanitizeStats.forcedReleases > 0 ? `, ${sanitizeStats.forcedReleases} forced release(s)` : ''}${sanitizeStats.worker ? ' (bounded worker)' : ''}`, { verbose: true });
     }

@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
 import { promisify } from 'node:util';
-import { AGENTIC_CLI_TARGETS, isAgenticCliAutoUpdateEnabled, listAgenticCliUpdateTargets, updateAgenticClisWhenIdle } from '../src/agentic-cli-updater.lib.mjs';
+import { AGENTIC_CLI_TARGETS, isAgenticCliAutoUpdateEnabled, listAgenticCliUpdateTargets, rememberInstalledCodexStock, updateAgenticClisWhenIdle } from '../src/agentic-cli-updater.lib.mjs';
 import { buildStartCommandArgs } from '../src/isolation-runner.lib.mjs';
 import { validateAgentConfigAuditInputs } from '../src/agent-config-audit-inputs.lib.mjs';
 import { CodexStockBaselineError } from '../src/codex-stock-skills.lib.mjs';
@@ -28,6 +28,15 @@ for (const dockerfile of ['Dockerfile', 'Dockerfile.dind', 'coolify/Dockerfile']
       [...agenticIds].sort()
     );
     assert.deepEqual(listAgenticCliUpdateTargets(env), AGENTIC_CLI_TARGETS);
+  });
+
+  test(`${dockerfile} resolves stable upstream CLI releases at build time`, async () => {
+    const content = await read(dockerfile);
+    assert.match(content, /bash \/tmp\/claude-code-install\.sh latest/u);
+    for (const { package: packageName } of AGENTIC_CLI_TARGETS.filter(({ id }) => agenticIds.includes(id) && id !== 'claude')) {
+      assert.ok(content.includes(`${packageName}@latest`), `Missing a fresh installation of ${packageName}`);
+    }
+    assert.match(content, /ARG HIVE_MIND_AGENTIC_CLI_REFRESH/u);
   });
 }
 
@@ -112,6 +121,12 @@ if (process.argv.includes('--version')) {
   assert.deepEqual(update.updated, [{ id: 'codex', from: '0.171.0', to: '0.172.0' }]);
   await check(); // A stock tree written before the binary update remains valid.
   await writeFile(skill, 'current upstream content');
+  await check();
+  // A replacement image brings its own CLI and retains the bot's state.
+  await rememberInstalledCodexStock({ env });
+  await install('0.173.0', 'replacement image content');
+  await check();
+  await writeFile(skill, 'replacement image content');
   await check();
   await writeFile(skill, 'modified content');
   await assert.rejects(check(), CodexStockBaselineError);

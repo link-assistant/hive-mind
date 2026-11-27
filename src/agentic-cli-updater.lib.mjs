@@ -146,6 +146,31 @@ export const writeAgenticCliState = async (state, { env = process.env, fsImpl = 
   return state;
 };
 
+// The image dispatchers can select an independent native storage adapter.
+const imageStockCommand = (target, env) => (env.HIVE_MIND_IMAGE_NATIVE_BIN && env.BUN_INSTALL && ['codex', 'gemini'].includes(target.id) ? path.join(env.BUN_INSTALL, 'bin', target.binary) : null);
+
+async function withInstalledCodexStock(tools, env) {
+  const { files } = await getInstalledCodexStockManifest(env);
+  const digest = codexStockSkillsDigest(files);
+  const previous = Array.isArray(tools.codex?.stockSkillDigests) ? tools.codex.stockSkillDigests : [];
+  if (previous[0] === digest) return tools;
+  return { ...tools, codex: { ...tools.codex, stockSkillDigests: [...new Set([digest, ...previous])].slice(0, 8) } };
+}
+
+/** Save the admitted image stock before a later deployment replaces its CLI. */
+export async function rememberInstalledCodexStock({ env = process.env, fsImpl = fs } = {}) {
+  if (!env.HIVE_MIND_IMAGE_NATIVE_BIN || !env.BUN_INSTALL) return;
+  await withStateLock(
+    CLI_UPDATE_LOCK_NAME,
+    async () => {
+      const state = await readAgenticCliState({ env, fsImpl });
+      const tools = await withInstalledCodexStock(state.tools, env);
+      if (tools !== state.tools) await writeAgenticCliState({ ...state, tools }, { env, fsImpl });
+    },
+    { env, fsImpl }
+  );
+}
+
 /**
  * Version in the package.json of the package that owns the binary on PATH.
  *
@@ -157,9 +182,6 @@ export const writeAgenticCliState = async (state, { env = process.env, fsImpl = 
  * what was installed and what the registry version describes; reading it also
  * keeps a shadowing older copy earlier on PATH from passing as updated.
  */
-// The image dispatchers can select an independent native storage adapter.
-const imageStockCommand = (target, env) => (env.HIVE_MIND_IMAGE_NATIVE_BIN && env.BUN_INSTALL && ['codex', 'gemini'].includes(target.id) ? path.join(env.BUN_INSTALL, 'bin', target.binary) : null);
-
 export const readBinaryPackageVersion = async (target, { env = process.env, fsImpl = fs } = {}) => {
   const stock = imageStockCommand(target, env);
   for (const dir of String(stock ? path.dirname(stock) : (env.PATH ?? ''))
@@ -262,7 +284,7 @@ export const updateAgenticClisWhenIdle = async ({ env = process.env, fsImpl = fs
       const updated = [];
       const upToDate = [];
       const failed = [];
-      const tools = { ...state.tools };
+      let tools = { ...state.tools };
 
       for (const target of listAgenticCliUpdateTargets(env, { only })) {
         const installed = await readInstalledCliVersion(target, { run, env, fsImpl, log, verbose });
@@ -290,11 +312,11 @@ export const updateAgenticClisWhenIdle = async ({ env = process.env, fsImpl = fs
           if (target.id === 'codex' && imageStockCommand(target, env)) {
             // Preserve provenance if the global Codex home still holds stock
             // assets written by this release after the package is replaced.
-            const { files } = await getInstalledCodexStockManifest(env);
-            const digest = codexStockSkillsDigest(files);
-            const previous = Array.isArray(tools.codex?.stockSkillDigests) ? tools.codex.stockSkillDigests : [];
-            tools.codex = { ...tools.codex, stockSkillDigests: [...new Set([digest, ...previous])].slice(0, 8) };
-            await writeAgenticCliState({ ...state, tools }, { env, fsImpl });
+            const recorded = await withInstalledCodexStock(tools, env);
+            if (recorded !== tools) {
+              await writeAgenticCliState({ ...state, tools: recorded }, { env, fsImpl });
+              tools = recorded;
+            }
           }
           await installAgenticCli(target, { run });
         } catch (error) {

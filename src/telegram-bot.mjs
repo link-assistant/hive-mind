@@ -59,6 +59,8 @@ if (!BOT_TOKEN) {
 if (!config.dryRun) {
   const { isAgentConfigAutoRepairEnabled, runAgentConfigAudit } = await import('./agent-config-audit.lib.mjs');
   await runAgentConfigAudit({ env: process.env, autoRepair: isAgentConfigAutoRepairEnabled(), requireClean: true, log: async message => console.log(message), verbose: VERBOSE });
+  const { rememberInstalledCodexStock } = await import('./agentic-cli-updater.lib.mjs');
+  await rememberInstalledCodexStock();
 }
 
 // Resolve final config values (CLI option > environment variable)

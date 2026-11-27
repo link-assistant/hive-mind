@@ -65,6 +65,21 @@ test('Docker task launch passes explicit CLI update settings, including an empty
   );
 });
 
+for (const dockerfile of ['Dockerfile', 'Dockerfile.dind']) {
+  test(`${dockerfile} keeps native dispatchers on PATH after Box sources its shell profile`, async t => {
+    const home = await mkdtemp(path.join(tmpdir(), 'hive-4168-profile-'));
+    t.after(() => rm(home, { recursive: true, force: true }));
+    const bashrc = path.join(home, '.bashrc');
+    await writeFile(bashrc, 'export PATH="$HOME/.bun/bin:$PATH"\n');
+    const content = await read(dockerfile);
+    const install = content.match(/^RUN (echo 'export PATH="\$HOME\/\.local\/bin:\$PATH"' >> "\$HOME\/\.bashrc")$/mu);
+    assert.ok(install, 'Missing dispatcher PATH precedence in the shell profile');
+    const { stdout } = await execFileAsync('bash', ['-c', `${install[1]} && source "$HOME/.bashrc" && printf '%s' "$PATH"`], { env: { HOME: home, PATH: '/usr/bin:/bin' } });
+    assert.deepEqual(stdout.split(path.delimiter).slice(0, 2), [path.join(home, '.local/bin'), path.join(home, '.bun/bin')]);
+    assert.match(content, /^RUN --network=none \/usr\/local\/bin\/entrypoint\.sh node .*verify-agent-runtime\.mjs/mu);
+  });
+}
+
 test('the new Codex catalog and its recorded predecessor are audited by content', async t => {
   const root = await mkdtemp(path.join(tmpdir(), 'hive-4168-stock-'));
   t.after(() => rm(root, { recursive: true, force: true }));

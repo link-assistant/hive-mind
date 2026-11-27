@@ -449,7 +449,11 @@ RUN mkdir -p /home/box/.claude && \
     hive-manager configure-claude --settings-path /home/box/.claude/settings.json && \
     hive-manager configure-claude --settings-path /home/box/.claude/settings.json --verify
 
-# Required installed-package baseline: no provider access or development source.
-RUN --network=none node "$(dirname "$(readlink -f "$(command -v hive)")")/verify-agent-runtime.mjs"
+# Box sources its shell profile before starting tasks. Load the dispatchers
+# first even when Bun's installer prepended its package binaries in that profile.
+RUN echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$HOME/.bashrc"
+
+# Required installed-package baseline through Box's task startup, without network access.
+RUN --network=none /usr/local/bin/entrypoint.sh node "$(dirname "$(readlink -f "$(command -v hive)")")/verify-agent-runtime.mjs"
 
 CMD ["/bin/bash"]

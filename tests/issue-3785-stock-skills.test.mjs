@@ -125,7 +125,7 @@ test('PR and manual image builds install this branch as a package in all three i
 test('both packaged images require a network-disabled stock-runtime gate', async () => {
   for (const dockerfile of ['Dockerfile', 'Dockerfile.dind', 'coolify/Dockerfile']) {
     const content = await readFile(new URL(`../${dockerfile}`, import.meta.url), 'utf8');
-    assert.ok(/RUN --network=none node .*verify-agent-runtime\.mjs/u.test(content), `${dockerfile} must run the installed verifier without networking`);
+    assert.ok(/RUN --network=none (?:\/usr\/local\/bin\/entrypoint\.sh )?node .*verify-agent-runtime\.mjs/u.test(content), `${dockerfile} must run the installed verifier without networking`);
   }
 });
 

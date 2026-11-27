@@ -454,8 +454,13 @@ COPY --chmod=0755 scripts/dind/clear-stale-dind-pids.sh /usr/local/sbin/hive-min
 COPY --chmod=0755 scripts/dind/hive-mind-dind-entrypoint.sh /usr/local/bin/hive-mind-dind-entrypoint.sh
 COPY --chmod=0440 scripts/dind/hive-mind-dind.sudoers /etc/sudoers.d/hive-mind-dind
 RUN sudo -n /usr/local/sbin/hive-mind-dind-clear-stale-pids
-# Required installed-package baseline: no provider access or development source.
-RUN --network=none node "$(dirname "$(readlink -f "$(command -v hive)")")/verify-agent-runtime.mjs"
+
+# Box sources its shell profile before starting tasks. Load the dispatchers
+# first even when Bun's installer prepended its package binaries in that profile.
+RUN echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$HOME/.bashrc"
+
+# Check Box's task startup without starting nested dockerd in the build.
+RUN --network=none /usr/local/bin/entrypoint.sh node "$(dirname "$(readlink -f "$(command -v hive)")")/verify-agent-runtime.mjs"
 
 # Setting ENTRYPOINT resets the CMD inherited from box-dind, so restate it.
 ENTRYPOINT ["/usr/local/bin/hive-mind-dind-entrypoint.sh"]

@@ -7,6 +7,8 @@ const restartLimit = /^Auto-restart limit reached after \d+ iterations? - the bl
 export const emptyRepositoryFailure = /^(?:Repository setup failed - empty repository|Empty repository auto-initialization failed|Empty repository detected - use --auto-init-repository to initialize)$/i;
 const maxOutputTokens = 'Incomplete response returned, reason: max_output_tokens';
 const stoppedToolSession = /^❌ The AI session failed and (?:`--[\w-]+`|the automation) stopped \(tool_failure(?:_after_resume)?\)\.$/;
+const draftRestoreDetailPrefix = ' was left in draft by a working session (';
+const draftRestoreDetailSuffix = '); restoring its pre-run state at ';
 const toolFailureDetailSignatures = new Map([
   [maxOutputTokens, 'codex-max-output-tokens'],
   [codexCodeModeHostFailure, 'codex-code-mode-host'],
@@ -34,8 +36,12 @@ function solveFailureSignature(text) {
       continue;
     }
     if (line.startsWith('🩹 PR #') && /run end \(AI session failed \(tool_failure(?:_after_resume)?\)\)$/u.test(line)) {
-      const restoreDetail = /left in draft by a working session \((.+)\); restoring/u.exec(line)?.[1];
-      toolFailureSignature = toolFailureDetailSignatures.get(restoreDetail) ?? toolFailureSignature;
+      const prefix = line.indexOf(draftRestoreDetailPrefix);
+      if (prefix !== -1) {
+        const start = prefix + draftRestoreDetailPrefix.length;
+        const end = line.indexOf(draftRestoreDetailSuffix, start);
+        if (end !== -1) toolFailureSignature = toolFailureDetailSignatures.get(line.slice(start, end)) ?? toolFailureSignature;
+      }
       continue;
     }
     if (!line.startsWith('❌ ')) continue;

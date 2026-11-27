@@ -57,8 +57,7 @@ export const getCodexErrorEventSummary = codexJsonState => {
   // Issue #1955: When the codex turn genuinely completed (a `turn.completed`
   // event was observed) and codex never emitted a `turn.failed`, stray stream
   // or item errors are usually non-fatal. A required Code Mode runtime that
-  // failed closed is an exception (Issue #4173). Two things produce stray
-  // strays:
+  // failed closed is an exception (Issue #4173). Stray errors have two sources:
   //   1. A transient error codex itself retried/recovered from before completing
   //      the turn (e.g. a momentary stream blip).
   //   2. Echoed content that merely *looks* like a codex protocol event. The

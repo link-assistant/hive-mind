@@ -58,7 +58,9 @@ test('task reports preserve the cause from direct solve, mergeability restarts, 
   ]) {
     const terminal = `❌ AI session failed (${reason})`;
     const log = [`❌ The AI session failed and ${controller} stopped (${reason}).`, `   ${codexCodeModeHostFailure}`, terminal, '❌ Error: solve exited with code 1'].map(line => `2026-11-26T19:55:52.488697266Z [2026-11-26T19:55:52.484Z] [ERROR] ${line}`).join('\n');
+    const restore = `🩹 PR #17 was left in draft by a working session (${codexCodeModeHostFailure}); restoring its pre-run state at run end (AI session failed (${reason}))`;
     assert.equal(classify(log), 'codex-code-mode-host');
+    assert.equal(classify(`${restore}\n${terminal}`), 'codex-code-mode-host');
     assert.equal(classify(log, { oomKilled: true }), undefined);
     assert.equal(classify(`${failedCell}\n${terminal}`), 'tool-failure');
   }

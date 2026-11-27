@@ -152,13 +152,13 @@ const imageStockCommand = (target, env) => (env.HIVE_MIND_IMAGE_NATIVE_BIN && en
 async function withInstalledCodexStock(tools, env) {
   const { files } = await getInstalledCodexStockManifest(env);
   const digest = codexStockSkillsDigest(files);
-  const previous = Array.isArray(tools.codex?.stockSkillDigests) ? tools.codex.stockSkillDigests : [];
+  const previous = Array.isArray(tools?.codex?.stockSkillDigests) ? tools.codex.stockSkillDigests : [];
   if (previous[0] === digest) return tools;
-  return { ...tools, codex: { ...tools.codex, stockSkillDigests: [...new Set([digest, ...previous])].slice(0, 8) } };
+  return { ...tools, codex: { ...tools?.codex, stockSkillDigests: [...new Set([digest, ...previous])].slice(0, 8) } };
 }
 
 /** Save the admitted image stock before a later deployment replaces its CLI. */
-export async function rememberInstalledCodexStock({ env = process.env, fsImpl = fs } = {}) {
+export async function rememberInstalledCodexStock({ env = process.env, fsImpl = fs, log = console.warn } = {}) {
   if (!env.HIVE_MIND_IMAGE_NATIVE_BIN || !env.BUN_INSTALL) return;
   await withStateLock(
     CLI_UPDATE_LOCK_NAME,
@@ -167,8 +167,8 @@ export async function rememberInstalledCodexStock({ env = process.env, fsImpl = 
       const tools = await withInstalledCodexStock(state.tools, env);
       if (tools !== state.tools) await writeAgenticCliState({ ...state, tools }, { env, fsImpl });
     },
-    { env, fsImpl }
-  );
+    { env, fsImpl, timeoutMs: 0 }
+  ).catch(() => log('Could not record the installed Codex stock catalog for the next deployment.'));
 }
 
 /**

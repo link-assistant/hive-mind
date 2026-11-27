@@ -12,6 +12,7 @@ import { verifyNativeGeminiCommand } from './native-gemini-command.lib.mjs';
 import { verifyNativeCodexCommand } from './native-codex-command.lib.mjs';
 import { discoverCodexStock, executeVersionProbe, probeEnvironment, withRuntimeProbeHome } from './agent-runtime-probe.lib.mjs';
 import { getInstalledCodexStockManifest } from './codex-installed-stock.lib.mjs';
+import { rememberInstalledCodexStock } from './agentic-cli-updater.lib.mjs';
 
 async function verifyPinnedCodexStock(command, { home, cwd, env }) {
   const result = await discoverCodexStock(command, cwd, { ...env, CODEX_SQLITE_HOME: path.join(home, '.codex') });
@@ -68,7 +69,7 @@ export async function verifyAgentRuntime(options = {}) {
   }
   await verifyNativeGeminiCommand({ command: options.geminiCommand });
   await withRuntimeProbeHome(async ({ home, cwd, env: probeEnv }) => {
-    await verifyPinnedCodexStock(native.entrypoint, { home, cwd, env: probeEnv });
+    await verifyPinnedCodexStock(codexCommand, { home, cwd, env: probeEnv });
     for (const command of [options.claudeCommand ?? 'claude', options.agentCommand ?? 'agent', options.opencodeCommand ?? 'opencode', options.geminiCommand ?? 'gemini', options.qwenCommand ?? 'qwen', 'copilot', 'rg']) {
       const { stdout } = await executeVersionProbe(command, { env: probeEnv, cwd, maxBuffer: 64 * 1024 });
       assert.match(stdout.trim(), /(?:^|\s)\d+\.\d+\.\d+\b/u, `Installed ${command} runtime did not report a version.`);
@@ -81,6 +82,7 @@ export async function verifyAgentRuntime(options = {}) {
 if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
   try {
     await verifyAgentRuntime({ env: process.env });
+    if (process.argv.includes('--record-codex-stock')) await rememberInstalledCodexStock();
     console.log('Installed CLI versions, native Codex and Gemini adapters, and the clean Codex stock runtime verified.');
   } catch (error) {
     if (process.env.HIVE_MIND_AGENT_RUNTIME_DEBUG === '1') console.error(error);

@@ -1,3 +1,4 @@
+/* global AbortSignal, console, process */
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
 import { mkdtemp, readdir, rm } from 'node:fs/promises';

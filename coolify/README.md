@@ -144,15 +144,16 @@ If you need specific git config:
 
 The docker-compose.yml configures several persistent volumes that Coolify will manage:
 
-| Volume            | Container Path         | Purpose                            |
-| ----------------- | ---------------------- | ---------------------------------- |
-| `./claude-config` | `/home/box/.claude`    | Claude authentication & settings   |
-| `./codex-config`  | `/home/box/.codex`     | Codex auth, config, and sessions   |
-| `./config`        | `/home/box/.config`    | General config (Claude Code, etc.) |
-| `./gh-config`     | `/home/box/.config/gh` | GitHub CLI config                  |
-| `./output`        | `/app/output`          | Generated PRs and code             |
-| `./logs`          | `/app/claude-logs`     | Execution logs                     |
-| `./sessions`      | `/app/claude-sessions` | Session data                       |
+| Volume            | Container Path         | Purpose                               |
+| ----------------- | ---------------------- | ------------------------------------- |
+| `./claude-config` | `/home/box/.claude`    | Claude authentication & settings      |
+| `./codex-config`  | `/home/box/.codex`     | Codex auth, config, and sessions      |
+| `./hive-state`    | `/home/box/.hive-mind` | CLI update state across redeployments |
+| `./config`        | `/home/box/.config`    | General config (Claude Code, etc.)    |
+| `./gh-config`     | `/home/box/.config/gh` | GitHub CLI config                     |
+| `./output`        | `/app/output`          | Generated PRs and code                |
+| `./logs`          | `/app/claude-logs`     | Execution logs                        |
+| `./sessions`      | `/app/claude-sessions` | Session data                          |
 
 **Note**: These volumes are automatically created by Coolify and will persist across container updates and restarts.
 

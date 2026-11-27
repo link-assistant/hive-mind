@@ -62,6 +62,7 @@ services:
       # Claude Code persistent storage - IMPORTANT for Max plan users
       - ./claude-config:/home/box/.claude
       - ./codex-config:/home/box/.codex
+      - ./hive-state:/home/box/.hive-mind
       - ./config:/home/box/.config
 
       # GitHub CLI config persistence

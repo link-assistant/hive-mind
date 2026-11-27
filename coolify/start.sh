@@ -32,6 +32,7 @@ echo "  - Setting up Claude and GitHub directories"
 mkdir -p "$BOX_HOME/.claude/plugins" "$BOX_HOME/.config/gh" "$BOX_HOME/.codex"
 chown -R box:box "$BOX_HOME/.claude" "$BOX_HOME/.config" "$BOX_HOME/.codex"
 chown -R box:box /app/claude-logs /app/claude-sessions /app/output 2>/dev/null || true
+mkdir -p "$BOX_HOME/.hive-mind" && chown box:box "$BOX_HOME/.hive-mind" || exit 1
 
 # Ensure /tmp has proper permissions for git operations
 chmod 1777 /tmp
@@ -50,15 +51,15 @@ elif [ -n "$GH_TOKEN" ]; then
   export GITHUB_TOKEN="$GH_TOKEN"
 fi
 
-# Set PATH for installed tools
-export PATH="/home/box/.bun/bin:/home/box/.node-bin:/home/box/.local/bin:/home/box/.cargo/bin:$PATH"
+# Resolve the storage-aware CLI launchers before the stock Bun binaries.
+export PATH="/home/box/.node-bin:/home/box/.local/bin:/home/box/.bun/bin:/home/box/.cargo/bin:$PATH"
 
 # Validate the installed runtime against restored state before either startup
 # or the setup terminal. Never auto-repair administrator or persisted state in
 # deployment admission, and never hide a failed gate behind a keepalive process.
 HIVE_BIN=$(command -v hive) || exit 1
 HIVE_SOURCE=$(readlink -f "$HIVE_BIN") || exit 1
-node "$(dirname "$HIVE_SOURCE")/verify-agent-runtime.mjs" || exit "$?"
+node "$(dirname "$HIVE_SOURCE")/verify-agent-runtime.mjs" --record-codex-stock || exit "$?"
 
 # Check if we have auth and URL
 # github-retry-ok: startup probe; on failure the container stays up for manual setup and a restart re-probes

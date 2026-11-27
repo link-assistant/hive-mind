@@ -112,3 +112,17 @@ failed`**: the variant for this machine is missing or does not match. Install wi
   the `npm view` probe that decides whether a variant is already published.
 - **`HIVE_MIND_NPM_TARBALL_BUDGET_BYTES=<n>`** overrides the budget. It exists
   for tests; do not raise it to get a release through.
+
+## Refreshing the stock-skills manifest
+
+When upgrading the native Codex recipe, run the probe below with the built
+executable. It starts the app-server in a disposable home, checks that skill
+discovery matches the files it materializes, and prints their SHA-256 hashes.
+
+```bash
+node experiments/issue-4169/probe-stock-codex.mjs VERSION /absolute/path/to/codex
+```
+
+Use the generated JSON for the versioned stock-skills manifest. Update its
+import in `src/codex-stock-skills.lib.mjs` and its packaging check in
+`scripts/install-image-package.sh` alongside the recipe change.

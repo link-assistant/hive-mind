@@ -106,6 +106,28 @@ HIVE_MANAGER_PACKAGE_VERSION="$release" HIVE_MANAGER_PACKAGE_DIAGNOSTICS=1 \
 
 Select the deployment image independently with `image=` in the profile or `--image`. Use a release tag or digest. Published release images ship the manager wrapper and install the corresponding Hive Mind package. Commands that run inside the container, such as `deploy tasks report`, use its installed tools. The host pin applies to maintenance on the host. Inspect the deployed package separately with `hive-manager --host hive-production deploy exec -- hive-manager --version`.
 
+### Verifying manually installed Claude Code and stock Codex
+
+The runtime verifier accepts Claude Code releases that report a valid Claude
+Code version label. To verify an operator-installed `@openai/codex` package,
+set `HIVE_MIND_ALLOW_STOCK_CODEX=1` in the environment of the verifier and any
+Hive Mind processes that use the stock installation.
+
+```bash
+HIVE_MIND_ALLOW_STOCK_CODEX=1 node src/verify-agent-runtime.mjs
+```
+
+Run this from a Hive Mind checkout or the installed package directory. Codex
+must resolve to the package-manager entry point. Use stock mode with standard
+Codex storage. Deployments that select Hive Mind's native Codex storage paths
+require the packaged adapter. Config audits accept the verified packaged
+stock tree or the tree produced by the selected stock package. If a prior
+installation left an incompatible tree, stop Codex processes, then move
+`skills/.system` out of the affected Codex home so Codex can recreate it. Keep
+`auth.json` and the rest of the Codex home in place.
+
+Set `HIVE_MIND_AGENT_RUNTIME_DEBUG=1` to see which verification phase failed.
+
 ## Headless sign-in
 
 Use `auth` for the current account on the selected host and `deploy auth` for the container's `box` account. Sign-in uses the selected environment's Claude, Codex or GitHub CLI. The GitHub flow also requires `gh-setup-git-identity`. Hive Mind images include these tools. For a managed deployment, select the same profile or container name you use for updates so credentials persist in its state mounts. The sign-in commands work over SSH with ordinary stdin and stdout, including through jump hosts.

@@ -160,7 +160,8 @@ const fakeCodex = ({ candidates, honourConfig = true }) => {
         const config = parseToml(await readFile(path.join(env.CODEX_HOME, 'config.toml'), 'utf8').catch(() => ''));
         disabled = new Set((config.skills?.config || []).filter(entry => entry.enabled === false).map(entry => entry.path));
       }
-      const visible = candidates.filter(([, file]) => !disabled.has(file));
+      const discovered = typeof candidates === 'function' ? await candidates(env.CODEX_HOME) : candidates;
+      const visible = discovered.filter(([, file]) => !disabled.has(file));
       probes.push(visible.map(([name]) => name));
       return { stdout: promptFor(visible), stderr: '', code: 0 };
     }
@@ -169,11 +170,29 @@ const fakeCodex = ({ candidates, honourConfig = true }) => {
   return { probes, runCommand };
 };
 
-const runPreflight = async ({ root, projectDir, codex, logs }) => {
+const runPreflight = async ({ root, projectDir, codex, logs, env = {} }) => {
   const baseCodexHome = path.join(root, 'operator-codex-home');
   await write(path.join(baseCodexHome, 'config.toml'), 'model = "gpt-5"\n');
-  return runCodexCapabilityPreflight({ owner: 'fixture', repo: 'issue-4057', issueNumber: 4057, projectDir, baseCodexHome, env: { PATH: process.env.PATH }, runCommand: codex.runCommand, log: async message => logs.push(String(message)) });
+  return runCodexCapabilityPreflight({ owner: 'fixture', repo: 'issue-4057', issueNumber: 4057, projectDir, baseCodexHome, env: { PATH: process.env.PATH, ...env }, runCommand: codex.runCommand, log: async message => logs.push(String(message)) });
 };
+
+test('an extra stock system skill requires the task system-skills opt-in', async t => {
+  const root = await tempRoot(t);
+  const { projectDir, skills } = await makeCheckout(root);
+  const codex = fakeCodex({
+    candidates: async codexHome => [...skills, ['create-statusline', await write(path.join(codexHome, 'skills/.system/create-statusline/SKILL.md'), skill('create-statusline'))]],
+  });
+  const env = { HIVE_MIND_ALLOW_STOCK_CODEX: '1' };
+  const filtered = await runPreflight({ root, projectDir, codex, logs: [], env });
+  t.after(() => filtered.dispose?.());
+  assert.equal(filtered.skillCatalog.length, skills.length);
+  assert.equal(codex.probes.length, 2);
+  assert.ok(codex.probes[0].includes('create-statusline'));
+  assert.ok(!codex.probes[1].includes('create-statusline'));
+  const allowed = await runPreflight({ root, projectDir, codex, logs: [], env: { ...env, HIVE_MIND_CODEX_SYSTEM_SKILLS: '1' } });
+  t.after(() => allowed.dispose?.());
+  assert.ok(allowed.skillCatalog.some(entry => entry.name === 'create-statusline' && entry.providerId === 'codex-system'));
+});
 
 test('preflight disables a host skill for the task only and keeps every repository skill', async t => {
   const root = await tempRoot(t);

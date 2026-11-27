@@ -21,10 +21,10 @@ const escapeRegExp = value => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 const expected = {
   agent: '0.27.2',
-  box: '2.10.5',
+  box: '2.10.6',
   bun: '1.4.5',
   eslint: '10.15.0',
-  formalAi: '0.356.11',
+  formalAi: '0.357.2',
   jscpd: '5.4.3',
   jscpdThreshold: 12,
   lintStaged: '17.6.2',

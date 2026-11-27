@@ -1,9 +1,11 @@
 /** @hive-mind-test-suite default */
 import assert from 'node:assert/strict';
+import { execFile } from 'node:child_process';
 import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
+import { promisify } from 'node:util';
 import { verifyAgentRuntime } from '../src/verify-agent-runtime.mjs';
 import { runAgentConfigAudit } from '../src/agent-config-audit.lib.mjs';
 
@@ -68,6 +70,15 @@ test('new Claude and Codex reach the independent Gemini gate after checking the 
   await assert.rejects(verifyAgentRuntime(options), /native Gemini command could not be verified/u);
   assert.match(await readFile(path.join(options.root, 'probes'), 'utf8'), /--version\napp-server/u);
   assert.equal(await readFile(path.join(options.homeDir, '.codex/auth.json'), 'utf8'), 'credential sentinel');
+});
+
+test('direct verifier calls read the stock override from the process environment', { timeout: 10000 }, async t => {
+  const options = await fixture(t);
+  const source = `import assert from 'node:assert/strict';
+import { verifyAgentRuntime } from ${JSON.stringify(new URL('../src/verify-agent-runtime.mjs', import.meta.url).href)};
+await assert.rejects(verifyAgentRuntime(), /native Gemini command could not be verified/u);`;
+  await promisify(execFile)(process.execPath, ['--input-type=module', '--eval', source], { env: { ...options.env, HOME: options.homeDir } });
+  assert.match(await readFile(path.join(options.root, 'probes'), 'utf8'), /--version\napp-server/u);
 });
 
 test('the stock override validates persisted skill bytes and refuses changed content', { timeout: 10000 }, async t => {

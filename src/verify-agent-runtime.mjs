@@ -32,8 +32,8 @@ export function verifyAgentRuntimeBaseline(options) {
 }
 
 /** Audit selected roots and admit the installed Codex command before probing it. */
-export function verifyAgentRuntime(options) {
-  return verifyRuntime(options, true);
+export function verifyAgentRuntime({ homeDir, env = homeDir === undefined ? process.env : {}, ...options } = {}) {
+  return verifyRuntime({ ...options, homeDir, env }, true);
 }
 
 async function verifyRuntime({ homeDir = os.homedir(), env = {}, codexCommand = 'codex', claudeCommand = 'claude', agentCommand = 'agent', opencodeCommand = 'opencode', geminiCommand = 'gemini', qwenCommand = 'qwen', reportPhase = () => {} } = {}, requireAdmission) {
@@ -75,7 +75,7 @@ async function verifyRuntime({ homeDir = os.homedir(), env = {}, codexCommand = 
 if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
   let phase;
   try {
-    await verifyAgentRuntime({ env: process.env, reportPhase: value => (phase = value) });
+    await verifyAgentRuntime({ reportPhase: value => (phase = value) });
     console.log('Installed agent runtimes, global configuration and Codex stock skills verified.');
   } catch {
     console.error('Installed agent runtime verification failed. Check the installed runtimes and restore a verified clean baseline.');

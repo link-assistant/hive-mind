@@ -7,11 +7,25 @@ import { captureCodexStockSkills } from './codex-stock-skills.lib.mjs';
 
 let cached;
 
+async function fileRevision(file) {
+  const info = await fs.stat(file, { bigint: true });
+  return `${info.dev}:${info.ino}:${info.size}:${info.mtimeNs}:${info.ctimeNs}`;
+}
+
 export async function getInstalledCodexStockManifest(env) {
   const command = path.join(env.BUN_INSTALL, 'bin', 'codex');
   const entrypoint = await fs.realpath(command);
-  const info = await fs.stat(entrypoint, { bigint: true });
-  const revision = `${entrypoint}:${info.dev}:${info.ino}:${info.size}:${info.mtimeNs}:${info.ctimeNs}`;
+  // The npm package can keep its JavaScript launcher while changing which
+  // platform-specific Codex build it depends on.
+  const packageManifest = path.resolve(path.dirname(entrypoint), '../package.json');
+  const [launcherRevision, packageRevision] = await Promise.all([
+    fileRevision(entrypoint),
+    fileRevision(packageManifest).catch(error => {
+      if (error.code !== 'ENOENT') throw error;
+      return '';
+    }),
+  ]);
+  const revision = `${entrypoint}:${launcherRevision}:${packageRevision}`;
   if (cached?.revision === revision) return cached.manifest;
   const manifest = withRuntimeProbeHome(async ({ home, cwd, env: probeEnv }) => {
     const { stdout } = await executeVersionProbe(command, { env: probeEnv, cwd, maxBuffer: 64 * 1024 });

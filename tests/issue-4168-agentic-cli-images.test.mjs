@@ -1,7 +1,7 @@
 /** @hive-mind-test-suite default,pr-essential */
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
@@ -87,23 +87,26 @@ test('the new Codex catalog and its recorded predecessor are audited by content'
   const home = path.join(root, 'home');
   const stock = path.join(home, '.codex', 'skills', '.system');
   const command = path.join(bin, 'codex');
+  const packageDir = path.join(root, 'codex-package');
+  const launcher = path.join(packageDir, 'bin', 'codex.mjs');
   await mkdir(bin, { recursive: true });
+  await mkdir(path.dirname(launcher), { recursive: true });
   await mkdir(path.join(stock, 'new-skill'), { recursive: true });
   await writeFile(path.join(home, '.codex/config.toml'), '[features]\nremote_plugin = false\nplugins = false\napps = false\n');
-  const install = (version, content) =>
-    writeFile(
-      command,
-      `#!${process.execPath}
-import { mkdir, writeFile } from 'node:fs/promises';
+  await writeFile(
+    launcher,
+    `#!${process.execPath}
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import readline from 'node:readline';
+const { version, content } = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'));
 if (process.argv.includes('--version')) {
-  console.log('codex-cli ${version}');
+  console.log('codex-cli ' + version);
 } else {
   const directory = path.join(process.env.CODEX_HOME, 'skills', '.system', 'new-skill');
   await mkdir(directory, { recursive: true });
   const file = path.join(directory, 'SKILL.md');
-  await writeFile(file, ${JSON.stringify(content)});
+  await writeFile(file, content);
   for await (const line of readline.createInterface({ input: process.stdin })) {
     const { id, method } = JSON.parse(line);
     const result = method === 'skills/list' ? { data: [{ cwd: process.cwd(), errors: [], skills: [{ path: file, name: 'new-skill', scope: 'system', enabled: true }] }] } : {};
@@ -111,8 +114,10 @@ if (process.argv.includes('--version')) {
   }
 }
 `,
-      { mode: 0o700 }
-    );
+    { mode: 0o700 }
+  );
+  await symlink(launcher, command);
+  const install = (version, content) => writeFile(path.join(packageDir, 'package.json'), JSON.stringify({ name: '@openai/codex', version, content }));
   const env = { HIVE_MIND_IMAGE_NATIVE_BIN: path.join(root, 'native'), BUN_INSTALL: path.dirname(bin), HIVE_MIND_STATE_DIR: path.join(root, 'state') };
   const check = () => runAgentConfigAudit({ tool: 'codex', homeDir: home, env, systemRoots: { codex: path.join(root, 'managed') }, autoRepair: false, requireClean: true });
   const skill = path.join(stock, 'new-skill', 'SKILL.md');

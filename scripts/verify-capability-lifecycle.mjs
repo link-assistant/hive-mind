@@ -50,14 +50,13 @@ import { createRequire } from 'node:module';
 import { promisify } from 'node:util';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { startSyntheticVendorProvider } from './capability-lifecycle-provider.lib.mjs';
-import { assertNoCapabilityTraffic, captureCanonicalState, classifyCapabilityTraffic, codexStockRefusalExpected, compareCanonicalState, scanCapabilityManifest } from './capability-lifecycle-state.lib.mjs';
+import { assertNoCapabilityTraffic, captureCanonicalState, classifyCapabilityTraffic, compareCanonicalState, scanCapabilityManifest } from './capability-lifecycle-state.lib.mjs';
 
 const execFileAsync = promisify(execFile);
 const launcher = process.argv[2] || fileURLToPath(new URL('../src/hive.mjs', import.meta.url));
 const source = path.dirname(await fs.realpath(launcher));
 const lib = name => import(pathToFileURL(path.join(source, name)));
 const { parse: parseToml } = await import(pathToFileURL(createRequire(path.join(source, 'anchor.js')).resolve('smol-toml')));
-const { CODEX_STOCK_SKILLS, CodexStockBaselineError } = await lib('codex-stock-skills.lib.mjs');
 const { runAgentConfigAudit, auditAgentConfig, AGENT_CONFIG_MINIMAL_ENV, CODEX_REMOTE_PLUGIN_DISABLE_ARGS, CODEX_PLUGIN_SYNC_DISABLE_ARGS, CODEX_HOSTED_APPS_DISABLE_ARGS } = await lib('agent-config-audit.lib.mjs');
 const { CLAUDE_CLOUD_DISABLE_SETTINGS, CLAUDE_CLOUD_DISABLE_ENV } = await lib('claude-cloud-policy.lib.mjs');
 const { ensureClaudeAuthAuthority, defaultClaudeAuthorityHome } = await lib('claude-auth-authority.lib.mjs');
@@ -134,7 +133,7 @@ async function runCapture(command, args, env) {
 }
 const outcomeVersion = text => String(text).match(/\d+\.\d+\.\d+/u)?.[0] ?? null;
 
-const baseEnv = (operatorHome, extra = {}) => ({ HOME: operatorHome, USER: os.userInfo().username, PATH: process.env.PATH, TERM: 'dumb', LANG: 'C.UTF-8', HIVE_MIND_STATE_DIR: stateDir, ...provider.env, ...extra });
+const baseEnv = (operatorHome, extra = {}) => ({ HOME: operatorHome, USER: os.userInfo().username, PATH: process.env.PATH, TERM: 'dumb', LANG: 'C.UTF-8', HIVE_MIND_STATE_DIR: stateDir, HIVE_MIND_IMAGE_NATIVE_BIN: process.env.HIVE_MIND_IMAGE_NATIVE_BIN, BUN_INSTALL: process.env.BUN_INSTALL, ...provider.env, ...extra });
 
 /**
  * The probes a deployment (and an operator) runs right after start, plus one
@@ -217,24 +216,16 @@ const beginPhase = () => {
 };
 
 /** Two independent checks: capability state, then canonical auth/history. */
-// A Codex release other than the pinned one rewrites `.system` with its own
-// stock skills; production must then refuse launch with the typed error.
-async function checkpoint(phase, { contentOnly = [], unpinnedCodex = null } = {}) {
+async function checkpoint(phase, { contentOnly = [], auditEnv = baseEnv(home) } = {}) {
   const manifest = await scanCapabilityManifest(home, { parseToml });
   assert.deepEqual(manifest, [], `${phase}: global capability state appeared: ${manifest.join(', ')}`);
-  let audit = 'audit clean';
-  try {
-    const { findings } = await runAgentConfigAudit({ homeDir: home, env: {}, autoRepair: false, requireClean: true });
-    assert.equal(findings.length, 0, `${phase}: production audit reported ${findings.map(finding => `${finding.tool}:${finding.kind}`).join(', ')}`);
-  } catch (error) {
-    if (!(codexStockRefusalExpected(unpinnedCodex, CODEX_STOCK_SKILLS.cliVersion) && error instanceof CodexStockBaselineError)) throw error;
-    audit = `launch refused on the unpinned Codex ${unpinnedCodex} stock runtime (typed fail-closed, no repair)`;
-  }
+  const { findings } = await runAgentConfigAudit({ homeDir: home, env: auditEnv, autoRepair: false, requireClean: true });
+  assert.equal(findings.length, 0, `${phase}: production audit reported ${findings.map(finding => `${finding.tool}:${finding.kind}`).join(', ')}`);
   const traffic = classifyCapabilityTraffic(provider.requests.slice(phaseStart), provider.tunnels);
   assertNoCapabilityTraffic(traffic, phase);
   const changed = compareCanonicalState(canonicalBefore, await captureCanonicalState(home, canonicalPaths), { appendOnly: APPEND_ONLY, contentOnly });
   assert.deepEqual(changed, [], `${phase}: canonical auth/history changed: ${changed.join(', ')}`);
-  say(`✅ ${phase}: capability manifest empty, ${audit}, 0 capability requests (${provider.requests.length - phaseStart} answered, ${provider.tunnels.size} download tunnel(s), ${provider.refused.size} refused origin(s)); ${canonicalPaths.length} canonical auth/history files unchanged`);
+  say(`✅ ${phase}: capability manifest empty, audit clean, 0 capability requests (${provider.requests.length - phaseStart} answered, ${provider.tunnels.size} download tunnel(s), ${provider.refused.size} refused origin(s)); ${canonicalPaths.length} canonical auth/history files unchanged`);
 }
 
 const codexTaskArgs = [...CODEX_REMOTE_PLUGIN_DISABLE_ARGS, ...CODEX_PLUGIN_SYNC_DISABLE_ARGS, ...CODEX_HOSTED_APPS_DISABLE_ARGS];
@@ -302,7 +293,7 @@ try {
   // The accumulating archive of a pre-#3785 deployment held exactly this state.
   const archiveStage = path.join(fixture, 'archive-stage');
   for (const relative of new Set(contaminated.map(entry => entry.split(':')[2].split('#')[0]))) await fs.cp(path.join(control, relative), path.join(archiveStage, relative), { recursive: true, verbatimSymlinks: true });
-  await runAgentConfigAudit({ homeDir: control, env: {}, autoRepair: true, requireClean: true });
+  await runAgentConfigAudit({ homeDir: control, env: controlEnv, autoRepair: true, requireClean: true });
   assert.deepEqual(await scanCapabilityManifest(control, { parseToml }), [], 'P2: the production repair left capability state behind');
   assert.deepEqual(compareCanonicalState(controlAuthBefore, await captureCanonicalState(control, controlAuth)), [], 'P2: the production repair changed authentication');
   beginPhase();
@@ -320,8 +311,7 @@ try {
     const updaterEnv = { ...env, BUN_INSTALL: bunInstall, PATH: `${path.join(home, '.local/bin')}:${path.join(bunInstall, 'bin')}:${env.PATH}`, HIVE_MIND_AGENTIC_CLI_AUTO_UPDATE: '1' };
     // Stage the release before the image's one for each CLI inside the
     // synthetic home so the updater really replaces both binaries instead of
-    // reporting them current. The updater installs npm `latest`, which is not
-    // the image's pinned Codex once a newer release ships (issue #4029).
+    // reporting them current. Audit both the staged release and npm latest.
     beginPhase();
     const previous = {};
     for (const [id, pkg, current] of [
@@ -342,7 +332,7 @@ try {
     await checkpoint(`P3 previous CLI releases installed (claude ${previous.claude}, codex ${previous.codex})`);
     beginPhase();
     await nativeStartup('P3 previous', home, updaterEnv);
-    await checkpoint('P3 native start with the previous releases', { unpinnedCodex: previous.codex });
+    await checkpoint('P3 native start with the previous releases', { auditEnv: updaterEnv });
     beginPhase();
     const program = `const { updateAgenticClisWhenIdle } = await import(process.argv[1]);
       const result = await updateAgenticClisWhenIdle({ force: true, only: ['claude', 'codex'], getActiveTasksImpl: async () => [] });
@@ -354,20 +344,15 @@ try {
     assert.deepEqual(updated.updated.map(entry => entry.id).sort(), ['claude', 'codex'], 'P3: the updater must replace both staged CLIs');
     say(`ℹ️  P3 updater: updated [${updated.updated.map(entry => `${entry.id} ${entry.from}→${entry.to}`).join(', ')}], current [${updated.upToDate.map(entry => `${entry.id} ${entry.version}`).join(', ')}]`);
     // The updated binary has not started yet, so `.system` still holds the staged release's skills.
-    await checkpoint('P3 idle CLI updater (claude update / bun install -g)', { unpinnedCodex: previous.codex });
+    await checkpoint('P3 idle CLI updater (claude update / bun install -g)', { auditEnv: updaterEnv });
     beginPhase();
     await nativeStartup('P3 updated', home, updaterEnv);
-    // A `latest` Codex other than the pinned baseline materializes its own stock
-    // skills; production must refuse it (typed, no repair). Issue #4029.
-    const codexUpdatedTo = updated.updated.find(entry => entry.id === 'codex')?.to;
-    await checkpoint('P3 first native start with the updated binaries', { unpinnedCodex: codexUpdatedTo });
-    if (codexStockRefusalExpected(codexUpdatedTo, CODEX_STOCK_SKILLS.cliVersion)) {
-      // The documented recovery: start the image's pinned binaries, which
-      // rewrite the verified stock runtime, so P4+ begin from the baseline.
-      beginPhase();
-      await nativeStartup('P3 restored pinned', home, env);
-      await checkpoint(`P3 pinned image binaries restored the stock runtime after codex ${codexUpdatedTo}`);
-    }
+    await checkpoint('P3 first native start with the updated binaries', { auditEnv: updaterEnv });
+    // Later phases exercise the original image, while the update took place
+    // only in the synthetic home and its dedicated package installation.
+    beginPhase();
+    await nativeStartup('P3 original image', home, env);
+    await checkpoint('P3 restart with the image binaries');
   }
 
   // ------------------------------------------------ P4 task completion
@@ -393,7 +378,7 @@ try {
   // ------------------------------------------------ P5 root restart
   beginPhase();
   // The exact startup admission telegram-bot.mjs performs.
-  const restart = await runAgentConfigAudit({ homeDir: home, env: {}, autoRepair: true, requireClean: true });
+  const restart = await runAgentConfigAudit({ homeDir: home, env: baseEnv(home), autoRepair: true, requireClean: true });
   assert.equal(restart.findings.length, 0, 'P5: the root restart audit had something to repair');
   await nativeStartup('P5', home, env);
   await checkpoint('P5 root restart (startup audit admits unchanged) + native start');
@@ -438,7 +423,7 @@ try {
   const restored = await scanCapabilityManifest(home, { parseToml });
   assert.ok(restored.length > 0, 'P7: restoring the archive should bring the archived capability state back');
   beginPhase();
-  const admission = await runAgentConfigAudit({ homeDir: home, env: {}, autoRepair: true, requireClean: true });
+  const admission = await runAgentConfigAudit({ homeDir: home, env: baseEnv(home), autoRepair: true, requireClean: true });
   say(`ℹ️  P7 restore brought back ${restored.length} capability entr${restored.length === 1 ? 'y' : 'ies'}; startup audit repaired ${admission.repaired.length}`);
   await checkpoint('P7 archive restore + startup audit', { contentOnly: Object.values(HISTORY) });
   beginPhase();

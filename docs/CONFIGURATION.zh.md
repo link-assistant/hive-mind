@@ -148,6 +148,8 @@ Telegram 机器人部署不会让 Formal AI 常驻运行。请求 `--model forma
 | `HIVE_MIND_AGENTIC_CLI_UPDATE_ONLY`    | _未设置_ | 以逗号分隔的 agentic 和运维目标允许列表；默认目标见上文。 |
 | `HIVE_MIND_AGENTIC_CLI_UPDATE_EXCLUDE` | _未设置_ | 使用相同标识符的逗号分隔排除列表。                        |
 
+Docker 任务会从启动程序继承这三个设置。将 `HIVE_MIND_AGENTIC_CLI_UPDATE_EXCLUDE=` 设为空值可清除排除列表。单次运行 `solve` 或 Telegram `/task` 时，可以使用 `--no-tool-update` 跳过启动时的更新检查。若要固定到特定镜像版本，请参见[更新任务镜像](DOCKER.md#updating-task-images-and-their-clis)。
+
 `formal-ai` 仍须显式启用。在 [issue #2059 案例研究](case-studies/issue-2059/capability-gate.md)中的编码阶梯证明其能够可靠编辑代码并完整完成 issue 到 PR 的流程之前，默认模型不会改变。
 
 ### 4.2. Codex 能力预检

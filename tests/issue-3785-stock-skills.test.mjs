@@ -50,11 +50,11 @@ test('an empty stock directory is not a pristine CLI baseline', async t => {
 });
 
 for (const dockerfile of ['Dockerfile', 'Dockerfile.dind', 'coolify/Dockerfile']) {
-  test(`${dockerfile} pins the CLI version used to generate the stock baseline`, async () => {
+  test(`${dockerfile} keeps the native adapter tied to the reviewed stock baseline`, async () => {
     const content = await readFile(new URL(`../${dockerfile}`, import.meta.url), 'utf8');
     const version = CODEX_STOCK_SKILLS.cliVersion.replace('codex-cli ', '');
-    assert.ok(content.includes(`bun install --backend=copyfile -g @openai/codex@${version}`));
-    assert.match(content, /bash \/tmp\/claude-code-install\.sh 2\.1\.319(?:\s|$)/);
+    assert.ok(content.includes(`BUN_INSTALL=/home/box/.hive-native bun install --backend=copyfile -g @openai/codex@${version}`));
+    assert.match(content, /bash \/tmp\/claude-code-install\.sh latest(?:\s|$)/);
   });
 }
 
@@ -112,9 +112,9 @@ test('concurrent stock edits reject verification without exposing content', asyn
   await assert.rejects(validateCodexStockSkills({ directory: stock, fsImpl, manifest }), error => /stock/.test(error.message) && !error.message.includes('sentinel'));
 });
 
-test('PR image builds install this branch as a package in both images', async () => {
+test('PR and manual image builds install this branch as a package in all three images', async () => {
   const build = await readFile(new URL('../scripts/docker-pr-build.sh', import.meta.url), 'utf8');
-  assert.equal((build.match(/--build-arg HIVE_MIND_INSTALL_SOURCE=true/g) || []).length, 2, 'both actual image builds must select the branch package');
+  assert.equal((build.match(/--build-arg HIVE_MIND_INSTALL_SOURCE=true/g) || []).length, 3, 'each actual image build must select the branch package');
   for (const dockerfile of ['Dockerfile', 'Dockerfile.dind', 'coolify/Dockerfile']) {
     const content = await readFile(new URL(`../${dockerfile}`, import.meta.url), 'utf8');
     assert.ok(content.includes('ARG HIVE_MIND_INSTALL_SOURCE=false'));
@@ -125,7 +125,7 @@ test('PR image builds install this branch as a package in both images', async ()
 test('both packaged images require a network-disabled stock-runtime gate', async () => {
   for (const dockerfile of ['Dockerfile', 'Dockerfile.dind', 'coolify/Dockerfile']) {
     const content = await readFile(new URL(`../${dockerfile}`, import.meta.url), 'utf8');
-    assert.ok(/RUN --network=none node .*verify-agent-runtime\.mjs/u.test(content), `${dockerfile} must run the installed verifier without networking`);
+    assert.ok(/RUN --network=none (?:\/usr\/local\/bin\/entrypoint\.sh )?node .*verify-agent-runtime\.mjs/u.test(content), `${dockerfile} must run the installed verifier without networking`);
   }
 });
 

@@ -7,6 +7,7 @@
 #
 # PR builds pack and install the checked-out branch through the same npm file
 # allowlist as a release. Both images require the installed runtime verifier.
+# Pass `coolify` to build the Coolify image alone on its own runner.
 # Release builds continue installing the exact version just published.
 #
 # Multi-platform builds (amd64+arm64) are exercised by docker-publish during a
@@ -103,18 +104,25 @@ if [ "${ON_ACTIONS}" = "true" ]; then
   restart_dockerd
 fi
 
+cli_refresh="${GITHUB_RUN_ID:-$(date +%s)}-${GITHUB_RUN_ATTEMPT:-1}"
+if [[ ${1:-} == coolify ]]; then
+  docker build --progress=plain -f coolify/Dockerfile --build-arg HIVE_MIND_INSTALL_SOURCE=true \
+    --build-arg HIVE_MIND_AGENTIC_CLI_REFRESH="$cli_refresh" -t hive-mind-coolify:test . 2>&1 | tee build-coolify-output.log
+  exit 0
+fi
+
 echo "Building Docker image from ${BOX_BASE} base..."
 echo "Note: General-purpose tools are inherited from pinned ${BOX_BASE}"
 echo "This image adds AI-specific tools on top of the Box base."
 echo "Installing the checked-out branch as an npm package; all runtime checks are required."
 echo ""
 
-docker build --progress=plain --build-arg HIVE_MIND_INSTALL_SOURCE=true -t "${IMAGE_NAME}:test" . 2>&1 | tee build-output.log
+docker build --progress=plain --build-arg HIVE_MIND_INSTALL_SOURCE=true --build-arg HIVE_MIND_AGENTIC_CLI_REFRESH="$cli_refresh" -t "${IMAGE_NAME}:test" . 2>&1 | tee build-output.log
 
 echo ""
 restart_dockerd
 echo "Building Docker-in-Docker image from ${BOX_DIND_BASE} base..."
-docker build --progress=plain -f Dockerfile.dind --build-arg HIVE_MIND_INSTALL_SOURCE=true -t "${DIND_IMAGE_NAME}:test" . 2>&1 | tee build-dind-output.log
+docker build --progress=plain -f Dockerfile.dind --build-arg HIVE_MIND_INSTALL_SOURCE=true --build-arg HIVE_MIND_AGENTIC_CLI_REFRESH="$cli_refresh" -t "${DIND_IMAGE_NAME}:test" . 2>&1 | tee build-dind-output.log
 
 echo ""
 echo "Docker images built successfully"

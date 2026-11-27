@@ -19,6 +19,7 @@ import { join } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { getDockerIsolationImage } from '../src/hive-mind-image.lib.mjs';
+import { refreshTaskImage, TASK_IMAGE_PULL_POLICY_ENV } from '../src/task-image-refresh.lib.mjs';
 
 const manager = process.env.HIVE_MANAGER_UNDER_TEST ?? fileURLToPath(new URL('../src/hive-manager/cli.sh', import.meta.url));
 const RELEASE = '2.49.0';
@@ -223,4 +224,44 @@ test('plain instances pass a task image only when they use the host Docker socke
   const host = dryRun(run, ['--docker-socket', socket]);
   assert.equal(deployedTaskImage(host, 'plain'), `konard/hive-mind:${RELEASE}`);
   assert.equal(plannedEnvironment(host).DIND_HOST_PASSTHROUGH_IMAGES, undefined);
+});
+
+test('prepare and nested task launch refresh a configured tag rebuilt in the registry', async t => {
+  const { cwd, image, log, run } = fixture(t);
+  const task = 'team/tasks:custom';
+  image('registry', 'konard/hive-mind-dind:latest', LATEST_ID);
+  image('images', task, OTHER_ID);
+  image('registry', task, LATEST_ID);
+
+  const result = run(['deploy', '--variant', 'dind', '--task-image', task, 'prepare']);
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /^Task image team\/tasks:custom$/mu);
+  assert.match(log(), /^pull team\/tasks:custom$/mu);
+  assert.equal(readFileSync(join(cwd, 'images', key(task)), 'utf8').trim(), LATEST_ID);
+
+  const args = ['--variant', 'dind', '--task-image', task];
+  const env = plannedEnvironment(dryRun(run, args));
+  assert.equal(env.HIVE_MIND_DOCKER_ISOLATION_IMAGE, task);
+  assert.equal(env.HIVE_MIND_DOCKER_ISOLATION_IMAGE_ID, LATEST_ID);
+  assert.equal(plannedEnvironment(dryRun(run, [...args, '--no-pull'])).HIVE_MIND_DOCKER_ISOLATION_IMAGE_ID, undefined);
+
+  let nestedId = OTHER_ID;
+  let pulls = 0;
+  const nestedDocker = async ([command, ...args]) => {
+    assert.equal(args.at(-1), task);
+    if (command === 'pull') {
+      pulls += 1;
+      nestedId = LATEST_ID;
+      return { code: 0 };
+    }
+    assert.equal(command, 'image');
+    return { code: 0, stdout: `${nestedId}\t${task.split(':')[0]}@sha256:${'a'.repeat(64)}\n` };
+  };
+  const refresh = (policy = 'auto') => refreshTaskImage({ image: task, env: { ...env, [TASK_IMAGE_PULL_POLICY_ENV]: policy }, run: nestedDocker, force: true });
+  assert.equal((await refresh('never')).pulled, false);
+  assert.equal(nestedId, OTHER_ID);
+  assert.equal((await refresh()).pulled, true);
+  assert.equal(nestedId, LATEST_ID);
+  assert.equal((await refresh()).pulled, false);
+  assert.equal(pulls, 1);
 });

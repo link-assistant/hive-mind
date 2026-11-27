@@ -21,9 +21,9 @@
  *     refresh resolves the digest, and the digest travels into the task through
  *     {@link TASK_IMAGE_ENV} so the session comment can state it.
  *
- * A pinned reference - an immutable release tag or an explicit `@sha256:` - is
- * never pulled: it cannot drift, and in the Docker-in-Docker deployment the
- * nested daemon's copy was seeded from the host on purpose (#1879).
+ * Immutable release tags and explicit `@sha256:` references normally reuse the
+ * local copy (#1879). In managed DinD deployments, compare the nested daemon's
+ * image ID with the host's prepared image to also detect a retagged custom image.
  *
  * Refreshing never fails a task. A registry that cannot be reached leaves the
  * local image in place; the digest is still read and reported, so the comment
@@ -140,12 +140,13 @@ const runDocker = async (args, { timeoutMs = TASK_IMAGE_PULL_TIMEOUT_MS } = {}) 
  *
  * @returns {Promise<{digest: string|null, source: 'repository'|'image-id'|null}>}
  */
-export const readTaskImageDigest = async ({ image, run = runDocker, timeoutMs = 60_000 } = {}) => {
+const inspectTaskImage = async ({ image, run = runDocker, timeoutMs = 60_000 } = {}) => {
   const result = await run(['image', 'inspect', '--format', '{{.Id}}\t{{join .RepoDigests ","}}', image], { timeoutMs });
-  if (result?.code !== 0) return { digest: null, source: null };
+  if (result?.code !== 0) return { imageId: null, digest: null, source: null };
   const [id = '', repoDigests = ''] = String(result.stdout?.toString() || '')
     .trim()
     .split('\t');
+  const imageId = id.trim() || null;
   const published = repoDigests
     .split(',')
     .map(entry => entry.trim())
@@ -153,9 +154,14 @@ export const readTaskImageDigest = async ({ image, run = runDocker, timeoutMs = 
   if (published.length) {
     const [first] = published;
     const at = first.lastIndexOf('@');
-    return { digest: at === -1 ? first : first.slice(at + 1), source: 'repository' };
+    return { imageId, digest: at === -1 ? first : first.slice(at + 1), source: 'repository' };
   }
-  return id ? { digest: id.trim(), source: 'image-id' } : { digest: null, source: null };
+  return { imageId, digest: imageId, source: imageId ? 'image-id' : null };
+};
+
+export const readTaskImageDigest = async options => {
+  const { digest, source } = await inspectTaskImage(options);
+  return { digest, source };
 };
 
 /** Refreshes already done in this process, keyed by image reference. */
@@ -187,10 +193,19 @@ export const refreshTaskImage = async ({ image, env = process.env, run = runDock
     if (typeof log === 'function') await log(message);
   };
 
-  const decision = shouldPullTaskImage({ image, env });
+  let decision = shouldPullTaskImage({ image, env });
+  let inspected;
+  const expectedImageId = env?.HIVE_MIND_DOCKER_ISOLATION_IMAGE_ID;
+  if (!decision.pull && resolveTaskImagePullPolicy(env) === 'auto' && expectedImageId && image === env.HIVE_MIND_DOCKER_ISOLATION_IMAGE && !parseImageReference(image).digest) {
+    inspected = await inspectTaskImage({ image, run });
+    if (inspected.imageId !== expectedImageId) {
+      decision = { pull: true, reason: 'the local daemon does not have the task image prepared by deploy' };
+    }
+  }
   let error = null;
   let pulled = false;
   if (decision.pull) {
+    inspected = undefined;
     await say(`🐳 Refreshing task image ${image} (${decision.reason})`);
     const result = await run(['pull', image], { timeoutMs });
     if (result?.code === 0) pulled = true;
@@ -209,7 +224,7 @@ export const refreshTaskImage = async ({ image, env = process.env, run = runDock
     await say(`🐳 Task image ${image} is not refreshed (${decision.reason})`);
   }
 
-  const { digest, source } = await readTaskImageDigest({ image, run });
+  const { digest, source } = inspected ?? (await inspectTaskImage({ image, run }));
   const outcome = { image, digest, digestSource: source, pulled, reason: decision.reason, error };
   if (digest) await say(`🐳 Task image ${describeTaskImage({ image, digest })}${pulled ? ' (refreshed)' : ''}`);
   refreshed.set(image, outcome);

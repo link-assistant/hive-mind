@@ -16,7 +16,8 @@ async function selected(bin) {
 /** A matching --version string alone is insufficient for native admission. */
 export async function verifyNativeGeminiCommand({ command = 'gemini', searchPath = process.env.PATH } = {}) {
   try {
-    const bin = await locate(command, searchPath);
+    const packagedBin = process.env.HIVE_MIND_IMAGE_NATIVE_BIN;
+    const bin = await locate(packagedBin && command === 'gemini' ? path.join(packagedBin, command) : command, searchPath);
     const target = await selected(bin);
     const verified = await verifyNativeGemini(target.root);
     if ((await fs.realpath(bin)) !== verified.entrypoint) throw refusal();

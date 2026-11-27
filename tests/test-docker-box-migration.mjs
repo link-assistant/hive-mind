@@ -21,11 +21,11 @@ const dockerfiles = ['Dockerfile', 'coolify/Dockerfile'];
 for (const filePath of dockerfiles) {
   const content = await read(filePath);
 
-  // Box 2.10.5 includes the box#112 one-toolchain fix and the box#119 release
+  // Box 2.10.6 includes the box#112 one-toolchain fix and the box#119 release
   // pipeline repair. Pin the current multi-arch release from GHCR, box's
   // registry of record, rather than leaving the image on the affected 2.7.0
   // release after the upstream blocker has closed.
-  assertIncludes(content, 'FROM ghcr.io/link-foundation/box:2.10.5', filePath);
+  assertIncludes(content, 'FROM ghcr.io/link-foundation/box:2.10.6', filePath);
   assertExcludes(content, 'FROM konard/box:', filePath);
   assertIncludes(content, 'Keep this in lockstep with the DinD base-image release.', filePath);
   assertIncludes(content, 'USER box', filePath);
@@ -61,11 +61,12 @@ assertExcludes(verifyScript, 'Expected user sandbox', 'scripts/verify-docker-ima
 assertExcludes(verifyScript, 'id -nG sandbox', 'scripts/verify-docker-image.sh');
 
 const releaseWorkflow = await read('.github/workflows/release.yml');
+const imageCheck = await read('.github/workflows/docker-image-check.yml');
 const dockerPrBuild = await read('scripts/docker-pr-build.sh');
 // The workflow's build script reads the base reference rather than
 // naming a registry, so the pin can move between registries (issue #2187)
 // without the reporting step silently printing an empty version.
-assertIncludes(releaseWorkflow, 'bash scripts/docker-pr-build.sh', '.github/workflows/release.yml');
+assertIncludes(imageCheck, 'bash scripts/docker-pr-build.sh', '.github/workflows/docker-image-check.yml');
 assertIncludes(dockerPrBuild, "sed -n 's|^FROM \\(.*/box:[^[:space:]]*\\).*|\\1|p' Dockerfile", 'scripts/docker-pr-build.sh');
 assertIncludes(dockerPrBuild, "sed -n 's|^FROM \\(.*/box-dind:[^[:space:]]*\\).*|\\1|p' Dockerfile.dind", 'scripts/docker-pr-build.sh');
 assertExcludes(releaseWorkflow, 'konard/sandbox', '.github/workflows/release.yml');

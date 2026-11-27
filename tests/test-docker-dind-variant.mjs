@@ -43,9 +43,9 @@ const dindDockerfile = await read('Dockerfile.dind');
 const verifyDindExecDefaults = await read('scripts/verify-dind-exec-defaults.sh');
 
 // Keep the DinD variant on the same current Box release as the regular image.
-// Box 2.10.5 includes the box#119 release-pipeline repair and is multi-arch in
+// Box 2.10.6 includes the box#119 release-pipeline repair and is multi-arch in
 // both GHCR and the repaired Docker Hub mirror.
-assertIncludes(dindDockerfile, 'FROM ghcr.io/link-foundation/box-dind:2.10.5', 'Dockerfile.dind');
+assertIncludes(dindDockerfile, 'FROM ghcr.io/link-foundation/box-dind:2.10.6', 'Dockerfile.dind');
 assertExcludes(dindDockerfile, 'FROM konard/box-dind:', 'Dockerfile.dind');
 assertIncludes(dindDockerfile, 'host-image passthrough allowlist', 'Dockerfile.dind');
 assertIncludes(dindDockerfile, 'ARG HIVE_MIND_VERSION=latest', 'Dockerfile.dind');
@@ -75,19 +75,17 @@ assertIncludes(dockerDocs, '--privileged', 'docs/DOCKER.md');
 assertIncludes(dockerDocs, '--runtime=sysbox-runc', 'docs/DOCKER.md');
 
 const releaseYml = await read('.github/workflows/release.yml');
-
-const dockerPrStart = releaseYml.indexOf('  docker-pr-check:');
-const helmPrStart = releaseYml.indexOf('  # === HELM PR CHECK', dockerPrStart);
-const dockerPrSection = releaseYml.slice(dockerPrStart, helmPrStart);
+const imageCheckPath = '.github/workflows/docker-image-check.yml';
+const imageCheck = await read(imageCheckPath);
 
 // The DinD build/verify commands were moved out of release.yml into scripts/ to
 // keep that file under the 1500-line limit (issue #2082). The job still supplies
 // DIND_IMAGE_NAME via env; the scripts consume it as "${DIND_IMAGE_NAME}". Assert
 // both halves of that contract — a script invocation alone would pass against an
 // empty script, and an env var alone proves nothing is built.
-assertIncludes(dockerPrSection, 'DIND_IMAGE_NAME: konard/hive-mind-dind', '.github/workflows/release.yml');
-assertIncludes(dockerPrSection, 'bash scripts/docker-pr-build.sh', '.github/workflows/release.yml');
-assertIncludes(dockerPrSection, 'bash scripts/docker-pr-verify-containers.sh', '.github/workflows/release.yml');
+assertIncludes(imageCheck, 'DIND_IMAGE_NAME: konard/hive-mind-dind', imageCheckPath);
+assertIncludes(imageCheck, 'bash scripts/docker-pr-build.sh', imageCheckPath);
+assertIncludes(imageCheck, 'bash scripts/docker-pr-verify-containers.sh', imageCheckPath);
 
 const dockerPrBuild = await read('scripts/docker-pr-build.sh');
 assertIncludes(dockerPrBuild, 'docker build --progress=plain -f Dockerfile.dind', 'scripts/docker-pr-build.sh');

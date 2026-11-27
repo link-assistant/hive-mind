@@ -36,18 +36,21 @@ test('native build and request inputs invalidate image evidence', { timeout: 100
 
 test('image and both npm release paths require the same verified native build', { timeout: 10000 }, async () => {
   const workflow = await read('.github/workflows/release.yml');
+  const imageCheck = job(await read('.github/workflows/docker-image-check.yml'), 'verify');
   const assemblyAction = await read('.github/actions/assemble-native-codex/action.yml');
   assert.match(assemblyAction, /pattern: native-codex-runtime-\*/u);
   assert.match(assemblyAction, /python3 scripts\/build-native-codex\.py assemble/u);
   const native = job(workflow, 'native-codex-build');
   assert.match(native, /uses: \.\/\.github\/workflows\/native-codex-build\.yml/u);
-  for (const name of ['docker-pr-check', 'release', 'instant-release']) {
+  for (const name of ['docker-pr-check', 'docker-coolify-check', 'release', 'instant-release']) {
     const section = job(workflow, name);
     assert.match(section, /needs: \[[^\n]*native-codex-build/u, name);
     assert.ok(section.includes("needs.native-codex-build.result == 'success'"), name);
-    assert.match(section, /uses: \.\/\.github\/actions\/assemble-native-codex/u, name);
-    const assembly = section.indexOf('uses: ./.github/actions/assemble-native-codex');
-    const consumer = section.indexOf(name === 'docker-pr-check' ? 'bash scripts/docker-pr-build.sh' : 'node scripts/publish-to-npm.mjs');
+    const isImageCheck = name.startsWith('docker-');
+    if (isImageCheck) assert.match(section, /uses: \.\/\.github\/workflows\/docker-image-check\.yml/u, name);
+    const steps = isImageCheck ? imageCheck : section;
+    const assembly = steps.indexOf('uses: ./.github/actions/assemble-native-codex');
+    const consumer = steps.indexOf(isImageCheck ? 'bash scripts/docker-pr-build.sh' : 'node scripts/publish-to-npm.mjs');
     assert.ok(assembly >= 0 && consumer > assembly, `${name} must assemble before consuming the package`);
   }
   assert.ok(job(workflow, 'pipeline-status').includes('      - native-codex-build'));

@@ -6,7 +6,7 @@ import { test } from 'node:test';
 
 const workflow = await fs.readFile(new URL('../.github/workflows/release.yml', import.meta.url), 'utf8');
 const conditions = Object.fromEntries(
-  ['docker-pr-check', 'release', 'instant-release'].map(name => {
+  ['docker-pr-check', 'docker-coolify-check', 'release', 'instant-release'].map(name => {
     const block = workflow.split(`\n  ${name}:\n`)[1]?.split(/\n {2}[a-z][a-z-]*:\n/u)[0];
     const condition = block?.match(/^ {4}if: (.+(?:\n {6}.+)*)/mu)?.[1];
     assert.ok(condition, `missing ${name} condition`);
@@ -20,11 +20,11 @@ const conditions = Object.fromEntries(
   })
 );
 
-function allowed(job, { event = 'push', ref = 'refs/heads/main', imageChanges = 'false', codeChanges = 'true', mode = 'checks', gate = 'success', nativeGate = 'success', prBuilds = 'true' } = {}) {
+function allowed(job, { event = 'push', ref = 'refs/heads/main', imageChanges = 'false', codeChanges = 'true', mode = 'checks', buildDocker = false, gate = 'success', nativeGate = 'success', prBuilds = 'true' } = {}) {
   const needs = Object.fromEntries(['changeset-check', 'test-compilation', 'lint', 'check-file-line-limits', 'test-suites', 'test-execution', 'memory-check-linux', 'validate-docs', 'version-check', 'helm-pr-check', 'release-preflight', 'docker-pr-check'].map(name => [name, { result: name === 'docker-pr-check' ? gate : 'success' }]));
   needs['detect-changes'] = { result: 'success', outputs: { 'docker-changed': imageChanges, 'workflow-changed': 'false', 'any-code-changed': codeChanges } };
   needs['native-codex-build'] = { result: nativeGate };
-  const inputs = { mode, release_mode: 'instant' };
+  const inputs = { mode, build_docker: buildDocker, release_mode: 'instant' };
   const expression = conditions[job]
     .replaceAll('needs.*.result', 'results')
     .replace(/needs\.([a-z][a-z-]*)/gu, 'needs["$1"]')
@@ -39,6 +39,15 @@ test('packaged image checks run on main before source and test-only releases', (
 
 test('manual main release cannot skip image checks when change detection is empty', () => {
   assert.equal(allowed('docker-pr-check', { event: 'workflow_dispatch', mode: 'release', codeChanges: 'false' }), true);
+});
+
+test('manual branch checks can request all image layouts', () => {
+  const options = { event: 'workflow_dispatch', ref: 'refs/heads/feature', codeChanges: 'false', prBuilds: 'false' };
+  for (const job of ['docker-pr-check', 'docker-coolify-check']) {
+    assert.equal(allowed(job, options), false);
+    assert.equal(allowed(job, { ...options, buildDocker: true }), true);
+    assert.equal(allowed(job, { ...options, buildDocker: true, nativeGate: 'failure' }), false);
+  }
 });
 
 test('PR image selection and docs-only main pushes retain their existing behavior', () => {

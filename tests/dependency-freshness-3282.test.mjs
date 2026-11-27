@@ -117,17 +117,18 @@ test('the registry resolver reads every tag page and ignores date tags', async (
   assert.equal(await resolveContainerLatest('ghcr.io/org/image', { current: '0.125.4' }, { fetchImpl }), '1.24.1');
 });
 
-test('the repository inventory covers code image pins, coolify agent pins, example workflows and lockfile refresh', async () => {
+test('the repository inventory covers code and Coolify pins, example workflows and lockfile refresh', async () => {
   const records = await collectDependencyRecords({ root: repositoryRoot });
   const at = location => records.filter(record => record.location.startsWith(location));
   assert.ok(at('src/task-image-languages.lib.mjs').some(record => record.name === 'link-foundation/box'));
   const router = at('src/router-isolation.lib.mjs').find(record => record.name === 'ghcr.io/link-assistant/router');
   assert.match(router?.exception ?? '', /\/issues\/3395$/, 'the router 0.x hold must name its open follow-up issue');
-  for (const name of ['@link-assistant/agent', 'start-command'])
-    assert.ok(
-      at('coolify/Dockerfile').some(record => record.name === name),
-      `coolify/Dockerfile must pin ${name} like Dockerfile`
-    );
+  const coolify = at('coolify/Dockerfile');
+  assert.ok(
+    coolify.some(record => record.name === 'start-command'),
+    'the Coolify start-command pin is checked'
+  );
+  assert.ok(!coolify.some(record => record.name === '@link-assistant/agent'), 'the floating Agent CLI install has no version pin to check');
   assert.ok(
     at('examples/workflows/close-linked-issues.yml').some(record => record.name === 'actions/setup-node'),
     'example workflows are copied as they are, so their action pins are checked'

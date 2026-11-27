@@ -193,6 +193,9 @@ export async function buildDockerIsolationStartArgs(command, args = [], options 
   startArgs.push('--shell', DOCKER_ISOLATION_SHELL);
   // The image already sets HOME=/home/box and WORKDIR /home/box; pass HOME explicitly anyway so the credential mounts under /home/box resolve even if a future image forgets to. start-command has no --workdir flag, so the working directory comes from the image's WORKDIR.
   startArgs.push('-e', `HOME=${DOCKER_CONTAINER_HOME}`, '-e', `HIVE_MIND_PARENT_SESSION_ID=${sessionId || ''}`, '-e', `HIVE_MIND_IMAGE_VARIANT=${resolveImageVariant(image, env)}`);
+  for (const name of ['HIVE_MIND_AGENTIC_CLI_AUTO_UPDATE', 'HIVE_MIND_AGENTIC_CLI_UPDATE_ONLY', 'HIVE_MIND_AGENTIC_CLI_UPDATE_EXCLUDE']) {
+    if (env[name] !== undefined) startArgs.push('-e', `${name}=${env[name]}`);
+  }
   if (normalizeTool(tool) === 'claude') {
     for (const [name, value] of Object.entries(buildClaudePromptCacheEnv(env))) startArgs.push('-e', `${name}=${value}`);
   }
@@ -445,8 +448,8 @@ export async function executeWithIsolation(command, args, options = {}) {
   // "present", so Docker's default pull policy reused it and every task on
   // 2026-09-13 ran `solve v2.22.0` while v2.28.1 was published. Refresh the
   // reference before the container is created - once per process, and only when
-  // the tag is mutable, so a pinned image seeded into a nested daemon (#1879) is
-  // left exactly as it is - and resolve the digest either way.
+  // the tag is mutable or the nested daemon lacks the image prepared on the host.
+  // Resolve the digest either way.
   let imageProvenance = null;
   if (backend === 'docker') {
     imageProvenance = await refreshTaskImage({

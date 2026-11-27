@@ -1,0 +1,48 @@
+name: Docker image verification
+on:
+  workflow_call:
+    inputs:
+      coolify:
+        type: boolean
+        default: false
+permissions:
+  contents: read
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  GIT_CONFIG_COUNT: '1'
+  GIT_CONFIG_KEY_0: init.defaultBranch
+  GIT_CONFIG_VALUE_0: main
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    # Issue #3785: 16-25 min builds + ~4 min lifecycle gate per Docker daemon layout.
+    timeout-minutes: 45
+    env:
+      REGISTRY: docker.io
+      IMAGE_NAME: konard/hive-mind
+      DIND_IMAGE_NAME: konard/hive-mind-dind
+    steps:
+      - uses: actions/checkout@v7
+        with: { persist-credentials: false }
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24.x
+      - uses: ./.github/actions/assemble-native-codex # zizmor: ignore[self-repository] Checkout supplies this action; actionlint 1.7.12 cannot parse `$/`.
+      - name: Verify Docker release-order contract
+        if: ${{ !inputs.coolify }}
+        run: node tests/test-docker-release-order.mjs && node tests/test-docker-pr-memory.mjs
+      - name: Free up disk space
+        run: node scripts/free-disk-space.mjs
+      - name: Build Docker images and check build logs
+        if: ${{ !inputs.coolify }}
+        run: bash scripts/docker-pr-build.sh
+      - name: Verify system & development tools in running containers
+        if: ${{ !inputs.coolify }}
+        run: bash scripts/docker-pr-verify-containers.sh
+      - name: Build and verify the Coolify image
+        if: ${{ inputs.coolify }}
+        run: bash scripts/docker-pr-build.sh coolify
+      - name: Preserve synthetic tool-data gate diagnostics
+        if: ${{ failure() && !inputs.coolify }}
+        uses: actions/upload-artifact@v7
+        with: { name: synthetic-tool-data-gate, path: '${{ runner.temp }}/hive-tool-data-*.log', if-no-files-found: ignore, retention-days: 7 }

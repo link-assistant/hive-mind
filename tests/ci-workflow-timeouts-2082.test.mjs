@@ -120,7 +120,7 @@ const timeoutExceptions = {
   'formal-ai-draft.yml/report-checks': 215, // Waits for the full dispatched pipeline.
   'native-codex-auth-experiment.yml/native-file-authority': 90, // Cold build of pinned upstream Codex.
   'native-codex-build.yml/build': 150, // Cold cross-platform builds of the npm runtime.
-  'release.yml/docker-pr-check': 45, // Multi-stage native image build on a cold cache.
+  'docker-image-check.yml/verify': 45, // Multi-stage native image build on a cold cache.
   'release.yml/release': 75, // npm variant visibility and GitHub Release publication.
   'release.yml/instant-release': 75, // Same registry and publication work as automatic releases.
   'release.yml/docker-publish': 60, // Cold runtime image build and push.

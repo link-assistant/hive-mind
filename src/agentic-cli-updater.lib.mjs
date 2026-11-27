@@ -33,6 +33,9 @@ import { promisify } from 'node:util';
 import { resolveBotStateDir } from './session-store.lib.mjs';
 import { withStateLock } from './state-lock.lib.mjs';
 
+import { getInstalledCodexStockManifest } from './codex-installed-stock.lib.mjs';
+import { codexStockSkillsDigest } from './codex-stock-skills.lib.mjs';
+
 const execFileAsync = promisify(execFile);
 
 const STATE_FILE_NAME = 'agentic-cli-updates.json';
@@ -143,6 +146,31 @@ export const writeAgenticCliState = async (state, { env = process.env, fsImpl = 
   return state;
 };
 
+// The image dispatchers can select an independent native storage adapter.
+const imageStockCommand = (target, env) => (env.HIVE_MIND_IMAGE_NATIVE_BIN && env.BUN_INSTALL && ['codex', 'gemini'].includes(target.id) ? path.join(env.BUN_INSTALL, 'bin', target.binary) : null);
+
+async function withInstalledCodexStock(tools, env) {
+  const { files } = await getInstalledCodexStockManifest(env);
+  const digest = codexStockSkillsDigest(files);
+  const previous = Array.isArray(tools?.codex?.stockSkillDigests) ? tools.codex.stockSkillDigests : [];
+  if (previous[0] === digest) return tools;
+  return { ...tools, codex: { ...tools?.codex, stockSkillDigests: [...new Set([digest, ...previous])].slice(0, 8) } };
+}
+
+/** Save the admitted image stock before a later deployment replaces its CLI. */
+export async function rememberInstalledCodexStock({ env = process.env, fsImpl = fs, log = console.warn } = {}) {
+  if (!env.HIVE_MIND_IMAGE_NATIVE_BIN || !env.BUN_INSTALL) return;
+  await withStateLock(
+    CLI_UPDATE_LOCK_NAME,
+    async () => {
+      const state = await readAgenticCliState({ env, fsImpl });
+      const tools = await withInstalledCodexStock(state.tools, env);
+      if (tools !== state.tools) await writeAgenticCliState({ ...state, tools }, { env, fsImpl });
+    },
+    { env, fsImpl, timeoutMs: 0 }
+  ).catch(() => log('Could not record the installed Codex stock catalog for the next deployment.'));
+}
+
 /**
  * Version in the package.json of the package that owns the binary on PATH.
  *
@@ -155,7 +183,8 @@ export const writeAgenticCliState = async (state, { env = process.env, fsImpl = 
  * keeps a shadowing older copy earlier on PATH from passing as updated.
  */
 export const readBinaryPackageVersion = async (target, { env = process.env, fsImpl = fs } = {}) => {
-  for (const dir of String(env.PATH ?? '')
+  const stock = imageStockCommand(target, env);
+  for (const dir of String(stock ? path.dirname(stock) : (env.PATH ?? ''))
     .split(path.delimiter)
     .filter(Boolean)) {
     let resolved;
@@ -187,7 +216,7 @@ export const readInstalledCliVersion = async (target, { run = execFileAsync, tim
   }
 
   try {
-    const result = await run(target.binary, ['--version'], { encoding: 'utf8', timeout: timeoutMs });
+    const result = await run(imageStockCommand(target, env) ?? target.binary, ['--version'], { encoding: 'utf8', timeout: timeoutMs });
     const version = parseCliVersion(`${result?.stdout ?? ''}${result?.stderr ?? ''}`);
     if (version) return version;
   } catch {
@@ -255,7 +284,7 @@ export const updateAgenticClisWhenIdle = async ({ env = process.env, fsImpl = fs
       const updated = [];
       const upToDate = [];
       const failed = [];
-      const tools = { ...state.tools };
+      let tools = { ...state.tools };
 
       for (const target of listAgenticCliUpdateTargets(env, { only })) {
         const installed = await readInstalledCliVersion(target, { run, env, fsImpl, log, verbose });
@@ -280,6 +309,15 @@ export const updateAgenticClisWhenIdle = async ({ env = process.env, fsImpl = fs
 
         if (log) await log(`⬆️ Updating ${target.id} ${installed} → ${latest}`);
         try {
+          if (target.id === 'codex' && imageStockCommand(target, env)) {
+            // Preserve provenance if the global Codex home still holds stock
+            // assets written by this release after the package is replaced.
+            const recorded = await withInstalledCodexStock(tools, env);
+            if (recorded !== tools) {
+              await writeAgenticCliState({ ...state, tools: recorded }, { env, fsImpl });
+              tools = recorded;
+            }
+          }
           await installAgenticCli(target, { run });
         } catch (error) {
           const message = error?.stderr?.toString?.().trim() || error?.message || String(error);
@@ -295,7 +333,7 @@ export const updateAgenticClisWhenIdle = async ({ env = process.env, fsImpl = fs
         const after = await readInstalledCliVersion(target, { run, env, fsImpl, log, verbose });
         if (after === latest) {
           updated.push({ id: target.id, from: installed, to: after });
-          tools[target.id] = { version: after, previousVersion: installed, updatedAt: now().toISOString(), checkedAt: now().toISOString() };
+          tools[target.id] = { ...tools[target.id], version: after, previousVersion: installed, updatedAt: now().toISOString(), checkedAt: now().toISOString() };
         } else {
           // Issue #2571: the production log said "2 failed" and nothing else —
           // the install exited 0, so only this check knew why.

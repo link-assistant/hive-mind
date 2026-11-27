@@ -4,9 +4,11 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { parse as parseToml } from 'smol-toml';
-import { CodexStockBaselineError, validateCodexStockSkills } from './codex-stock-skills.lib.mjs';
+import { CodexStockBaselineError, validateCodexStockSkills, validatePreviousCodexStockSkills } from './codex-stock-skills.lib.mjs';
 import { agentConfigAuditScopes, codexProfileConfigPaths } from './agent-config-audit-paths.lib.mjs';
 import { auditManagedAgentConfig } from './agent-config-audit-managed.lib.mjs';
+import { getInstalledCodexStockManifest } from './codex-installed-stock.lib.mjs';
+import { readAgenticCliState } from './agentic-cli-updater.lib.mjs';
 
 const TOOL_INPUTS = {
   claude: {
@@ -134,7 +136,19 @@ export async function validateAgentConfigAuditInputs({ tool = 'all', homeDir, en
         }
       }
       if (name === 'codex') {
-        const stock = await validateCodexStockSkills({ directory: path.join(configDir, 'skills', '.system'), fsImpl });
+        const directory = path.join(configDir, 'skills', '.system');
+        const stock = await validateCodexStockSkills({ directory, fsImpl }).catch(async error => {
+          if (!(error instanceof CodexStockBaselineError) || !env.HIVE_MIND_IMAGE_NATIVE_BIN || !env.BUN_INSTALL) throw error;
+          try {
+            const manifest = await getInstalledCodexStockManifest(env);
+            return await validateCodexStockSkills({ directory, fsImpl, manifest });
+          } catch {
+            const { tools } = await readAgenticCliState({ env, fsImpl });
+            const digests = tools?.codex?.stockSkillDigests;
+            if (!Array.isArray(digests) || digests.length === 0) throw error;
+            return validatePreviousCodexStockSkills({ directory, fsImpl, digests: digests.slice(0, 8) });
+          }
+        });
         for (const [target, version] of stock) snapshot.set(target, version);
       }
     }

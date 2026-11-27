@@ -59,7 +59,7 @@ test('a linked installation destination cannot overwrite protected state', async
 for (const image of ['Dockerfile', 'Dockerfile.dind', 'coolify/Dockerfile']) {
   test(`${image} installs and exposes the pinned image search command`, async () => {
     const source = await fs.readFile(new URL(`../${image}`, import.meta.url), 'utf8');
-    assert.match(source, /node \/tmp\/hive-mind-source\/scripts\/install-image-ripgrep\.mjs\s*\\\n\s*\/home\/box\/\.bun\/install\/global\/node_modules\/@openai\/codex \/home\/box\/\.local\/bin\/rg/u);
+    assert.match(source, /node \/tmp\/hive-mind-source\/scripts\/install-image-ripgrep\.mjs\s*\\\n\s*\/home\/box\/\.hive-native\/install\/global\/node_modules\/@openai\/codex \/home\/box\/\.local\/bin\/rg/u);
     assert.match(source, /ENV PATH="[^"\n]*\/home\/box\/\.local\/bin/u);
   });
 }

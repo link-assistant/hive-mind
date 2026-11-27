@@ -30,7 +30,8 @@ async function stockRoot(entrypoint) {
 /** Native byte/provenance admission always precedes any version/provider probe. */
 export async function verifyNativeCodexCommand({ command = 'codex', searchPath = process.env.PATH } = {}) {
   try {
-    const bin = await locate(command, searchPath);
+    const packagedBin = process.env.HIVE_MIND_IMAGE_NATIVE_BIN;
+    const bin = await locate(packagedBin && command === 'codex' ? path.join(packagedBin, command) : command, searchPath);
     const entrypoint = await fs.realpath(bin);
     if (path.basename(entrypoint) !== 'codex') throw refusal();
     const verified = await verifyNativeCodexRuntime(path.dirname(entrypoint));

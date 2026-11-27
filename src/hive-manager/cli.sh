@@ -689,6 +689,9 @@ task_image_args() {
   [[ $task_image ]] || return 0
   docker_args+=(--label io.github.link-assistant.hive-manager.task-image="$task_image"
     --env HIVE_MIND_DOCKER_ISOLATION_IMAGE="$task_image")
+  if [[ $variant == dind && $pull_image == 1 && $task_image_id =~ ^sha256:[a-f0-9]{64}$ ]]; then
+    docker_args+=(--env HIVE_MIND_DOCKER_ISOLATION_IMAGE_ID="$task_image_id")
+  fi
   if [[ $variant == dind && $socket ]]; then
     docker_args+=(--env DIND_HOST_PASSTHROUGH_IMAGES="$task_image")
   fi
@@ -841,8 +844,11 @@ apply_deployment() {
 
   if (( dry_run )); then
     # Preview with images already present on the target; apply pulls first.
-    local task_image=''
+    local task_image='' task_image_id=''
     select_task_image 0
+    if [[ $variant == dind && $task_image ]]; then
+      task_image_id=$(docker image inspect --format '{{.Id}}' "$task_image" 2>/dev/null) || task_image_id=''
+    fi
     task_image_args
     printf 'Instance %s\nImage %s\nState %s\n' "$name" "$image" "$state_dir"
     if [[ $task_image ]]; then printf 'Task image %s\n' "$task_image"; fi
@@ -875,10 +881,12 @@ apply_deployment() {
   image_id=$(docker image inspect --format '{{.Id}}' "$image")
   local task_image='' task_image_id=''
   select_task_image "$pull_image"
-  task_image_args
-  if [[ $task_image && $task_image != "$image" ]]; then
+  if [[ $task_image == "$image" ]]; then
+    task_image_id=$image_id
+  elif [[ $task_image ]]; then
     task_image_id=$(docker image inspect --format '{{.Id}}' "$task_image" 2>/dev/null) || task_image_id=''
   fi
+  task_image_args
   init_state
 
   # Validate stock binaries and the image baseline without mounting live state.

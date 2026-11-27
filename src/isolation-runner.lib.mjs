@@ -448,8 +448,8 @@ export async function executeWithIsolation(command, args, options = {}) {
   // "present", so Docker's default pull policy reused it and every task on
   // 2026-09-13 ran `solve v2.22.0` while v2.28.1 was published. Refresh the
   // reference before the container is created - once per process, and only when
-  // the tag is mutable, so a pinned image seeded into a nested daemon (#1879) is
-  // left exactly as it is - and resolve the digest either way.
+  // the tag is mutable or the nested daemon lacks the image prepared on the host.
+  // Resolve the digest either way.
   let imageProvenance = null;
   if (backend === 'docker') {
     imageProvenance = await refreshTaskImage({

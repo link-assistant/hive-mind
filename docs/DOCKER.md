@@ -204,7 +204,9 @@ Run `hive-manager deploy update` with the same profile or options used to deploy
 the bot. It pulls the deployment image and any separately configured task tag,
 then recreates the bot so new tasks use the refreshed image. Use
 `hive-manager deploy prepare` to pre-pull those images during staging. For a
-custom image, publish the rebuilt task tag before updating the deployment.
+custom image, publish the rebuilt task tag before updating the deployment. In
+managed DinD deployments, the launcher also refreshes a nested copy when its
+image ID differs from the one prepared on the host.
 
 To rebuild a custom DinD task tag from this checkout, supply the Hive Mind
 package release that supports this image recipe and a fresh CLI build argument:

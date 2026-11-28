@@ -40,4 +40,16 @@ done
 "$clink" --db "$dir/shared.links" --out "$dir/shared.lino" --lock pid > /dev/null
 present=$(rg -c '^\(w[0-9]+:' "$dir/shared.lino")
 echo "PID lock: writers=12 exited_ok=$successes links_present=$present"
-test "$successes" -eq 12 && test "$present" -eq 12
+test "$successes" -eq 12
+test "$present" -eq 12
+
+# Simulate a process that exited before it could clean up its PID lock.
+sleep 0.1 &
+gone=$!
+wait "$gone"
+mkdir "$dir/shared.links.lock.d"
+namespace=$(readlink /proc/self/ns/pid)
+printf 'pid=%s\nhost=%s\npid_namespace=%s\n' "$gone" "$(hostname)" "$namespace" > "$dir/shared.links.lock.d/owner"
+"$clink" --db "$dir/shared.links" --in "$dir/w1.lino" --lock pid --lock-timeout 1000 > /dev/null
+test ! -d "$dir/shared.links.lock.d"
+echo 'PID lock: recovered immediately from a dead owner'

@@ -617,14 +617,17 @@ export const validateRuntimeModelName = async (model, tool = 'claude', options =
   const suffix = has1mSuffix ? '[1m]' : '';
 
   const liveAlias = typeof baseModel === 'string' ? resolveLiveFamilyAlias(baseModel, toolName, liveModelIds) : null;
-  if (liveAlias && (!staticValidation.valid || staticValidation.mappedModel !== `${liveAlias.mappedModel}${suffix}`)) {
-    registerRuntimeModelAlias(toolName, liveAlias.alias, liveAlias.modelId);
-    traceModelResolution('live alias', { tool: toolName, model, mappedModel: liveAlias.mappedModel, bundled: staticValidation.mappedModel ?? null });
+  if (liveAlias) {
+    const mappedModel = `${liveAlias.mappedModel}${suffix}`;
     const bundledCodexAlias = toolName === 'codex' && Object.hasOwn(CODEX_MODEL_VARIANTS, baseModel.toLowerCase()) ? CODEX_MODEL_VARIANTS[baseModel.toLowerCase()] : null;
     const bundledId = bundledCodexAlias ? bundledCodexAlias.replace(/^openai[/.]/i, '') : null;
     const fallback = bundledId && bundledId !== liveAlias.modelId && !liveModelIds.includes(bundledId) && deriveFamilyAliasesForTool('codex', [bundledId, liveAlias.modelId])[liveAlias.alias] === bundledId;
-    const warning = fallback ? `Codex model "${bundledId}" for alias "${model}" is missing from the installed CLI catalogue (codex debug models). Using "${liveAlias.mappedModel}".` : undefined;
-    return { valid: true, mappedModel: `${liveAlias.mappedModel}${suffix}`, has1mSuffix, source: 'live-alias', ...(warning && { warning }) };
+    if (fallback || !staticValidation.valid || staticValidation.mappedModel !== mappedModel) {
+      registerRuntimeModelAlias(toolName, liveAlias.alias, liveAlias.modelId);
+      traceModelResolution('live alias', { tool: toolName, model, mappedModel: liveAlias.mappedModel, bundled: staticValidation.mappedModel ?? null });
+      const warning = fallback ? `Codex model "${bundledId}" for alias "${model}" is missing from the installed CLI catalogue (codex debug models). Using "${liveAlias.mappedModel}".` : undefined;
+      return { valid: true, mappedModel, has1mSuffix, source: 'live-alias', ...(warning && { warning }) };
+    }
   }
 
   if (staticValidation.valid) {

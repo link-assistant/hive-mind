@@ -68,6 +68,10 @@ assert.match(unavailableSol.message, /gpt-6\.2-sol.*codex debug models.*Upgrade 
 const oldAlias = await validateRuntimeModelName('openai/sol', 'codex', { availableModels: previousCatalogue });
 assert.equal(oldAlias.mappedModel, 'openai/gpt-6.1-sol');
 assert.match(oldAlias.warning, /gpt-6\.2-sol.*Using "openai\/gpt-6\.1-sol"/u);
+for (let attempt = 0; attempt < 2; attempt++) {
+  const alias = await validateRuntimeModelName('sol', 'codex', { availableModels: previousCatalogue });
+  assert.match(alias.warning, /gpt-6\.2-sol.*Using "gpt-6\.1-sol"/u);
+}
 
 for (const supported of ['gpt-6.2-sol', 'gpt-6.3-sol']) {
   warnings.length = 0;

@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { ensureUseM } from './use-m-bootstrap.lib.mjs';
+import { isPrepareOnly } from './formal-ai.lib.mjs';
 
 // Fork upstream-sync module for the solve command.
 // Extracted from solve.repository.lib.mjs to keep files under 1500 lines (#1893).
@@ -128,6 +129,8 @@ export const setupUpstreamAndSync = async (tempDir, forkedRepo, upstreamRemote, 
       }
     }
   }
+
+  if (isPrepareOnly(argv)) return;
 
   // Proceed with fork sync if upstream remote is available
   if (upstreamExists) {

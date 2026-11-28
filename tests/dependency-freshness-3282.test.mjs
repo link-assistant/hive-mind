@@ -14,7 +14,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 
-import { checkDependencyRecords, collectDependencyRecords, imagePinRecord, lockfileLagRecords, parseDockerDependencyPins, parseGitHubActionPins, parseSourceImagePins, resolveContainerLatest, resolveNpmLatest } from '../scripts/dependency-freshness.lib.mjs';
+import { checkDependencyRecords, collectDependencyRecords, imagePinRecord, lockfileLagRecords, parseDockerDependencyPins, parseGitHubActionPins, parseSourceImagePins, resolveContainerLatest, resolveCrateLatest, resolveNpmLatest } from '../scripts/dependency-freshness.lib.mjs';
 
 const repositoryRoot = path.resolve(import.meta.dirname, '..');
 
@@ -115,6 +115,34 @@ test('the registry resolver reads every tag page and ignores date tags', async (
     return { ok: true, status: 200, headers: { get: name => (name === 'link' ? (page.link ?? null) : null) }, json: async () => ({ tags: page.tags }) };
   };
   assert.equal(await resolveContainerLatest('ghcr.io/org/image', { current: '0.125.4' }, { fetchImpl }), '1.24.1');
+});
+
+test('a Formal AI pin advances when the matching crate and sidecar are published', async () => {
+  const tags = ['latest', '0.357.2', '0.357.4', '0.357.5'];
+  const fetchImpl = async url => {
+    if (url === 'https://crates.io/api/v1/crates/formal-ai') {
+      const versions = [{ num: '0.357.2' }, { num: '0.357.3' }, { num: '0.357.4', yanked: true }];
+      return { ok: true, json: async () => ({ crate: { max_stable_version: '0.357.3' }, versions }) };
+    }
+    assert.equal(url, 'https://ghcr.io/v2/link-assistant/formal-ai/tags/list?n=1000');
+    return { ok: true, json: async () => ({ tags }) };
+  };
+  const records = parseDockerDependencyPins('ARG FORMAL_AI_VERSION=0.357.2\nRUN cargo install formal-ai --version "${FORMAL_AI_VERSION}" --locked', 'Dockerfile');
+  const options = { resolveCrateLatest: name => resolveCrateLatest(name, { fetchImpl }) };
+  const incomplete = await checkDependencyRecords(records, options);
+  assert.deepEqual(
+    incomplete.current.map(record => record.latest),
+    ['0.357.2', '0.357.2']
+  );
+  assert.deepEqual(incomplete.stale, []);
+
+  tags.push('0.357.3');
+  const published = await checkDependencyRecords(records, options);
+  assert.deepEqual(
+    published.stale.map(record => record.latest),
+    ['0.357.3', '0.357.3']
+  );
+  assert.deepEqual(published.errors, []);
 });
 
 test('the repository inventory covers code image pins, coolify agent pins, example workflows and lockfile refresh', async () => {

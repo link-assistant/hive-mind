@@ -25,6 +25,7 @@ const { log, cleanErrorMessage } = lib;
 // Import exit handler
 import { safeExit } from './exit-handler.lib.mjs';
 import { exitCodeFromChildClose } from './session-status.lib.mjs';
+import { isPrepareOnly } from './formal-ai.lib.mjs';
 
 // Import branch name validation functions
 const branchLib = await import('./solve.branch.lib.mjs');
@@ -736,7 +737,7 @@ export const processAutoContinueForIssue = async (argv, isIssueUrl, urlNumber, o
           const mergedOrClosedPr = prsForBranch.find(pr => pr.state === 'MERGED' || pr.state === 'CLOSED');
           if (mergedOrClosedPr) {
             await log(`   Branch ${selectedBranch} has a ${mergedOrClosedPr.state} PR #${mergedOrClosedPr.number} - cannot reuse`);
-            await log(`   Will create a new branch for issue #${issueNumber}`);
+            if (!isPrepareOnly(argv)) await log(`   Will create a new branch for issue #${issueNumber}`);
             return { isContinueMode: false, issueNumber };
           }
 
@@ -768,7 +769,7 @@ export const processAutoContinueForIssue = async (argv, isIssueUrl, urlNumber, o
     }
 
     // No PR exists yet for this branch, but we can still use the branch
-    await log('   No existing PR for this branch - will create PR from existing branch');
+    if (!isPrepareOnly(argv)) await log('   No existing PR for this branch - will create PR from existing branch');
 
     return {
       isContinueMode: true,
@@ -778,6 +779,6 @@ export const processAutoContinueForIssue = async (argv, isIssueUrl, urlNumber, o
     };
   }
 
-  await log(`📝 No reusable PR or branch found for issue #${issueNumber} - creating new PR`);
+  await log(`📝 No reusable PR or branch found for issue #${issueNumber}${isPrepareOnly(argv) ? '' : ' - creating new PR'}`);
   return { isContinueMode: false, issueNumber };
 };

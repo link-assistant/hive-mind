@@ -18,18 +18,23 @@ test('Claude task homes persist conversations with independent settings, skills 
   const homeDir = await fixture(t);
   const root = path.join(homeDir, '.claude');
   await fs.mkdir(path.join(root, 'skills', 'root-only'), { recursive: true });
+  const rootPreferences = { language: 'English', promptCacheTtl: '5m' };
+  const rootSettings = { ...rootPreferences, enabledPlugins: { 'example@root-only': true }, hooks: { Stop: [] } };
+  await fs.writeFile(path.join(root, 'settings.json'), JSON.stringify(rootSettings));
   const first = await prepareClaudeTaskHome({ homeDir, env: {}, tempDir: homeDir });
   const second = await prepareClaudeTaskHome({ homeDir, env: {}, tempDir: homeDir, enablePlaywright: false });
   assert.equal(first.env.CLAUDE_SECURESTORAGE_CONFIG_DIR, root);
   assert.equal(second.env.CLAUDE_SECURESTORAGE_CONFIG_DIR, root);
   assert.notEqual(first.env.CLAUDE_CONFIG_DIR, second.env.CLAUDE_CONFIG_DIR);
+  assert.deepEqual(JSON.parse(await fs.readFile(first.settingsPath, 'utf8')), rootPreferences);
   await fs.mkdir(path.join(first.env.CLAUDE_CONFIG_DIR, 'skills', 'task-only'), { recursive: true });
   await fs.writeFile(first.settingsPath, '{"custom":true}');
   await fs.writeFile(path.join(first.env.CLAUDE_CONFIG_DIR, 'projects', 'conversation.jsonl'), 'persisted');
   await assert.rejects(fs.access(path.join(first.env.CLAUDE_CONFIG_DIR, 'skills', 'root-only')), { code: 'ENOENT' });
   await assert.rejects(fs.access(path.join(second.env.CLAUDE_CONFIG_DIR, 'skills')), { code: 'ENOENT' });
   await assert.rejects(fs.access(path.join(root, 'skills', 'task-only')), { code: 'ENOENT' });
-  await assert.rejects(fs.access(second.settingsPath), { code: 'ENOENT' });
+  assert.deepEqual(JSON.parse(await fs.readFile(second.settingsPath, 'utf8')), rootPreferences);
+  assert.deepEqual(JSON.parse(await fs.readFile(path.join(root, 'settings.json'), 'utf8')), rootSettings);
 
   for (const [scope, argv, expected] of [
     [first, { uselessToolsDisabled: false }, ['playwright']],

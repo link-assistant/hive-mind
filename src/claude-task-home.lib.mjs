@@ -2,6 +2,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { resolveClaudeConfigDirectory, resolveClaudeCredentialDirectory } from './claude-paths.lib.mjs';
+import { CLAUDE_PROMPT_CACHE_DEFAULTS, isClaudePromptCacheTtl } from './claude-prompt-cache.lib.mjs';
 import { prepareStorageDirectory } from './storage-directory.lib.mjs';
 
 const playwright = {
@@ -9,6 +10,20 @@ const playwright = {
   command: 'npx',
   args: ['-y', '@playwright/mcp@latest', '--isolated', '--headless', '--no-sandbox', '--timeout-action=600000', '--viewport-size', '1920x1080'],
 };
+
+async function taskPreferences(configDir) {
+  const source = await fs.readFile(path.join(configDir, 'settings.json'), 'utf8').catch(error => {
+    if (error.code !== 'ENOENT') throw error;
+    return '{}';
+  });
+  const settings = JSON.parse(source);
+  const preferences = {};
+  if (typeof settings?.language === 'string') preferences.language = settings.language;
+  for (const key of Object.keys(CLAUDE_PROMPT_CACHE_DEFAULTS)) {
+    if (isClaudePromptCacheTtl(settings?.[key])) preferences[key] = settings[key];
+  }
+  return preferences;
+}
 
 /** Direct, Screen and tmux solves need a fresh Claude config directory too. */
 export async function prepareClaudeTaskHome({ homeDir = os.homedir(), env = process.env, tempDir = os.tmpdir(), enablePlaywright = true } = {}) {
@@ -21,11 +36,14 @@ export async function prepareClaudeTaskHome({ homeDir = os.homedir(), env = proc
       await prepareStorageDirectory(shared);
       await fs.symlink(shared, path.join(scope, name), 'dir');
     }
+    const settingsPath = path.join(scope, 'settings.json');
+    const preferences = await taskPreferences(history);
+    if (Object.keys(preferences).length) await fs.writeFile(settingsPath, JSON.stringify(preferences), { mode: 0o600 });
     const mcpStatePath = path.join(scope, '.claude.json');
     await fs.writeFile(mcpStatePath, JSON.stringify({ hasCompletedOnboarding: true, mcpServers: enablePlaywright ? { playwright } : {} }), { mode: 0o600 });
     return {
       env: { CLAUDE_CONFIG_DIR: scope, CLAUDE_SECURESTORAGE_CONFIG_DIR: resolveClaudeCredentialDirectory(env, homeDir) },
-      settingsPath: path.join(scope, 'settings.json'),
+      settingsPath,
       mcpStatePath,
       dispose,
     };

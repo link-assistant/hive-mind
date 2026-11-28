@@ -83,6 +83,7 @@ def source_digest(inventory):
 def build_environment(recipe, inherited=None):
     inherited = os.environ if inherited is None else inherited
     # The selected VFS needs checked bundled SQLite and its FILESTAT flag.
+    # The pinned amalgamation also registers sqlite_walstat under FILESTAT.
     # libsqlite3-sys also accepts environment-only switches to another library.
     native_inputs = ("CC", "CXX", "AR", "RANLIB", "CFLAGS", "CXXFLAGS", "CPPFLAGS", "CXXSTDLIB")
     sqlite_targets = tuple(item["target"].upper().replace("-", "_") + "_SQLITE3_"

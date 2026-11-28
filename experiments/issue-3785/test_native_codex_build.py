@@ -130,6 +130,8 @@ class NativeBuildAdmission(unittest.TestCase):
             "PATH": "/usr/bin", "CARGO_HOME": str(self.root / "cargo-cache"),
             **overrides,
         })
+        self.assertEqual(set(env["LIBSQLITE3_FLAGS"].split()),
+                         {"SQLITE_ENABLE_FILESTAT", "SQLITE_ENABLE_WALSTAT"})
         for name in overrides:
             if name in recipe["cargoEnvironment"]:
                 self.assertEqual(env[name], recipe["cargoEnvironment"][name])

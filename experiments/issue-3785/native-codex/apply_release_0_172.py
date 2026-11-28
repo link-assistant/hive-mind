@@ -10,7 +10,7 @@ import sys
 PIN = "3d86e43b075adeba2193ec5c22ac92f55afd82e6"
 VERSION = "0.172.0"
 INPUTS = Path(__file__).resolve().parent
-PATCHES = ("auth", "history", "sqlite", "tui")
+PATCHES = ("auth", "build", "history", "sqlite", "tui")
 MODULES = {
     "core/src/config/canonical_sqlite_authority.rs": "canonical_sqlite_authority.rs",
     "core/src/config/canonical_sqlite_authority_tests.rs": "canonical_sqlite_authority_tests.rs",

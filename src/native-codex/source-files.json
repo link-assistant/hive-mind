@@ -14,6 +14,11 @@
     "mode": 420,
     "sha256": "3c73f9f0b6da07b9e3f829410dd38635030a90b0b138acae024ceee95116fa8d"
   },
+  "codex-rs/cloud-config/src/lib.rs": {
+    "bytes": 1122,
+    "mode": 420,
+    "sha256": "85461eb2cef20204dde2ec8e0a2867b4c8674829eb6b74661d33f3324ba57c6e"
+  },
   "codex-rs/core/src/config/canonical_sqlite_authority.rs": {
     "bytes": 4457,
     "mode": 420,

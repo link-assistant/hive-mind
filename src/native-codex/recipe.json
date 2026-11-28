@@ -12,7 +12,7 @@
   },
   "steps": ["release_0_172"],
   "inputs": {
-    "apply_release_0_172.py": "5ff0f0dbb5d08abec8aae466a1ef8e449590f29ef85f7a10a6804891633c4b0c",
+    "apply_release_0_172.py": "7cb67fe08ef472a81654283efedaedb72e13ab034eabee5fd2672fb220932408",
     "canonical_auth.rs": "25f4a01f78b364a02dad86c13a1bc7c211dff93e63949fb779ae46708fd29b3f",
     "canonical_message_history.rs": "e425fc516afe5392a48c203f202dbf98723a0b75fa8c7ac35ab2b4fdae9a8f16",
     "canonical_migration_journals.rs": "a9744d13e09e601b1e1ff83ab57fc2f4dc7dffe7a44a6334d7295295e51eca68",
@@ -33,6 +33,7 @@
     "canonical_sqlite_vfs.rs": "b87bc042c493b64af886d0ad7fd59ecd9ada637f9e20a4df61a65ec1099e35fe",
     "canonical_transaction.rs": "66a6e583c8d766b6ce533a340871b85feb37b2eb29ec88408ce1adee6fcfaf2c",
     "release_0_172_auth.patch": "176c65cb7366f240dfe0eaabdb98834db7fdd6e0eb5be1ccf5beb8b5a532426b",
+    "release_0_172_build.patch": "6386eda4b927f1cb8e335a324cdf7484b9a8365019623ad620fea80e64362b5c",
     "release_0_172_history.patch": "eeec5de6506da3f1c4c5ee46c51155390caddcf3fba4dae48f978e98210a890c",
     "release_0_172_sqlite.patch": "4bc8f9e2319e2dde053aed00e566e431228bfcb8c33cffbbcd9b3270bf1812b9",
     "release_0_172_tui.patch": "b29c82febe33e8a3a2ac446dec88f8e6acc7a33542fe71646dc0d6ae25518e71"
@@ -78,5 +79,5 @@
     "third_party/voice/licenses/zlib.txt": "e32ff4e00d9d94930537635291da39e7e612703334bf6fde8c7f1686fe8a45a2",
     "third_party/wezterm/LICENSE": "331312c214f14dc1455a0e45e3a66f4b70bbc73916cffd525570e8cdb9d63bf4"
   },
-  "sourceInventorySha256": "0e18041c187bd3b43ad777251737b6da3c09a83353671fcb1af4bb55922b4d4a"
+  "sourceInventorySha256": "b2320222d6d758ea583dfcf1f6c2763929b6f66912e17b12e7099dd8f11dc6ae"
 }

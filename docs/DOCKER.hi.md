@@ -22,7 +22,7 @@ hive-manager deploy logs --follow --tail 60
 
 साधारण image में `hive-telegram-bot --isolation docker` चलाने के लिए होस्ट पर Docker शुरू करें और bot container में `-v /var/run/docker.sock:/var/run/docker.sock` जोड़ें। Bot चलाने वाले उपयोगकर्ता को socket तक पहुँच चाहिए। Container के अंदर उसी उपयोगकर्ता के रूप में `docker version` चलाएँ और पुष्टि करें कि आउटपुट में Server अनुभाग है। Nested daemon के लिए `konard/hive-mind-dind` image का डिफ़ॉल्ट entrypoint रखें और container command के रूप में `hive-telegram-bot --isolation docker` दें।
 
-अलग किए गए कार्यों को Git पहचान भी चाहिए। स्थायी Git कॉन्फ़िगरेशन में `user.name` और `user.email` सेट करें और उसे bot के लिए `/home/box/.gitconfig` पर उपलब्ध कराएँ (उदाहरण के लिए `-v /path/to/gitconfig:/home/box/.gitconfig:ro`)। Bot के क्रेडेंशियल और टूल स्टोरेज को होस्ट के bind mounts या Docker volumes पर रखें ताकि daemon वही डेटा कार्य containers में माउंट कर सके।
+अलग किए गए कार्यों को Git पहचान भी चाहिए। होस्ट का Docker socket इस्तेमाल करने वाले मैन्युअल डिप्लॉयमेंट के लिए Docker होस्ट पर एक सामान्य फ़ाइल में `user.name` और `user.email` सेट करें। फ़ाइल `box` उपयोगकर्ता के लिए पढ़ने योग्य होनी चाहिए। Bot container को बनाते या दोबारा बनाते समय `--mount type=bind,source=/root/.hive-mind/gitconfig,target=/home/box/.gitconfig,readonly` जोड़ें। डिप्लॉयमेंट दोहराते समय सहेजी गई फ़ाइल का इस्तेमाल करें और container के अंदर के symlink की जगह bind mount लगाएँ। अगर bot को कॉन्फ़िगरेशन अपडेट करना है, तो `hive-manager` की तरह उसकी मूल डायरेक्टरी bind-mount करें और `GIT_CONFIG_GLOBAL` में उस डायरेक्टरी की फ़ाइल चुनें। Bot के क्रेडेंशियल और टूल स्टोरेज को होस्ट के bind mounts या Docker volumes पर रखें ताकि daemon वही डेटा कार्य containers में माउंट कर सके।
 
 ### विकल्प 2: स्थानीय रूप से Build करना
 

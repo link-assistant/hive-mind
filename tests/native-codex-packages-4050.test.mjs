@@ -70,6 +70,18 @@ test('the CLI checks archives on disk and honours the budget override', async t 
   assert.notEqual(run('not-a-number').status, 0);
 });
 
+test('the size check accepts npm array output and package-name keyed output', () => {
+  const script = fileURLToPath(new URL('../scripts/check-npm-tarball-size.mjs', import.meta.url));
+  const metadata = { name: main.name, filename: 'hive-mind.tgz', size: 2048 };
+  for (const output of [[metadata], { [main.name]: metadata }]) {
+    const run = budget => spawnSync(process.execPath, [script, '--stdin'], { input: JSON.stringify(output), encoding: 'utf8', env: { ...process.env, HIVE_MIND_NPM_TARBALL_BUDGET_BYTES: budget }, timeout: 10000 });
+    assert.equal(run('4096').status, 0);
+    const rejected = run('1024');
+    assert.equal(rejected.status, 1);
+    assert.match(rejected.stderr, /is 2048 bytes/u);
+  }
+});
+
 test('variant identities pin each platform to the exact main version', async () => {
   assert.deepEqual(await readPlatforms(), ['linux-x64', 'linux-arm64']);
   assert.equal(variantName(main.name, 'linux-x64'), '@link-assistant/hive-mind-native-codex-linux-x64');

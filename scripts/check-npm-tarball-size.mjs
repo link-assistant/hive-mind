@@ -22,6 +22,14 @@ export const NPM_TARBALL_BUDGET_BYTES = 157 * 1024 * 1024;
 
 const mib = bytes => `${(bytes / 1024 / 1024).toFixed(1)} MiB`;
 
+export function parseNpmPackOutput(output) {
+  const entries = JSON.parse(output);
+  // npm 11 writes an array. npm 12 keys entries by package name.
+  if (Array.isArray(entries)) return entries;
+  if (typeof entries?.filename === 'string') return [entries];
+  return Object.values(entries ?? {});
+}
+
 /** Entries are `npm pack --json` objects or `{ filename, size }` for archives on disk. */
 export function findOversizedTarballs(entries, budget = NPM_TARBALL_BUDGET_BYTES) {
   return entries.filter(entry => !Number.isSafeInteger(entry.size) || entry.size > budget);
@@ -70,6 +78,6 @@ export function checkNpmTarballSizes(entries, { budget = NPM_TARBALL_BUDGET_BYTE
 
 if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
   const args = process.argv.slice(2);
-  const entries = args.includes('--stdin') ? [].concat(JSON.parse(fs.readFileSync(0, 'utf8'))) : args.map(file => ({ filename: file, size: fs.statSync(file).size }));
+  const entries = args.includes('--stdin') ? parseNpmPackOutput(fs.readFileSync(0, 'utf8')) : args.map(file => ({ filename: file, size: fs.statSync(file).size }));
   process.exitCode = checkNpmTarballSizes(entries, { budget: budgetFromEnv() });
 }

@@ -19,7 +19,7 @@
 #
 # Build: docker build -f coolify/Dockerfile -t konard/hive-mind .
 
-ARG FORMAL_AI_VERSION=0.357.2
+ARG FORMAL_AI_VERSION=0.357.4
 # Bookworm's glibc 2.36 remains compatible with the Ubuntu 24.04 Box runtime.
 FROM rust:1.100-slim-bookworm AS formal-ai-builder
 ARG FORMAL_AI_VERSION
@@ -39,6 +39,13 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 ENV OPENSSL_STATIC=1
 RUN cargo install formal-ai --version "${FORMAL_AI_VERSION}" --locked
+
+# Issue #4143: link-cli (`clink`) keeps the binary doublets copy of the bot
+# state (hive-mind-state.links, transactions log on) next to the indented
+# hive-mind-state.lino file. Without it the bot runs .lino-only.
+FROM rust:1.100-slim-bookworm AS link-cli-builder
+ARG LINK_CLI_VERSION=3.3.3
+RUN cargo install link-cli --version "${LINK_CLI_VERSION}" --locked
 
 # Box 2.10.5 retains the box#112 one-toolchain invariant and the base
 # runtimes: Node.js v24.21.0, Bun 1.4.2 and stable Rust 1.98.1. Box PR #120
@@ -215,6 +222,8 @@ ENV PATH="/home/box/.node-bin:${PATH}"
 # Install the same pinned wrapper as the root and DinD images.
 COPY --from=formal-ai-builder /usr/local/cargo/bin/formal-ai /usr/local/bin/formal-ai
 RUN formal-ai --version
+COPY --from=link-cli-builder /usr/local/cargo/bin/clink /usr/local/bin/clink
+RUN clink --version
 
 # --- Install opam binary ---
 # The Box full image includes the Rocq/Coq opam switch data. Keep an explicit

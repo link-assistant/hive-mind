@@ -203,3 +203,39 @@ export async function launchBotWithRetry(bot, launchOptions, retryOptions = {}) 
     }
   }
 }
+
+/** Log Telegram identity and delivery settings after polling starts. */
+export async function logPollingStartupDiagnostics(bot) {
+  console.log('[VERBOSE] Bot launched successfully');
+  console.log('[VERBOSE] Polling is active, waiting for messages...');
+
+  // Get bot info and webhook status for diagnostics
+  try {
+    const botInfo = await bot.telegram.getMe();
+    const webhookInfo = await bot.telegram.getWebhookInfo();
+    console.log('[VERBOSE] Bot info:');
+    console.log('[VERBOSE]   Username: @' + botInfo.username);
+    console.log('[VERBOSE]   Bot ID:', botInfo.id);
+    console.log('[VERBOSE] Webhook info:');
+    console.log('[VERBOSE]   URL:', webhookInfo.url || 'none (polling mode)');
+    console.log('[VERBOSE]   Pending updates:', webhookInfo.pending_update_count);
+    if (webhookInfo.last_error_date) {
+      console.log('[VERBOSE]   Last error:', new Date(webhookInfo.last_error_date * 1000).toISOString());
+      console.log('[VERBOSE]   Error message:', webhookInfo.last_error_message);
+    }
+
+    console.log('[VERBOSE]');
+    console.log('[VERBOSE] ⚠️  IMPORTANT: If bot is not receiving messages in group chats:');
+    console.log('[VERBOSE]   1. Privacy Mode: Check if bot has privacy mode enabled in @BotFather');
+    console.log('[VERBOSE]      - Send /setprivacy to @BotFather');
+    console.log('[VERBOSE]      - Select @' + botInfo.username);
+    console.log('[VERBOSE]      - Choose "Disable" to receive all group messages');
+    console.log('[VERBOSE]      - IMPORTANT: Remove bot from group and re-add after changing!');
+    console.log('[VERBOSE]   2. Admin Status: Make bot an admin in the group (admins see all messages)');
+    console.log('[VERBOSE]   3. Run diagnostic: node experiments/test-telegram-bot-privacy-mode.mjs');
+    console.log('[VERBOSE]');
+  } catch (err) {
+    console.log('[VERBOSE] Could not fetch bot info:', err.message);
+  }
+  console.log('[VERBOSE] Send a message to the bot to test message reception');
+}

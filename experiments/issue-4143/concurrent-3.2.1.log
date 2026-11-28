@@ -1,0 +1,6 @@
+# clink 3.2.1, experiments/issue-4143/clink-concurrent-writers.sh, 3 runs default lock + 2 runs --lock pid
+writers=12 exited_ok=12 links_present=12 lost_after_success=0
+writers=12 exited_ok=12 links_present=12 lost_after_success=0
+writers=12 exited_ok=12 links_present=12 lost_after_success=0
+writers=12 exited_ok=12 links_present=12 lost_after_success=0
+writers=12 exited_ok=12 links_present=12 lost_after_success=0

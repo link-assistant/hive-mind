@@ -1,0 +1,20 @@
+No bot state in /tmp/tmp.oCMpyVxgd1 yet.
+Instance: no instance has published state yet
+Intake: accepting
+Tasks: 0 running (0 isolated), 0 starting, 0 launching, 0 queued or waiting
+Idle: no running or starting tasks
+State: /tmp/tmp.oCMpyVxgd1/hive-mind-state.lino
+Drain requested: the instance stops taking new tasks within one publish interval.
+Note: no instance has published state yet.
+Instance: no instance has published state yet
+Intake: draining (redeploy), requested 2026-11-25T14:47:08.491Z by a44207acc906:72128, not acknowledged yet
+Tasks: 0 running (0 isolated), 0 starting, 0 launching, 0 queued or waiting
+Idle: no running or starting tasks
+State: /tmp/tmp.oCMpyVxgd1/hive-mind-state.lino
+⚠️ No running instance (no instance has published state yet); nothing to wait for.
+Instance: no instance has published state yet
+Intake: draining (redeploy), requested 2026-11-25T14:47:08.491Z by a44207acc906:72128, not acknowledged yet
+Tasks: 0 running (0 isolated), 0 starting, 0 launching, 0 queued or waiting
+Idle: no running or starting tasks
+State: /tmp/tmp.oCMpyVxgd1/hive-mind-state.lino
+DEPLOYED

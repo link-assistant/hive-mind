@@ -1,0 +1,9 @@
+clink 3.1.2 dir=/tmp/tmp.0SOy3QF7WV (overlay)
+lines=1 [no transactions] 13ms links_created=112 store_saves=4 commits=0
+lines=1 [--transactions --retention sized:64] 283ms links_created=860 store_saves=78 commits=10
+lines=10 [no transactions] 21ms links_created=283 store_saves=4 commits=0
+lines=10 [--transactions --retention sized:64] 5490ms links_created=5110 store_saves=672 commits=100
+lines=50 [no transactions] 157ms links_created=1003 store_saves=4 commits=0
+lines=50 [--transactions --retention sized:64] 44884ms links_created=23034 store_saves=3312 commits=500
+lines=100 [no transactions] 296ms links_created=1903 store_saves=4 commits=0
+lines=100 [--transactions --retention sized:64] 158555ms links_created=45124 store_saves=6612 commits=1000

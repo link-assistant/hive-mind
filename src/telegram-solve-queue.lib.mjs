@@ -67,7 +67,7 @@ function buildQueueItemTelegramOptions(item, verbose) {
  */
 class SolveQueueItem {
   constructor(options) {
-    this.id = `solve-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+    this.id = options.id || `solve-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`; // #4143: restored items keep their id
     this.url = options.url;
     this.args = options.args;
     this.ctx = options.ctx;
@@ -85,7 +85,7 @@ class SolveQueueItem {
     this.showLimits = options.showLimits === true;
     this.limitsAtStart = options.limitsAtStart || null;
     this.locale = options.locale || null;
-    this.createdAt = new Date();
+    this.createdAt = options.createdAt ? new Date(options.createdAt) : new Date();
     this.startedAt = null;
     this.status = QueueItemStatus.QUEUED;
     this.waitingReason = null;
@@ -179,6 +179,8 @@ export class SolveQueue {
     // Source of currently-executing detached sessions (with issue/PR URLs) used to list executing tasks in the detailed status (issue #1837).
     this.getRunningSessionItemsFn = options.getRunningSessionItems || getRunningSessionItems;
     this.autoStart = options.autoStart !== false;
+    // Issue #4143: while the instance drains, the consumer starts nothing; queued items stay for the next instance.
+    this.isIntakePausedFn = options.isIntakePaused || null;
     // Separate queues per tool type - claude tasks never block other tool tasks See: https://github.com/link-assistant/hive-mind/issues/1159
     this.queues = {
       claude: [],
@@ -812,7 +814,7 @@ export class SolveQueue {
     this.log('Consumer started with separate tool queues');
     while (this.isRunning) {
       // Check if all queues are empty
-      if (this.getTotalQueueLength() === 0) {
+      if (this.getTotalQueueLength() === 0 || this.isIntakePausedFn?.()) {
         await this.sleep(QUEUE_CONFIG.CONSUMER_POLL_INTERVAL_MS);
         continue;
       }
@@ -833,6 +835,10 @@ export class SolveQueue {
         // while process/session discovery is awaiting I/O.
         const reservation = await this.reserveStartSlot({ tool, locale: candidate.locale, url: candidate.url });
         if (!reservation.startReserved) continue;
+        if (this.isIntakePausedFn?.() || !this.isRunning || toolQueue[0] !== candidate) {
+          reservation.releaseStartReservation();
+          continue;
+        }
         // Remove the first item from this tool's queue
         const item = toolQueue.shift();
         if (!item) {

@@ -184,12 +184,12 @@ export async function resumeSessionsOnLaunch({ resumeTrackedSessions, reconcileI
  * mutation of module state (the `isShuttingDown` flag, aborting the launch
  * controller, clearing timers, stopping the queue) stays with the caller via the
  * injected `onShutdown` / `cleanup` closures, so the timer references live where
- * they are created. Neither logging nor cleanup is allowed to block `bot.stop`.
+ * they are created. Stop polling promptly, then wait for asynchronous cleanup.
  *
- * @returns {(signal: string) => void}
+ * @returns {(signal: string) => Promise<void>}
  */
 export function createShutdownHandler({ logger, getActiveSessionCount, verbose = false, onShutdown, cleanup, bot, processImpl = process, consoleImpl = console } = {}) {
-  return function handleShutdownSignal(signal) {
+  return async function handleShutdownSignal(signal) {
     if (typeof onShutdown === 'function') onShutdown();
     try {
       logger.event('bot_shutdown', {
@@ -203,11 +203,20 @@ export function createShutdownHandler({ logger, getActiveSessionCount, verbose =
       /* a logging failure must never block shutdown */
     }
     if (verbose) consoleImpl.log(`[VERBOSE] Signal: ${signal}, PID: ${processImpl.pid}, PPID: ${processImpl.ppid}`);
+    let cleanupResult;
     try {
-      if (typeof cleanup === 'function') cleanup();
+      if (typeof cleanup === 'function') cleanupResult = cleanup();
     } catch {
       /* cleanup is best-effort during shutdown */
     }
-    if (bot && typeof bot.stop === 'function') bot.stop(signal);
+    try {
+      if (bot && typeof bot.stop === 'function') bot.stop(signal);
+    } finally {
+      try {
+        await cleanupResult;
+      } catch {
+        /* asynchronous cleanup is best-effort too */
+      }
+    }
   };
 }

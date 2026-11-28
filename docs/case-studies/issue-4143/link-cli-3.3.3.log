@@ -1,0 +1,6 @@
+clink 3.3.3
+transaction rows=6, transaction IDs=1
+Error: Parse error: Nesting too deep at line 1, column 515: nesting depth exceeds the maximum of 64
+Import succeeded with --in-max-depth 72
+PID lock: writers=12 exited_ok=12 links_present=12
+PID lock: recovered immediately from a dead owner

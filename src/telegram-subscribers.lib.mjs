@@ -2,9 +2,10 @@
  * Telegram /subscribe and /unsubscribe command implementation (experimental).
  *
  * In-memory store of users who want to receive a private notification when
- * a /solve (or alias) work session completes. Storage is intentionally
- * volatile: subscriptions are cleared on bot restart since we do not yet
- * have a database (issue #1688).
+ * a /solve (or alias) work session completes. Since issue #4143 the bot
+ * instance state (`hive-mind-state.lino` plus its link-cli mirror) keeps the
+ * subscriptions: `restoreSubscribers` loads them on start and
+ * `onSubscribersChanged` lets the state publisher save each change.
  *
  * /subscribe and /unsubscribe work in both private chats and public group
  * chats. They store the Telegram user ID (not the chat ID) so a single
@@ -18,6 +19,39 @@ import { safeReply } from './telegram-safe-reply.lib.mjs';
 
 // Map<userId, { username, firstName, subscribedAt, sourceChatId }>
 const subscribers = new Map();
+const changeListeners = new Set();
+const notifyChange = () => {
+  for (const listener of changeListeners) {
+    try {
+      listener();
+    } catch (error) {
+      console.error('[subscribers] change listener failed:', error.message);
+    }
+  }
+};
+
+/** Call `listener` after every subscribe/unsubscribe (issue #4143). Returns an unsubscribe function. */
+export function onSubscribersChanged(listener) {
+  changeListeners.add(listener);
+  return () => changeListeners.delete(listener);
+}
+
+/**
+ * Load saved subscriptions (issue #4143). Users subscribed in this process
+ * keep their entry. Returns the number of restored users.
+ * @param {Array<{userId: number|string, username?: string, firstName?: string, subscribedAt?: string|Date, sourceChatId?: number}>} list
+ */
+export function restoreSubscribers(list = []) {
+  let restored = 0;
+  for (const entry of list) {
+    const userId = typeof entry?.userId === 'string' && /^-?\d+$/.test(entry.userId) ? Number(entry.userId) : entry?.userId;
+    if (!Number.isSafeInteger(userId) || subscribers.has(userId)) continue; // Telegram user ids are integers
+    const subscribedAt = entry.subscribedAt ? new Date(entry.subscribedAt) : new Date();
+    subscribers.set(userId, { username: entry.username || null, firstName: entry.firstName || null, subscribedAt: Number.isNaN(subscribedAt.getTime()) ? new Date() : subscribedAt, sourceChatId: entry.sourceChatId ?? null });
+    restored++;
+  }
+  return restored;
+}
 
 export function isSubscribed(userId) {
   if (userId === null || userId === undefined) return false;
@@ -33,12 +67,15 @@ export function addSubscriber(userId, info = {}) {
     subscribedAt: existed ? subscribers.get(userId).subscribedAt : new Date(),
     sourceChatId: info.sourceChatId ?? null,
   });
+  notifyChange();
   return !existed;
 }
 
 export function removeSubscriber(userId) {
   if (userId === null || userId === undefined) return false;
-  return subscribers.delete(userId);
+  const removed = subscribers.delete(userId);
+  if (removed) notifyChange();
+  return removed;
 }
 
 export function getSubscribers() {
@@ -51,6 +88,7 @@ export function getSubscriberCount() {
 
 export function resetSubscribersForTests() {
   subscribers.clear();
+  changeListeners.clear();
 }
 
 /**
@@ -133,7 +171,7 @@ export async function notifySubscribers({ bot, fromChatId, messageId, fallbackTe
   return summary;
 }
 
-const SUBSCRIBE_CONFIRMATION = '🔔 *Subscribed* (experimental)\n\n' + 'You will receive a private notification each time a /solve command finishes (in any chat where this bot runs).\n\n' + '⚠️ Subscriptions are kept in memory and are cleared whenever the bot restarts.\n\n' + '💡 If notifications never arrive, open a private chat with the bot and send /start so Telegram lets the bot DM you.\n\n' + 'Use /unsubscribe to stop receiving these notifications.';
+const SUBSCRIBE_CONFIRMATION = '🔔 *Subscribed* (experimental)\n\n' + 'You will receive a private notification each time a /solve command finishes (in any chat where this bot runs).\n\n' + '💾 Subscriptions are saved in the bot state file and survive bot restarts.\n\n' + '💡 If notifications never arrive, open a private chat with the bot and send /start so Telegram lets the bot DM you.\n\n' + 'Use /unsubscribe to stop receiving these notifications.';
 
 const UNSUBSCRIBE_CONFIRMATION = '🔕 *Unsubscribed*\n\n' + 'You will no longer receive private notifications when /solve commands finish.\n\n' + 'Use /subscribe to resume notifications.';
 

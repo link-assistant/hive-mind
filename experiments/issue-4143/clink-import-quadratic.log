@@ -1,0 +1,20 @@
+clink 3.2.1 dir=/dev/shm/tmp.gDP2VO0wij
+named_lines=100 links=300 import_ms=310
+named_lines=200 links=600 import_ms=1037
+named_lines=400 links=1200 import_ms=4564
+named_lines=800 links=2400 import_ms=19519
+clink 3.1.2 dir=/dev/shm/tmp.jz9Ey71eLV
+named_lines=100 links=300 import_ms=289
+named_lines=200 links=600 import_ms=1062
+named_lines=400 links=1200 import_ms=4647
+named_lines=800 links=2400 import_ms=19291
+## scan (default) vs --indexed-lookups
+clink 3.2.1 flags=''
+named_lines=400 links=1200 import_ms=4637 export_ms=6107
+named_lines=800 links=2400 import_ms=19058 export_ms=25172
+named_lines=1200 links=3600 import_ms=44392 export_ms=67616
+clink 3.2.1 flags='--indexed-lookups'
+named_lines=400 links=1200 import_ms=78 export_ms=58
+named_lines=800 links=2400 import_ms=166 export_ms=118
+named_lines=1200 links=3600 import_ms=278 export_ms=212
+named_lines=4800 links=14400 import_ms=922 export_ms=751

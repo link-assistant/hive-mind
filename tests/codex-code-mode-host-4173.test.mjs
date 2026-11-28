@@ -5,6 +5,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { test } from 'node:test';
 import { codexCodeModeHostFailure } from '../src/codex-code-mode-failure.lib.mjs';
+import { findCodexUsageLimitMessage, getCodexExecutionErrorSummary } from '../src/codex-health.lib.mjs';
 import { executeCodexCommand, getCodexErrorEventSummary, parseCodexExecJsonOutput } from '../src/codex.lib.mjs';
 import { classifyTaskFailure } from '../src/task-failure-signature.lib.mjs';
 
@@ -35,6 +36,7 @@ test('solve fails the first time Codex reports required Code Mode unavailable, e
   });
   assert.equal(result.success, false);
   assert.equal(result.result, codexCodeModeHostFailure);
+  assert.equal(result.errorInfo.events[0].message, JSON.parse(failedCell).item.message);
   assert.equal(invocations, 1);
 });
 
@@ -47,6 +49,19 @@ test('a completed turn can recover from optional Code Mode fallback or an echoed
   const summary = getCodexErrorEventSummary(state);
   assert.equal(summary.hasError, false);
   assert.equal(summary.ignoredCounts.item, 1);
+});
+
+test('a reported usage limit cannot cause a retry after the required host failed', () => {
+  const limit = 'Weekly limit reached';
+  const failedTurn = JSON.stringify({ type: 'turn.failed', error: { message: limit } });
+  const state = parseCodexExecJsonOutput(`${failedCell}\n${failedTurn}\n`);
+  assert.equal(getCodexErrorEventSummary(state).message, limit);
+  const summary = getCodexExecutionErrorSummary(state);
+  assert.equal(summary.message, codexCodeModeHostFailure);
+  assert.equal(
+    findCodexUsageLimitMessage(summary, message => ({ isUsageLimit: message === limit })),
+    null
+  );
 });
 
 test('task reports preserve the cause from direct solve, mergeability restarts, and resumed sessions', () => {

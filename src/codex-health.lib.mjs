@@ -80,17 +80,14 @@ export const getCodexErrorEventSummary = codexJsonState => {
   const addEvents = (type, items = []) => {
     for (const item of items) {
       const message = unwrapCodexErrorMessage(item?.message);
-      if (isCodexCodeModeHostError(message)) {
-        events.push({ type, message: codexCodeModeHostFailure });
-        continue;
-      }
       const event = { type, message: message || 'Codex emitted an error event' };
       const nonFatal = type === 'item' ? findNonFatalCodexItemError(message) : null;
       if (nonFatal) {
         ignoredEvents.push({ ...event, reason: nonFatal.reason });
         continue;
       }
-      if (type !== 'turn' && sessionSucceeded && !(type === 'item' && codeModeFailedClosed(message))) {
+      const requiredCodeModeFailure = isCodexCodeModeHostError(message) || (type === 'item' && codeModeFailedClosed(message));
+      if (type !== 'turn' && sessionSucceeded && !requiredCodeModeFailure) {
         ignoredEvents.push({
           ...event,
           reason: 'Codex turn completed successfully with no turn.failed; stray non-turn error event is non-fatal (Issue #1955)',
@@ -127,6 +124,13 @@ export const getCodexErrorEventSummary = codexJsonState => {
   };
 };
 
+/** Preserve native diagnostics in the events and use a stable solver verdict. */
+export const getCodexExecutionErrorSummary = codexJsonState => {
+  const summary = getCodexErrorEventSummary(codexJsonState);
+  if (!summary.events.some(event => isCodexCodeModeHostError(event.message))) return summary;
+  return { ...summary, message: codexCodeModeHostFailure };
+};
+
 /**
  * Issue #3215: the message to check for a usage limit. `message` prefers the
  * `turn.failed` text, which can be generic while an earlier stream `error`
@@ -138,6 +142,7 @@ export const getCodexErrorEventSummary = codexJsonState => {
  * @returns {(string|null)}
  */
 export const findCodexUsageLimitMessage = (errorSummary, detectUsageLimit) => {
+  if (errorSummary?.message === codexCodeModeHostFailure) return null;
   const candidates = [errorSummary?.message, ...(errorSummary?.events || []).filter(event => event.type !== 'item').map(event => event.message)];
   return candidates.find(message => message && detectUsageLimit(message)?.isUsageLimit) || null;
 };

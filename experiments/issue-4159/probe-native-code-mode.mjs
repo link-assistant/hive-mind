@@ -45,7 +45,10 @@ try {
   const catalogue = runCodex(['debug', 'models']);
   catalogue.child.stdin.end();
   const { stdout: models } = await catalogue;
-  assert.ok(JSON.parse(models).models.some(({ slug }) => slug === model), `${model} is missing from the installed Codex catalogue`);
+  assert.ok(
+    JSON.parse(models).models.some(({ slug }) => slug === model),
+    `${model} is missing from the installed Codex catalogue`
+  );
 
   await new Promise((resolve, reject) => {
     server.once('error', reject);
@@ -76,7 +79,10 @@ stream_max_retries = 0
   running.child.stdin.end();
   const { stdout, stderr } = await running;
   assert.equal(requests.length, 2, stdout);
-  assert.deepEqual(requests.map(body => body.model), [model, model]);
+  assert.deepEqual(
+    requests.map(body => body.model),
+    [model, model]
+  );
   const output = requests[1].input.find(item => item.type === 'custom_tool_call_output' && item.call_id === call.call_id)?.output;
   const text = Array.isArray(output) ? output.map(item => item.text).join('\n') : output;
   assert.ok(text?.includes(marker), `Code Mode did not return the command output: ${text}\n${stderr}`);

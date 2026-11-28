@@ -117,15 +117,20 @@ test('the registry resolver reads every tag page and ignores date tags', async (
   assert.equal(await resolveContainerLatest('ghcr.io/org/image', { current: '0.125.4' }, { fetchImpl }), '1.24.1');
 });
 
-test('a Formal AI pin advances when the matching crate and sidecar are published', async () => {
+test('a Formal AI pin advances when the matching crate and both sidecar architectures are published', async () => {
   const tags = ['latest', '0.357.2', '0.357.4', '0.357.5'];
-  const fetchImpl = async url => {
+  const registry = 'https://ghcr.io/v2/link-assistant/formal-ai';
+  let newManifest = { config: { digest: 'sha256:amd64' } };
+  const completeManifest = { manifests: ['amd64', 'arm64'].map(architecture => ({ platform: { os: 'linux', architecture } })) };
+  const fetchImpl = async (url, options) => {
     if (url === 'https://crates.io/api/v1/crates/formal-ai') {
       const versions = [{ num: '0.357.2' }, { num: '0.357.3' }, { num: '0.357.4', yanked: true }];
       return { ok: true, json: async () => ({ crate: { max_stable_version: '0.357.3' }, versions }) };
     }
-    assert.equal(url, 'https://ghcr.io/v2/link-assistant/formal-ai/tags/list?n=1000');
-    return { ok: true, json: async () => ({ tags }) };
+    if (url === `${registry}/tags/list?n=1000`) return { ok: true, json: async () => ({ tags }) };
+    assert.match(options.headers.accept, /application\/vnd\.oci\.image\.index\.v1\+json/);
+    assert.ok([`${registry}/manifests/0.357.2`, `${registry}/manifests/0.357.3`].includes(url), `unexpected ${url}`);
+    return { ok: true, json: async () => (url.endsWith('/0.357.2') ? completeManifest : newManifest) };
   };
   const records = parseDockerDependencyPins('ARG FORMAL_AI_VERSION=0.357.2\nRUN cargo install formal-ai --version "${FORMAL_AI_VERSION}" --locked', 'Dockerfile');
   const options = { resolveCrateLatest: name => resolveCrateLatest(name, { fetchImpl }) };
@@ -137,6 +142,11 @@ test('a Formal AI pin advances when the matching crate and sidecar are published
   assert.deepEqual(incomplete.stale, []);
 
   tags.push('0.357.3');
+  const amd64Only = await checkDependencyRecords(records, options);
+  assert.equal(amd64Only.current.length, 2);
+  assert.deepEqual(amd64Only.stale, []);
+
+  newManifest = completeManifest;
   const published = await checkDependencyRecords(records, options);
   assert.deepEqual(
     published.stale.map(record => record.latest),

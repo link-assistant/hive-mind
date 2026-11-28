@@ -160,6 +160,11 @@ class NativeCompilerOutput(unittest.TestCase):
         self.alias = self.binary.parent / "deps/codex-fixture"
         self.alias.parent.mkdir()
         os.link(self.binary, self.alias)
+        self.host = self.binary.with_name("codex-code-mode-host")
+        self.host.write_bytes(header + b"host")
+        self.host.chmod(0o755)
+        self.host_alias = self.alias.with_name("codex-code-mode-host-fixture")
+        os.link(self.host, self.host_alias)
         self.output = self.root / "artifact"
         self.prepared = {
             "schema": 1, "recipeSha256": self.digest,
@@ -206,6 +211,9 @@ class NativeCompilerOutput(unittest.TestCase):
         self.assertEqual(self.alias.stat().st_ino, before.st_ino)
         self.assertEqual((self.output / "codex").stat().st_nlink, 1)
         self.assertEqual((self.output / "codex").read_bytes(), self.alias.read_bytes())
+        self.assertEqual(self.host.stat().st_nlink, 2)
+        self.assertEqual((self.output / self.host.name).stat().st_nlink, 1)
+        self.assertEqual((self.output / self.host.name).read_bytes(), self.host_alias.read_bytes())
         self.assertEqual(self.executed, [self.output / "codex"])
         BUILD.verify_artifact(self.output, self.recipe, self.digest, "linux-x64", executable=True)
 
@@ -223,9 +231,13 @@ class NativeCompilerOutput(unittest.TestCase):
 
     def test_copy_is_private_before_admission_even_with_permissive_umask(self):
         original_read = os.read
+        names = {binary.stat().st_ino: binary.name for binary in (self.binary, self.host)}
+        observed = set()
 
         def observe(descriptor, amount):
-            self.assertEqual((self.output / "codex").stat().st_mode & 0o777, 0o600)
+            name = names[os.fstat(descriptor).st_ino]
+            self.assertEqual((self.output / name).stat().st_mode & 0o777, 0o600)
+            observed.add(name)
             return original_read(descriptor, amount)
 
         previous_umask = os.umask(0)
@@ -234,6 +246,7 @@ class NativeCompilerOutput(unittest.TestCase):
                 self.build()
         finally:
             os.umask(previous_umask)
+        self.assertEqual(observed, set(names.values()))
         self.assertEqual(self.executed, [self.output / "codex"])
 
     def test_linked_compiler_path_is_refused_without_execution(self):
@@ -316,10 +329,14 @@ class NativeArtifactAssembly(unittest.TestCase):
             header[:7] = b"\x7fELF\x02\x01\x01"
             header[16:18] = b"\x03\x00"
             header[18:20] = machine["elfMachine"].to_bytes(2, "little")
-            (directory / "codex").write_bytes(header)
-            # upload-artifact loses Unix executable modes. Assembly must admit
-            # bytes before restoring only the known CLI's executable mode.
-            (directory / "codex").chmod(0o644)
+            identities = {}
+            for name in self.recipe["executables"]:
+                binary = directory / name
+                binary.write_bytes(header + name.encode())
+                # upload-artifact loses Unix executable modes. Assembly must
+                # admit bytes before restoring each executable's mode.
+                binary.chmod(0o644)
+                identities[name] = {"sha256": BUILD.sha256(binary), "bytes": binary.stat().st_size}
             (directory / "recipe.json").write_bytes(recipe_bytes)
             (directory / "licenses").mkdir()
             (directory / "licenses/LICENSE").write_bytes(license_bytes)
@@ -331,11 +348,11 @@ class NativeArtifactAssembly(unittest.TestCase):
             }
             BUILD.write_json(directory / "source.json", prepared)
             BUILD.write_json(directory / "manifest.json", {
-                "schema": 1, "platform": platform, "target": machine["target"], "compiler": compiler,
+                "schema": 2, "platform": platform, "target": machine["target"], "compiler": compiler,
                 "version": self.recipe["version"], "upstreamCommit": self.recipe["upstreamCommit"],
                 "recipeSha256": self.digest, "sourceSha256": BUILD.sha256(directory / "source.json"),
                 "cargoEnvironment": self.recipe["cargoEnvironment"], "licenses": self.recipe["licenses"],
-                "binary": {"sha256": BUILD.sha256(directory / "codex"), "bytes": len(header)},
+                "executables": identities,
             })
         self.mock = patch.object(BUILD, "load_recipe", return_value=(self.recipe, self.digest))
         self.mock.start()
@@ -347,13 +364,26 @@ class NativeArtifactAssembly(unittest.TestCase):
         BUILD.assemble(self.artifacts, self.output)
         for platform in self.recipe["targets"]:
             BUILD.verify_artifact(self.output / platform, self.recipe, self.digest, platform, executable=True)
-            self.assertEqual((self.output / platform / "codex").stat().st_mode & 0o777, 0o755)
-        self.assertEqual((self.x64 / "codex").stat().st_mode & 0o777, 0o644)
+            for name in self.recipe["executables"]:
+                self.assertEqual((self.output / platform / name).stat().st_mode & 0o777, 0o755)
+                self.assertEqual((self.x64 / name).stat().st_mode & 0o777, 0o644)
 
     def test_changed_binary_is_refused_before_assembly(self):
         with (self.x64 / "codex").open("ab") as target:
             target.write(b"changed")
         with self.assertRaisesRegex(ValueError, "identity"):
+            BUILD.assemble(self.artifacts, self.output)
+        self.assertFalse(self.output.exists())
+
+    def test_changed_or_missing_code_mode_host_is_refused_before_assembly(self):
+        host = self.x64 / "codex-code-mode-host"
+        with host.open("r+b") as target:
+            target.seek(64)
+            target.write(b"X")
+        with self.assertRaisesRegex(ValueError, "identity changed: codex-code-mode-host"):
+            BUILD.assemble(self.artifacts, self.output)
+        host.unlink()
+        with self.assertRaisesRegex(ValueError, "Missing: codex-code-mode-host"):
             BUILD.assemble(self.artifacts, self.output)
         self.assertFalse(self.output.exists())
 
@@ -467,11 +497,12 @@ class NativeArtifactAssembly(unittest.TestCase):
     def test_variant_admits_an_executable_larger_than_the_other_file_limit(self):
         """Issue #4050, job 131520166341: the real 351,203,584-byte linux-x64 codex was
         refused because only names ending in "/codex" got the executable size limit."""
-        binary = self.x64 / "codex"
-        payload = binary.read_bytes() + bytes(BUILD.VARIANT_FILE_LIMIT + 1 - binary.stat().st_size)
-        binary.write_bytes(payload)
         manifest = json.loads((self.x64 / "manifest.json").read_text())
-        manifest["binary"] = {"sha256": BUILD.sha256(binary), "bytes": len(payload)}
+        for name in self.recipe["executables"]:
+            binary = self.x64 / name
+            with binary.open("r+b") as target:
+                target.truncate(BUILD.VARIANT_FILE_LIMIT + 1)
+            manifest["executables"][name] = {"sha256": BUILD.sha256(binary), "bytes": binary.stat().st_size}
         (self.x64 / "manifest.json").unlink()
         BUILD.write_json(self.x64 / "manifest.json", manifest)
         runtime = self.root / "assembled-large"

@@ -1,0 +1,18 @@
+clink 3.2.1 dir=/tmp/tmp.H3nyApfohu (overlay)
+lines=1 [no transactions] 12ms links_created=112 store_saves=4 commits=0
+lines=1 [--transactions --retention sized:64] 152ms links_created=112 store_saves=26 commits=10
+lines=10 [no transactions] 29ms links_created=283 store_saves=4 commits=0
+lines=10 [--transactions --retention sized:64] 1835ms links_created=283 store_saves=206 commits=100
+lines=50 [no transactions] 163ms links_created=1003 store_saves=4 commits=0
+lines=50 [--transactions --retention sized:64] 9307ms links_created=1003 store_saves=1006 commits=500
+lines=100 [no transactions] 384ms links_created=1903 store_saves=4 commits=0
+lines=100 [--transactions --retention sized:64] 19267ms links_created=1903 store_saves=2006 commits=1000
+clink 3.2.1 dir=/dev/shm/tmp.eINuRM991C (tmpfs)
+lines=1 [no transactions] 9ms links_created=112 store_saves=4 commits=0
+lines=1 [--transactions --retention sized:64] 15ms links_created=112 store_saves=26 commits=10
+lines=10 [no transactions] 21ms links_created=283 store_saves=4 commits=0
+lines=10 [--transactions --retention sized:64] 63ms links_created=283 store_saves=206 commits=100
+lines=50 [no transactions] 88ms links_created=1003 store_saves=4 commits=0
+lines=50 [--transactions --retention sized:64] 466ms links_created=1003 store_saves=1006 commits=500
+lines=100 [no transactions] 299ms links_created=1903 store_saves=4 commits=0
+lines=100 [--transactions --retention sized:64] 1569ms links_created=1903 store_saves=2006 commits=1000

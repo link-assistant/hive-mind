@@ -1,0 +1,8 @@
+clink 3.2.1
+depth=63 links_after=66 ok
+depth=64 links_after=67 ok
+depth=65 links_after=0 Error: Parse error: Nesting too deep at line 1, column 199: nesting depth exceeds the maximum of 64
+clink 3.1.2
+depth=63 links_after=66 ok
+depth=64 links_after=67 ok
+depth=65 links_after=0 Error: Parse error: Nesting too deep at line 1, column 199: nesting depth exceeds the maximum of 64

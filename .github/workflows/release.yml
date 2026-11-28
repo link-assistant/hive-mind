@@ -262,14 +262,14 @@ jobs:
       (needs.detect-changes.outputs.any-code-changed == 'true' || needs.detect-changes.outputs.workflow-changed == 'true')
     steps:
       - uses: actions/checkout@v7
-      - name: Use Node.js 24.x
-        uses: actions/setup-node@v7
-        with:
-          node-version: 24.x
+      - uses: actions/setup-node@v7
+        with: { node-version: 24.x }
       - name: Install dependencies
         run: node scripts/npm-install-with-retry.mjs install
       - name: Pre-install use-m packages (issue #1724)
         run: node scripts/preinstall-use-m-packages.mjs
+      - name: Check bot state with the Docker image's Link CLI version
+        run: bash scripts/check-bot-state-with-link-cli.sh
       - name: Run selected source test suite
         id: test-profile
         run: node scripts/source-test-profile.mjs

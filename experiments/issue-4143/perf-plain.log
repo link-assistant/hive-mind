@@ -1,0 +1,7 @@
+write 1: 14ms sizes: 102 2213 
+write 2: 15ms sizes: 175 2385 
+write 3: 13ms sizes: 248 2578 
+write 10: 12ms sizes: 542 3238 
+write 20: 14ms sizes: 962 4133 
+write 30: 16ms sizes: 1460 5009 
+write 40: 23ms sizes: 1970 5904 

@@ -1,0 +1,5 @@
+writers=12 exited_ok=8 links_present=2 lost_after_success=6
+      4     No such file or directory (os error 2)
+      4 Caused by:
+      3 Error: Failed to replace database: /tmp/tmp.MAUdMgFrTj/s.links
+      1 Error: Failed to replace database: /tmp/tmp.MAUdMgFrTj/s.names.links

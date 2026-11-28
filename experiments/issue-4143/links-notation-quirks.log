@@ -1,0 +1,29 @@
+value starting with # is a comment
+  input:  "root:\n  tag #release\n  next 1\n"
+  output: [["root","tag",[null,"next","1"]]]
+url with #fragment
+  input:  "root:\n  url https://x/y#frag\n  next 1\n"
+  output: ERROR Syntax error at line 2, column 12: Expected "(", [ \t], [\r\n], or [^ \t\n\r(:)] but ":" found.
+two empty strings on different lines
+  input:  "root:\n  a \"\"\n  b \"\"\n  next 1\n"
+  output: [["root",[null,"a","\n  b "],[null,"next","1"]]]
+empty string then a quoted value
+  input:  "root:\n  a \"\"\n  b \"x y\"\n"
+  output: [["root",[null,"a",""],[null,"b","x y"]]]
+empty single-quoted strings
+  input:  "root:\n  a ''\n  b ''\n"
+  output: [["root",[null,"a","\n  b "]]]
+colon inside an unquoted value
+  input:  "root:\n  time 12:30\n"
+  output: ERROR Syntax error at line 2, column 10: Expected "(", [ \t], [\r\n], or [^ \t\n\r(:)] but ":" found.
+quoted vs unquoted are indistinguishable
+  input:  "root:\n  a \"1\"\n  b 1\n"
+  output: [["root",[null,"a","1"],[null,"b","1"]]]
+doubled quote vs empty+empty
+  input:  "root:\n  a \"\"\"\"\n"
+  output: [["root",[null,"a",""]]]
+codec output "root:\n  a ''\n  b ''"
+  links-notation reads: [["root",[null,"a","\n  b "]]]
+codec output "root:\n  tag #release\n  next 1"
+  links-notation reads: [["root","tag",[null,"next","1"]]]
+(node_modules links-notation 0.31.5; the parser above is loaded through use-m as in src/lino.lib.mjs)

@@ -166,6 +166,7 @@ const ARG_SOURCES = {
   HIVE_MIND_COREPACK_VERSION: { kind: 'npm', name: 'corepack' }, // Issue #4082: Node >= 25 ships without corepack
   HIVE_MIND_NODE_VERSION: { kind: 'node', name: 'nodejs/node' },
   HIVE_MIND_VERSION: { kind: 'npm', name: '@link-assistant/hive-mind' },
+  LINK_CLI_VERSION: { kind: 'crate', name: 'link-cli' }, // Issue #4143: `clink` for the bot state doublets store
 };
 
 /** The box base images (`box`, `box-dind`, `box-essentials-dind`, ...) share link-foundation/box releases. */

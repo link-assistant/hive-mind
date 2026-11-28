@@ -31,6 +31,7 @@ git('init', '--initial-branch=main', remote);
 git('-C', remote, '-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.test', 'commit', '--allow-empty', '--message=Base');
 git('-C', remote, 'branch', 'issue-16-abcd1234');
 git('-C', remote, 'branch', 'release');
+git('-C', remote, 'update-ref', 'refs/pull/17/head', 'HEAD');
 const emptyRemote = path.join(root, 'empty-remote');
 git('init', '--initial-branch=main', emptyRemote);
 
@@ -66,6 +67,7 @@ for (const { scenario, target, options, branch } of [
   { scenario: 'new', target: '/issues/16', options: ['--dry-run', '--no-auto-continue'], branch: 'issue-16-[a-f0-9]{12}' },
   { scenario: 'orphan', target: '/issues/16', options: ['--only-prepare-command'], branch: 'issue-16-abcd1234' },
   { scenario: 'fork', target: '/issues/16', options: ['--dry-run', '--fork', '--no-auto-continue'], branch: 'issue-16-[a-f0-9]{12}' },
+  { scenario: 'fork-pull', target: '/pull/17', options: ['--only-prepare-command', '--fork', '--allow-to-push-to-contributors-pull-requests-as-maintainer'], branch: 'contributor-work' },
 ]) {
   test(`solve prepares the ${scenario} target without writing to GitHub`, { timeout: 35_000 }, async () => {
     const { code, output, commands } = await solveFixture(scenario, target, ...options);
@@ -78,6 +80,7 @@ for (const { scenario, target, options, branch } of [
       assert.match(output, /Using existing PR:\s+#17/);
       assert.match(output, /skipping session-start comment and draft conversion/);
     }
+    if (scenario === 'fork-pull') assert.match(output, /Fetched PR ref:\s+refs\/pull\/17\/head/);
   });
 }
 

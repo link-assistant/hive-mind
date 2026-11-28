@@ -9,7 +9,11 @@ case "$1 $2" in
   'auth token') exit 1 ;;
   'issue view') printf '%s\n' '{"number":16,"title":"Fixture issue","state":"OPEN"}'; exit 0 ;;
   'pr view')
-    printf '%s\n' '{"number":17,"headRefName":"issue-16-abcd1234","baseRefName":"main","body":"Fixes #16","state":"OPEN","mergeStateStatus":"CLEAN","isDraft":false,"headRepositoryOwner":{"login":"fixture"},"headRepository":{"name":"repo"}}'
+    if [ "$SOLVE_FIXTURE_CASE" = fork-pull ]; then
+      printf '%s\n' '{"number":17,"headRefName":"contributor-work","baseRefName":"main","body":"Fixes #16","state":"OPEN","mergeStateStatus":"CLEAN","isDraft":false,"headRepositoryOwner":{"login":"contributor"},"headRepository":{"name":"renamed"}}'
+    else
+      printf '%s\n' '{"number":17,"headRefName":"issue-16-abcd1234","baseRefName":"main","body":"Fixes #16","state":"OPEN","mergeStateStatus":"CLEAN","isDraft":false,"headRepositoryOwner":{"login":"fixture"},"headRepository":{"name":"repo"}}'
+    fi
     exit 0
     ;;
   'pr list')

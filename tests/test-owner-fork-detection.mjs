@@ -158,7 +158,7 @@ runTest('owner detection is inside argv.fork block', () => {
   const content = readFileSync(`${srcDir}/solve.repository.lib.mjs`, 'utf8');
 
   // Find the argv.fork block
-  const forkBlockStart = content.indexOf('if (argv.fork)');
+  const forkBlockStart = content.search(/\bif \(argv\.fork(?=\s|\))/u);
   if (forkBlockStart === -1) {
     throw new Error('argv.fork check not found');
   }

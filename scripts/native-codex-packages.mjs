@@ -35,7 +35,7 @@ import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { promisify } from 'node:util';
 
-import { findOversizedTarballs, formatOversizedReport, NPM_TARBALL_BUDGET_BYTES } from './check-npm-tarball-size.mjs';
+import { findOversizedTarballs, formatOversizedReport, NPM_TARBALL_BUDGET_BYTES, parseNpmPackEntries } from './check-npm-tarball-size.mjs';
 import { describeNonRetryableFailure, isVersionConflict } from './publish-failure-classifier.mjs';
 import { waitUntilInstallable } from './npm-installable.lib.mjs';
 import { analyzePublishResult, runCommand, sleep } from './publish-to-npm.mjs';
@@ -98,7 +98,8 @@ export async function packVariants({ out, runtime = path.join(repository, 'src/n
       await copyRuntime(path.join(runtime, platform), path.join(stage, 'runtime', platform));
       await fs.writeFile(path.join(stage, 'package.json'), `${JSON.stringify(variantManifest(main, platform), null, 2)}\n`);
       const { stdout } = await execute('npm', ['pack', '--json', '--ignore-scripts', '--pack-destination', path.resolve(out)], { cwd: stage, maxBuffer: 1 << 22 });
-      const [entry] = JSON.parse(stdout);
+      const [entry] = parseNpmPackEntries(stdout);
+      if (!entry?.filename) throw new Error(`npm pack did not report the native runtime archive for ${platform}.`);
       packed.push({ platform, alias: variantName(main.name, platform), tag: variantTag(platform), name: entry.name, version: entry.version, size: entry.size, files: entry.files, archive: path.join(path.resolve(out), entry.filename), filename: entry.filename });
     } finally {
       await fs.rm(stage, { recursive: true, force: true });

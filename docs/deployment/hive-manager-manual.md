@@ -17,14 +17,14 @@ image_id=$(docker image inspect --format '{{.Id}}' "$image")
   set -e
   umask 077
   mkdir -- "$state"
-  mkdir -- "$state"/{claude,codex,agents,gh,git,hive,start-command,start-logs}
+  mkdir -- "$state"/{claude,codex,agent-data,opencode-data,gemini-history,gh,git,hive,start-command,start-logs}
   printf '{}\n' > "$state/claude.json"
   touch "$state/git/config"
   docker run --rm --pull never --network none --user root --entrypoint bash \
     --mount "type=bind,source=$state,target=/state" "$image_id" -c '
       set -e
       umask 077
-      for config in claude/settings.json codex/config.toml; do
+      for config in claude/settings.json codex/config.toml claude.json; do
         if [ -f "/home/box/.$config" ]; then
           cp -- "/home/box/.$config" "/state/$config"
         fi
@@ -41,13 +41,16 @@ state_mounts=(
   --mount "type=bind,source=$state/claude,target=/home/box/.claude"
   --mount "type=bind,source=$state/claude.json,target=/home/box/.claude.json"
   --mount "type=bind,source=$state/codex,target=/home/box/.codex"
-  --mount "type=bind,source=$state/agents,target=/home/box/.agents"
+  --mount "type=bind,source=$state/agent-data,target=/home/box/.local/share/link-assistant-agent"
+  --mount "type=bind,source=$state/opencode-data,target=/home/box/.local/share/opencode"
+  --mount "type=bind,source=$state/gemini-history,target=/home/box/.hive-mind-gemini-history"
   --mount "type=bind,source=$state/gh,target=/home/box/.config/gh"
   --mount "type=bind,source=$state/git,target=/home/box/.config/git"
   --mount "type=bind,source=$state/hive,target=/home/box/.hive-mind"
   --mount "type=bind,source=$state/start-command,target=/home/box/.start-command"
   --mount "type=bind,source=$state/start-logs,target=/tmp/start-command/logs"
   --env GIT_CONFIG_GLOBAL=/home/box/.config/git/config
+  --env GEMINI_HISTORY_HOME=/home/box/.hive-mind-gemini-history
 )
 runtime=(--env TELEGRAM_ISOLATION=screen)
 docker run -d --pull never --name "$name" --restart unless-stopped --init --user box \

@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { ensureUseM } from './use-m-bootstrap.lib.mjs';
+import { isPrepareOnly } from './formal-ai.lib.mjs';
 
 // Repository management module for solve command
 // Extracted from solve.mjs to keep files under 1500 lines
@@ -353,9 +354,10 @@ export const setupRepository = async (argv, owner, repo, forkOwner = null, issue
   let repoToClone = `${owner}/${repo}`;
   let forkedRepo = null;
   let upstreamRemote = null;
+  const prepareOnly = isPrepareOnly(argv);
   // Priority 1: Check --fork flag first (user explicitly wants to use their own fork)
   // This takes precedence over forkOwner to avoid trying to access someone else's fork
-  if (argv.fork) {
+  if (argv.fork && !(prepareOnly && forkOwner)) {
     await log(`\n${formatAligned('🍴', 'Fork mode:', 'ENABLED')}`);
     await log(`${formatAligned('', 'Checking fork status...', '')}\n`);
 
@@ -369,6 +371,7 @@ export const setupRepository = async (argv, owner, repo, forkOwner = null, issue
     // Check if user owns the repository (Issue #1206)
     // GitHub doesn't allow forking your own repositories and returns HTTP 403
     // When --fork is explicitly used, fail with a clear error and suggest --auto-fork
+    if (prepareOnly && currentUser === owner) return { repoToClone, forkedRepo, upstreamRemote, prForkOwner: forkOwner };
     if (currentUser === owner) {
       await log('');
       await log(`${formatAligned('❌', 'CANNOT FORK OWN REPOSITORY', '')}`, { level: 'error' });
@@ -394,7 +397,7 @@ export const setupRepository = async (argv, owner, repo, forkOwner = null, issue
     // Detect if we're trying to fork a repository that shares the same root
     // as an existing fork we already have
     await log(`${formatAligned('🔍', 'Detecting fork conflicts...', '')}`);
-    const rootRepo = await getRootRepository(owner, repo);
+    const rootRepo = prepareOnly ? null : await getRootRepository(owner, repo);
     if (rootRepo) {
       const existingFork = await checkExistingForkOfRoot(rootRepo);
 
@@ -437,7 +440,7 @@ export const setupRepository = async (argv, owner, repo, forkOwner = null, issue
         }
       }
       await log(`${formatAligned('✅', 'No fork conflict:', 'Safe to proceed')}`);
-    } else {
+    } else if (!prepareOnly) {
       await log(`${formatAligned('⚠️', 'Warning:', 'Could not determine root repository')}`);
     }
 
@@ -485,6 +488,9 @@ export const setupRepository = async (argv, owner, repo, forkOwner = null, issue
         repoToClone = existingForkName;
         forkedRepo = existingForkName;
         upstreamRemote = `${owner}/${repo}`;
+      } else if (prepareOnly) {
+        await log(`🧪 Dry run: using ${repoToClone} because the fork could not be validated.`, { verbose: true });
+        return { repoToClone, forkedRepo, upstreamRemote, prForkOwner: forkOwner };
       } else if (forkValidation.isNetworkError) {
         // Issue #1311: Handle network errors separately from fork mismatch errors
         await log('');
@@ -607,6 +613,10 @@ export const setupRepository = async (argv, owner, repo, forkOwner = null, issue
       }
     }
     if (!existingForkName) {
+      if (prepareOnly) {
+        await log(`🧪 Dry run: using ${repoToClone} while a personal fork is unavailable.`, { verbose: true });
+        return { repoToClone, forkedRepo, upstreamRemote, prForkOwner: forkOwner };
+      }
       // Need to create fork with retry logic for concurrent scenarios
       await log(`${formatAligned('🔄', 'Creating fork...', '')}`);
       const maxForkRetries = 5;
@@ -924,7 +934,7 @@ Thank you!`;
       repoToClone = actualForkName;
       forkedRepo = actualForkName;
       upstreamRemote = `${owner}/${repo}`;
-    } else {
+    } else if (!prepareOnly) {
       await log(`${formatAligned('❌', 'Error:', 'Fork not accessible')}`);
       await log(`${formatAligned('', 'Fork tried:', expectedForkName)}`);
       await log(`${formatAligned('', 'Suggestion:', forkRepoName ? "The fork's repo name may differ from the base repo name" : `Fork name was guessed from base repo name '${repo}' (headRepository.name unavailable)`)}`);

@@ -45,11 +45,11 @@ export const SOLVE_OPTION_DEFINITIONS = {
   },
   'only-prepare-command': {
     type: 'boolean',
-    description: 'Only prepare and print the claude command without executing it',
+    description: 'Prepare and print the AI command without running it or writing to GitHub',
   },
   'dry-run': {
     type: 'boolean',
-    description: 'Prepare everything but do not execute Claude (alias for --only-prepare-command)',
+    description: 'Prepare and print the AI command without running it or writing to GitHub (alias for --only-prepare-command)',
     alias: 'n',
   },
   'skip-tool-connection-check': {

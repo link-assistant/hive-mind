@@ -83,32 +83,10 @@ runTest('QUEUE_CONFIG has required properties (ratio format)', () => {
 
 // Test 2: Check default thresholds match requirements (ratio format)
 runTest('Default thresholds match requirements (ratio format)', () => {
-  // Current queue defaults:
-  // - RAM: 0.65 (65%)
-  // - CPU: 0.65 (65%)
-  // - Disk: 0.65 (65% usage)
-  // - Claude 5 hour session: 0.65 (65%)
-  // - Claude weekly: 0.97 (97%)
-  // - GitHub API: 0.5 (50%)
-  // - Min interval: 10 minutes
-
-  if (QUEUE_CONFIG.RAM_THRESHOLD !== 0.65) {
-    throw new Error(`RAM threshold should be 0.65, got ${QUEUE_CONFIG.RAM_THRESHOLD}`);
-  }
-  if (QUEUE_CONFIG.CPU_THRESHOLD !== 0.65) {
-    throw new Error(`CPU threshold should be 0.65, got ${QUEUE_CONFIG.CPU_THRESHOLD}`);
-  }
-  if (QUEUE_CONFIG.DISK_THRESHOLD !== 0.65) {
-    throw new Error(`Disk threshold should be 0.65, got ${QUEUE_CONFIG.DISK_THRESHOLD}`);
-  }
-  if (QUEUE_CONFIG.CLAUDE_5_HOUR_SESSION_THRESHOLD !== 0.65) {
-    throw new Error(`Claude 5 hour session threshold should be 0.65, got ${QUEUE_CONFIG.CLAUDE_5_HOUR_SESSION_THRESHOLD}`);
-  }
-  if (QUEUE_CONFIG.CLAUDE_WEEKLY_THRESHOLD !== 0.97) {
-    throw new Error(`Claude weekly threshold should be 0.97, got ${QUEUE_CONFIG.CLAUDE_WEEKLY_THRESHOLD}`);
-  }
-  if (QUEUE_CONFIG.GITHUB_API_THRESHOLD !== 0.5) {
-    throw new Error(`GitHub API threshold should be 0.5, got ${QUEUE_CONFIG.GITHUB_API_THRESHOLD}`);
+  for (const [key, value] of Object.entries(QUEUE_CONFIG)) {
+    if (key.endsWith('_THRESHOLD') && value !== 0.618) {
+      throw new Error(`${key} should be 0.618, got ${value}`);
+    }
   }
   if (QUEUE_CONFIG.MIN_START_INTERVAL_MS !== 600000) {
     throw new Error(`Min interval should be 600000ms, got ${QUEUE_CONFIG.MIN_START_INTERVAL_MS}`);
@@ -274,14 +252,14 @@ runTest('Queue getQueueSummary', () => {
 });
 
 // Test 10: Queue formatStatus
-runTest('Queue formatStatus', () => {
+await runTestAsync('Queue formatStatus', async () => {
   resetSolveQueue();
   resetLimitCache();
-  const queue = new SolveQueue();
+  const queue = new SolveQueue({ autoStart: false, getToolProcessSnapshot: async () => [], getRunningSessionItems: async () => [] });
 
-  const status1 = queue.formatStatus();
-  if (!status1.includes('empty')) {
-    throw new Error('Empty queue should show "empty"');
+  const status1 = await queue.formatStatus({ locale: 'en' });
+  if (!status1.includes('claude (pending: 0, processing: 0)')) {
+    throw new Error('Empty queue should show zero pending and processing tasks');
   }
 
   const mockCtx = { telegram: {}, from: { id: 123 } };
@@ -295,9 +273,9 @@ runTest('Queue formatStatus', () => {
     tool: 'claude',
   });
 
-  const status2 = queue.formatStatus();
-  if (!status2.includes('pending')) {
-    throw new Error('Non-empty queue should show pending count');
+  const status2 = await queue.formatStatus({ locale: 'en' });
+  if (!status2.includes('claude (pending: 1, processing: 0)')) {
+    throw new Error('Non-empty queue should show one pending task');
   }
 
   queue.stop();

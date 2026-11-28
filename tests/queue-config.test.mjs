@@ -63,14 +63,9 @@ test('QUEUE_CONFIG thresholds are valid ratios (0.0 - 1.0)', () => {
 });
 
 test('QUEUE_CONFIG has expected default values', () => {
-  assert.equal(QUEUE_CONFIG.RAM_THRESHOLD, 0.65, 'RAM_THRESHOLD should be 0.65');
-  assert.equal(QUEUE_CONFIG.CPU_THRESHOLD, 0.65, 'CPU_THRESHOLD should be 0.65');
-  // Issue #2045: start backing off disk-heavy work at 65% used.
-  assert.equal(QUEUE_CONFIG.DISK_THRESHOLD, 0.65, 'DISK_THRESHOLD should be 0.65');
-  assert.equal(QUEUE_CONFIG.CLAUDE_5_HOUR_SESSION_THRESHOLD, 0.65, 'CLAUDE_5_HOUR_SESSION_THRESHOLD should be 0.65');
-  assert.equal(QUEUE_CONFIG.CLAUDE_WEEKLY_THRESHOLD, 0.97, 'CLAUDE_WEEKLY_THRESHOLD should be 0.97');
-  // Issue #1726: lowered default from 0.75 to 0.50 for safer headroom.
-  assert.equal(QUEUE_CONFIG.GITHUB_API_THRESHOLD, 0.5, 'GITHUB_API_THRESHOLD should be 0.5');
+  for (const [key, value] of Object.entries(QUEUE_CONFIG)) {
+    if (key.endsWith('_THRESHOLD')) assert.equal(value, 0.618, key);
+  }
   // Issue #2015: startup pacing is global and needs enough time for metrics to settle.
   assert.equal(QUEUE_CONFIG.MIN_START_INTERVAL_MS, 600000, 'MIN_START_INTERVAL_MS should be 10 minutes');
 });
@@ -104,15 +99,9 @@ test('DISPLAY_THRESHOLDS values are percentages (0 - 100)', () => {
 });
 
 test('DISPLAY_THRESHOLDS has expected default values', () => {
-  assert.equal(DISPLAY_THRESHOLDS.RAM, 65, 'RAM should be 65');
-  assert.equal(DISPLAY_THRESHOLDS.CPU, 65, 'CPU should be 65');
-  assert.equal(DISPLAY_THRESHOLDS.DISK, 65, 'DISK should be 65');
-  assert.equal(DISPLAY_THRESHOLDS.CLAUDE_5_HOUR_SESSION, 65, 'CLAUDE_5_HOUR_SESSION should be 65');
-  assert.equal(DISPLAY_THRESHOLDS.CLAUDE_WEEKLY, 97, 'CLAUDE_WEEKLY should be 97');
-  assert.equal(DISPLAY_THRESHOLDS.CODEX_5_HOUR_SESSION, 65, 'CODEX_5_HOUR_SESSION should be 65');
-  assert.equal(DISPLAY_THRESHOLDS.CODEX_WEEKLY, 97, 'CODEX_WEEKLY should be 97');
-  // Issue #1726: lowered default from 75 to 50.
-  assert.equal(DISPLAY_THRESHOLDS.GITHUB_API, 50, 'GITHUB_API should be 50');
+  for (const [key, value] of Object.entries(DISPLAY_THRESHOLDS)) {
+    assert.equal(value, 61.8, key);
+  }
 });
 
 // ============================================================================
@@ -148,10 +137,12 @@ test('thresholdToPercent converts ratios to percentages correctly', () => {
   assert.equal(thresholdToPercent(0.75), 75, '0.75 should convert to 75');
 });
 
-test('thresholdToPercent rounds correctly', () => {
-  assert.equal(thresholdToPercent(0.654), 65, '0.654 should round to 65');
-  assert.equal(thresholdToPercent(0.655), 66, '0.655 should round to 66');
-  assert.equal(thresholdToPercent(0.999), 100, '0.999 should round to 100');
+test('thresholdToPercent preserves fractional percentages without floating-point artifacts', () => {
+  assert.equal(thresholdToPercent(0.618), 61.8);
+  assert.equal(thresholdToPercent(0.654), 65.4);
+  assert.equal(thresholdToPercent(0.655), 65.5);
+  assert.equal(thresholdToPercent(0.999), 99.9);
+  assert.equal(thresholdToPercent(0.58), 58);
 });
 
 // ============================================================================

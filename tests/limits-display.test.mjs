@@ -167,16 +167,10 @@ test('getProgressBar threshold marker replaces one block', () => {
 });
 
 test('DISPLAY_THRESHOLDS constants are defined', () => {
-  assert.ok(DISPLAY_THRESHOLDS !== undefined, 'DISPLAY_THRESHOLDS should be defined');
-  assert.equal(DISPLAY_THRESHOLDS.RAM, 65, 'RAM threshold should be 65');
-  assert.equal(DISPLAY_THRESHOLDS.CPU, 65, 'CPU threshold should be 65');
-  assert.equal(DISPLAY_THRESHOLDS.DISK, 65, 'DISK threshold should be 65');
-  assert.equal(DISPLAY_THRESHOLDS.CLAUDE_5_HOUR_SESSION, 65, 'CLAUDE_5_HOUR_SESSION threshold should be 65');
-  assert.equal(DISPLAY_THRESHOLDS.CLAUDE_WEEKLY, 97, 'CLAUDE_WEEKLY threshold should be 97');
-  assert.equal(DISPLAY_THRESHOLDS.CODEX_5_HOUR_SESSION, 65, 'CODEX_5_HOUR_SESSION threshold should be 65');
-  assert.equal(DISPLAY_THRESHOLDS.CODEX_WEEKLY, 97, 'CODEX_WEEKLY threshold should be 97');
-  // Issue #1726: lowered default from 75 to 50.
-  assert.equal(DISPLAY_THRESHOLDS.GITHUB_API, 50, 'GITHUB_API threshold should be 50');
+  assert.equal(Object.keys(DISPLAY_THRESHOLDS).length, 8);
+  for (const [key, value] of Object.entries(DISPLAY_THRESHOLDS)) {
+    assert.equal(value, 61.8, key);
+  }
 });
 
 test('formatCodexLimitsSection uses ChatGPT subscription heading and hides unused Codex details', () => {
@@ -879,7 +873,7 @@ console.log('\n📋 Warning Emoji Tests (Issue #1242)\n');
 test('formatUsageMessage shows warning emoji when session exceeds threshold', () => {
   const usage = {
     currentSession: {
-      percentage: 70, // Above 65% threshold
+      percentage: 70, // Above 61.8% threshold
       resetTime: 'Jan 18, 5:00pm UTC',
       resetsAt: new Date(Date.now() + 3600000).toISOString(),
     },
@@ -888,19 +882,19 @@ test('formatUsageMessage shows warning emoji when session exceeds threshold', ()
   };
 
   const message = formatUsageMessage(usage);
-  // Should show warning emoji for 70% (above 65% threshold)
-  assert.ok(message.includes('70%') && message.includes('⚠️'), 'Should show warning emoji when session exceeds 65% threshold');
+  // Should show warning emoji for 70% (above 61.8% threshold)
+  assert.ok(message.includes('70%') && message.includes('⚠️'), 'Should show warning emoji when session exceeds 61.8% threshold');
 });
 
 test('formatUsageMessage does not show warning emoji when below threshold', () => {
   const usage = {
     currentSession: {
-      percentage: 50, // Below 65% threshold
+      percentage: 50, // Below 61.8% threshold
       resetTime: 'Jan 18, 5:00pm UTC',
       resetsAt: new Date(Date.now() + 3600000).toISOString(),
     },
-    allModels: { percentage: 30, resetTime: null, resetsAt: null }, // Below 97%
-    sonnetOnly: { percentage: 20, resetTime: null, resetsAt: null }, // Below 97%
+    allModels: { percentage: 30, resetTime: null, resetsAt: null }, // Below 61.8%
+    sonnetOnly: { percentage: 20, resetTime: null, resetsAt: null }, // Below 61.8%
   };
 
   const message = formatUsageMessage(usage);
@@ -916,13 +910,13 @@ test('formatUsageMessage shows warning for system resources when exceeded', () =
   };
 
   const cpuLoad = {
-    usagePercentage: 70, // Above 65% threshold
+    usagePercentage: 70, // Above 61.8% threshold
     loadAvg5: 2.8,
     cpuCount: 4,
   };
 
   const memory = {
-    usedPercentage: 70, // Above 65% threshold
+    usedPercentage: 70, // Above 61.8% threshold
     usedBytes: 7 * 1024 * 1024 * 1024,
     totalBytes: 10 * 1024 * 1024 * 1024,
   };

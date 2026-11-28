@@ -35,7 +35,7 @@ import { buildMcpConfigWithoutPlaywright, ensureClaudePlaywrightMcpServer } from
 import { resolveClaudeSessionToolFlags } from './useless-tools.lib.mjs';
 import { resolveRepositoryClaudePluginArgs } from './claude-repository-config.lib.mjs';
 import { ensureClaudeQuietConfig } from './claude-quiet-config.lib.mjs';
-import { prepareClaudeTaskHome } from './claude-task-home.lib.mjs';
+import { prepareDirectClaudeTaskHome } from './claude-task-home.lib.mjs';
 import { fetchModelInfo } from './model-info.lib.mjs';
 import { classifyRetryableError, createTransientRetryBudget, describeClassificationEvidence, logExecutionContext, prepareRetryAfterError, waitWithCountdown } from './tool-retry.lib.mjs';
 import { createRetryProgressObserver } from './tool-retry-progress.lib.mjs';
@@ -361,10 +361,7 @@ export const executeClaudeCommand = async params => {
       claudeArgs = `--resume ${argv.resume} ${claudeArgs}`;
     }
     const claudeWorkLanguage = await import('./i18n.lib.mjs').then(i18n => i18n.getWorkLocale?.() ?? null).catch(() => null);
-    if (!useRouter && !process.env.HIVE_MIND_PARENT_SESSION_ID && !taskHome) {
-      await ensureClaudeAuthAuthority({ env: process.env, establish: false, verbose: !!argv.verbose });
-      taskHome = await prepareClaudeTaskHome({ enablePlaywright: argv.playwrightMcp !== false, log });
-    }
+    taskHome ??= await prepareDirectClaudeTaskHome({ useRouter, enablePlaywright: argv.playwrightMcp !== false, verbose: !!argv.verbose, log });
     await ensureClaudeQuietConfig({ log, workLanguage: claudeWorkLanguage, settingsPath: taskHome?.settingsPath });
     const { mcpConfigPath, disallowedToolsList } = await resolveClaudeSessionToolFlags({ argv, log, fallbackBuildMcpConfigWithoutPlaywright: buildMcpConfigWithoutPlaywright, projectDir: tempDir, mcpStatePath: taskHome?.mcpStatePath });
     if (mcpConfigPath) claudeArgs += ` --strict-mcp-config --mcp-config "${mcpConfigPath}"`;

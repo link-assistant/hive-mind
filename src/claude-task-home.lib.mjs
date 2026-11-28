@@ -1,6 +1,7 @@
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+import { ensureClaudeAuthAuthority } from './claude-auth-authority.lib.mjs';
 import { resolveClaudeConfigDirectory, resolveClaudeCredentialDirectory } from './claude-paths.lib.mjs';
 import { CLAUDE_PROMPT_CACHE_DEFAULTS, isClaudePromptCacheTtl } from './claude-prompt-cache.lib.mjs';
 import { prepareStorageDirectory } from './storage-directory.lib.mjs';
@@ -10,6 +11,13 @@ const playwright = {
   command: 'npx',
   args: ['-y', '@playwright/mcp@latest', '--isolated', '--headless', '--no-sandbox', '--timeout-action=600000', '--viewport-size', '1920x1080'],
 };
+
+/** Docker and router tasks start with their own configuration. */
+export async function prepareDirectClaudeTaskHome({ useRouter, enablePlaywright, verbose, log, env = process.env }) {
+  if (useRouter || env.HIVE_MIND_PARENT_SESSION_ID) return;
+  await ensureClaudeAuthAuthority({ env, establish: false, verbose });
+  return prepareClaudeTaskHome({ env, enablePlaywright, log });
+}
 
 async function taskPreferences(configDir, log) {
   let settings;

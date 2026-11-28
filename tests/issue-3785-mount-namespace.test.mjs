@@ -8,6 +8,7 @@ import { mapDockerMountSources, resolveDockerIsolationMountSources } from '../sr
 import { buildDockerIsolationStartArgs, executeWithIsolation } from '../src/isolation-runner.lib.mjs';
 
 const diagnostic = 'Docker mount backing could not be verified. Persist the source in a root-container bind or volume visible to the selected local daemon before launching a task.';
+const sourceDiagnostic = source => diagnostic.replace('verified.', `verified for source ${JSON.stringify(source)}.`);
 const source = '/operator/.codex/sessions';
 const mount = { source, target: '/home/box/.codex/sessions', readOnly: true };
 const parent = { Type: 'bind', Source: '/host/state', Destination: '/operator' };
@@ -16,11 +17,11 @@ test('root bind and nested volume paths use the most specific daemon source', ()
   assert.deepEqual(mapDockerMountSources([mount], [parent, { Type: 'volume', Source: '/var/lib/docker/volumes/evidence/_data', Destination: source }]), [{ ...mount, source: '/var/lib/docker/volumes/evidence/_data' }]);
   assert.deepEqual(mapDockerMountSources([mount], [{ ...parent, Destination: '/', Source: '/daemon/root' }]), [{ ...mount, source: '/daemon/root/operator/.codex/sessions' }]);
 });
-for (const [name, mounts, parents] of [
-  ['unpersisted layer', [mount], []],
-  ['prefix sibling', [mount], [{ ...parent, Destination: '/oper' }]],
-  ['duplicate mapping', [mount], [parent, parent]],
-  ['unsupported nested mount', [mount], [parent, { Type: 'tmpfs', Destination: '/operator/.codex' }]],
+for (const [name, mounts, parents, expected = diagnostic] of [
+  ['unpersisted layer', [mount], [], sourceDiagnostic(source)],
+  ['prefix sibling', [mount], [{ ...parent, Destination: '/oper' }], sourceDiagnostic(source)],
+  ['duplicate mapping', [mount], [parent, parent], sourceDiagnostic(source)],
+  ['unsupported nested mount', [mount], [parent, { Type: 'tmpfs', Destination: '/operator/.codex' }], sourceDiagnostic(source)],
   ['relative path', [{ ...mount, source: 'operator/auth.json' }], [parent]],
   ['path traversal', [{ ...mount, source: '/operator/../private' }], [parent]],
   ['ambiguous volume argument', [{ ...mount, source: '/operator/private:other' }], [parent]],
@@ -29,7 +30,7 @@ for (const [name, mounts, parents] of [
   test(`daemon mount mapping rejects ${name}`, () =>
     assert.throws(
       () => mapDockerMountSources(mounts, parents),
-      error => error.message === diagnostic
+      error => error.message === expected
     ));
 }
 
@@ -123,7 +124,8 @@ for (const variant of ['remote', 'malformed', 'changed', 'symlink']) {
       },
     };
     const run = async (_binary, args) => ({ stdout: args[0] === 'run' ? (variant === 'malformed' ? 'private-response-sentinel' : JSON.stringify([value.identity])) : '' });
-    await assert.rejects(resolveDockerIsolationMountSources({ mounts: value.mounts, image: 'synthetic:image', env: { DOCKER_HOST: variant === 'remote' ? 'tcp://remote:2376' : 'unix:///daemon.sock' }, run, io }), error => error.message === diagnostic);
+    const expected = ['changed', 'symlink'].includes(variant) ? sourceDiagnostic(value.auth) : diagnostic;
+    await assert.rejects(resolveDockerIsolationMountSources({ mounts: value.mounts, image: 'synthetic:image', env: { DOCKER_HOST: variant === 'remote' ? 'tcp://remote:2376' : 'unix:///daemon.sock' }, run, io }), error => error.message === expected);
   });
 }
 

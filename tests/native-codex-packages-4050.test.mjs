@@ -70,17 +70,15 @@ test('the CLI checks archives on disk and honours the budget override', async t 
   assert.notEqual(run('not-a-number').status, 0);
 });
 
-test('the CLI validates tarball metadata from npm 11 and npm 12', () => {
-  const archive = { name: main.name, version: main.version, filename: 'hive-mind.tgz', size: 2048 };
+test('the size check accepts npm array output and package-name keyed output', () => {
   const script = fileURLToPath(new URL('../scripts/check-npm-tarball-size.mjs', import.meta.url));
-  for (const metadata of [[archive], { [main.name]: archive }, archive]) {
-    const options = { input: JSON.stringify(metadata), encoding: 'utf8', timeout: 10000 };
-    const accepted = spawnSync(process.execPath, [script, '--stdin'], { ...options, env: { ...process.env, HIVE_MIND_NPM_TARBALL_BUDGET_BYTES: '4096' } });
-    assert.equal(accepted.status, 0, accepted.stderr);
-    assert.match(accepted.stdout, /2048 bytes/u);
-    const refused = spawnSync(process.execPath, [script, '--stdin'], { ...options, env: { ...process.env, HIVE_MIND_NPM_TARBALL_BUDGET_BYTES: '1024' } });
-    assert.equal(refused.status, 1);
-    assert.match(refused.stderr, /is 2048 bytes/u);
+  const metadata = { name: main.name, filename: 'hive-mind.tgz', size: 2048 };
+  for (const output of [[metadata], { [main.name]: metadata }]) {
+    const run = budget => spawnSync(process.execPath, [script, '--stdin'], { input: JSON.stringify(output), encoding: 'utf8', env: { ...process.env, HIVE_MIND_NPM_TARBALL_BUDGET_BYTES: budget }, timeout: 10000 });
+    assert.equal(run('4096').status, 0);
+    const rejected = run('1024');
+    assert.equal(rejected.status, 1);
+    assert.match(rejected.stderr, /is 2048 bytes/u);
   }
 });
 

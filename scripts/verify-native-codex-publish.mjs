@@ -13,13 +13,13 @@ import os from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
 
-import { checkNpmTarballSizes, parseNpmPackOutput } from './check-npm-tarball-size.mjs';
+import { checkNpmTarballSizes, parseNpmPackEntries } from './check-npm-tarball-size.mjs';
 
 const execute = promisify(execFile);
 const temporary = await fs.mkdtemp(path.join(os.tmpdir(), 'hive-native-codex-publish-'));
 try {
   const { stdout } = await execute('npm', ['pack', '--ignore-scripts', '--json', '--pack-destination', temporary], { maxBuffer: 1 << 24 });
-  const [entry] = parseNpmPackOutput(stdout);
+  const [entry] = parseNpmPackEntries(stdout);
   const filename = entry?.filename;
   if (!filename?.endsWith('.tgz') || path.basename(filename) !== filename) throw new Error('Unexpected npm archive name.');
   if (checkNpmTarballSizes([entry]) !== 0) throw new Error('The npm archive exceeds the publish budget.');

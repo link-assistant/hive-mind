@@ -1,0 +1,787 @@
+diff --git a/codex-rs/message-history/src/batch.rs b/codex-rs/message-history/src/batch.rs
+index 6adf7e73d3b561f9521bab414ef57e1cfa601633..c304f68d5cf3394f3dfebf13a1807a4426bfbe2b 100644
+--- a/codex-rs/message-history/src/batch.rs
++++ b/codex-rs/message-history/src/batch.rs
+@@ -114,7 +114,32 @@ pub fn lookup_batch(
+     config: &HistoryConfig,
+ ) -> std::io::Result<HistoryBatch> {
+     let path = history_filepath(config);
+-    let mut file = OpenOptions::new().read(true).open(path)?;
++    if super::canonical_message_history::selected() {
++        return super::canonical_message_history::with_history(&path, |path| {
++            if log_id != 0 && super::canonical_message_history::log_id(path)? != log_id {
++                return Ok(HistoryBatch::default());
++            }
++            // Atomic publication can replace the file between calls. Retain
++            // row offsets, but do not reuse a prior data-file byte anchor.
++            let mut canonical_config = config.clone();
++            canonical_config.max_bytes = Some(0);
++            lookup_batch_for_file(path, 0, cursor, &canonical_config)
++        });
++    }
++    lookup_batch_for_file(&path, log_id, cursor, config)
++}
++
++fn lookup_batch_for_file(
++    path: &std::path::Path,
++    log_id: u64,
++    cursor: HistoryBatchCursor,
++    config: &HistoryConfig,
++) -> std::io::Result<HistoryBatch> {
++    let mut file = if super::canonical_message_history::selected() {
++        super::canonical_message_history::open_read(path)?
++    } else {
++        OpenOptions::new().read(true).open(path)?
++    };
+     let current_log_id = log_identity(&file.metadata()?).unwrap_or(0);
+     if log_id != 0 && current_log_id != log_id {
+         return Ok(HistoryBatch::default());
+diff --git a/codex-rs/message-history/src/lib.rs b/codex-rs/message-history/src/lib.rs
+index 1eaece4c6b369eb10328932fb95fd4ccacb8499f..f33e4568e27a2862ff2f9511812ff3a1af7db4c5 100644
+--- a/codex-rs/message-history/src/lib.rs
++++ b/codex-rs/message-history/src/lib.rs
+@@ -38,6 +38,7 @@ use codex_config::types::History;
+ use codex_config::types::HistoryPersistence;
+ 
+ mod batch;
++mod canonical_message_history;
+ pub use batch::HistoryBatch;
+ pub use batch::HistoryBatchCursor;
+ pub use batch::HistoryBatchEntry;
+@@ -82,6 +83,25 @@ impl HistoryConfig {
+     }
+ }
+ 
++/// Admit selected canonical history without adding a row for an image-only prompt.
++pub async fn validate_canonical_history(config: &HistoryConfig) -> Result<()> {
++    if !canonical_message_history::selected() {
++        return Ok(());
++    }
++    if !matches!(config.persistence, HistoryPersistence::SaveAll)
++        || config.max_bytes.is_some_and(|limit| limit > 0)
++    {
++        return Err(std::io::Error::new(
++            std::io::ErrorKind::PermissionDenied,
++            "Canonical prompt history requires complete persistence.",
++        ));
++    }
++    let path = history_filepath(config);
++    tokio::task::spawn_blocking(move || canonical_message_history::with_history(&path, |_| Ok(())))
++        .await??;
++    Ok(())
++}
++
+ fn history_filepath(config: &HistoryConfig) -> PathBuf {
+     config.codex_home.join(HISTORY_FILENAME)
+ }
+@@ -106,6 +126,15 @@ pub async fn append_entry(
+     conversation_id: impl std::fmt::Display,
+     config: &HistoryConfig,
+ ) -> Result<()> {
++    if canonical_message_history::selected()
++        && (!matches!(config.persistence, HistoryPersistence::SaveAll)
++            || config.max_bytes.is_some_and(|limit| limit > 0))
++    {
++        return Err(std::io::Error::new(
++            std::io::ErrorKind::PermissionDenied,
++            "Canonical prompt history requires complete persistence.",
++        ));
++    }
+     match config.persistence {
+         HistoryPersistence::SaveAll => {
+             // Save everything: proceed.
+@@ -140,6 +169,14 @@ pub async fn append_entry(
+         .map_err(|e| std::io::Error::other(format!("failed to serialise history entry: {e}")))?;
+     line.push('\n');
+ 
++    if canonical_message_history::selected() {
++        tokio::task::spawn_blocking(move || {
++            canonical_message_history::append(&path, line.as_bytes())
++        })
++        .await??;
++        return Ok(());
++    }
++
+     // Open the history file for read/write access (append-only on Unix).
+     let mut options = OpenOptions::new();
+     options.read(true).write(true).create(true);
+@@ -284,6 +321,13 @@ fn trim_target_bytes(max_bytes: u64, newest_entry_len: u64) -> u64 {
+ /// `(log_id, 0)` so callers can still detect that a history file exists.
+ pub async fn history_metadata(config: &HistoryConfig) -> (u64, usize) {
+     let path = history_filepath(config);
++    if canonical_message_history::selected() {
++        return tokio::task::spawn_blocking(move || canonical_message_history::metadata(&path))
++            .await
++            .ok()
++            .and_then(std::result::Result::ok)
++            .unwrap_or((0, 0));
++    }
+     history_metadata_for_file(&path).await
+ }
+ 
+@@ -299,6 +343,16 @@ pub async fn history_metadata(config: &HistoryConfig) -> (u64, usize) {
+ /// `spawn_blocking`.
+ pub fn lookup(log_id: u64, offset: usize, config: &HistoryConfig) -> Option<HistoryEntry> {
+     let path = history_filepath(config);
++    if canonical_message_history::selected() {
++        return canonical_message_history::with_history(&path, |path| {
++            if log_id != 0 && canonical_message_history::log_id(path)? != log_id {
++                return Ok(None);
++            }
++            Ok(lookup_history_entry(path, 0, offset))
++        })
++        .ok()
++        .flatten();
++    }
+     lookup_history_entry(&path, log_id, offset)
+ }
+ 
+@@ -357,7 +411,12 @@ fn lookup_history_entry(path: &Path, log_id: u64, offset: usize) -> Option<Histo
+     use std::io::BufRead;
+     use std::io::BufReader;
+ 
+-    let file: File = match OpenOptions::new().read(true).open(path) {
++    let opened = if canonical_message_history::selected() {
++        canonical_message_history::open_read(path)
++    } else {
++        OpenOptions::new().read(true).open(path)
++    };
++    let file: File = match opened {
+         Ok(f) => f,
+         Err(e) => {
+             tracing::warn!(error = %e, "failed to open history file");
+diff --git a/codex-rs/rollout/src/maintenance.rs b/codex-rs/rollout/src/maintenance.rs
+index 1e0a0862db2cea36cd6b326385209f9c00560bd0..93fb8bb75c862fbd8a88ef819b90d352895142f9 100644
+--- a/codex-rs/rollout/src/maintenance.rs
++++ b/codex-rs/rollout/src/maintenance.rs
+@@ -13,6 +13,9 @@ use std::fs::OpenOptions;
+ use std::io;
+ use std::path::Path;
+ 
++#[path = "canonical_rollout_maintenance.rs"]
++mod canonical_maintenance;
++
+ const ROLLOUT_MAINTENANCE_LOCK: &str = "rollout-maintenance.lock";
+ 
+ #[cfg(test)]
+@@ -22,6 +25,7 @@ mod tests;
+ /// Holds exclusive ownership of operations that replace local rollout files.
+ pub struct RolloutMaintenanceGuard {
+     file: File,
++    _canonical_directory: Option<File>,
+ }
+ 
+ impl Drop for RolloutMaintenanceGuard {
+@@ -35,6 +39,14 @@ impl Drop for RolloutMaintenanceGuard {
+ pub fn try_acquire_rollout_maintenance_lock(
+     codex_home: &Path,
+ ) -> io::Result<Option<RolloutMaintenanceGuard>> {
++    if let Some(root) = std::env::var_os("CODEX_ROLLOUT_MAINTENANCE_HOME") {
++        return canonical_maintenance::try_acquire(codex_home, Path::new(&root)).map(|guard| {
++            guard.map(|(file, directory)| RolloutMaintenanceGuard {
++                file,
++                _canonical_directory: Some(directory),
++            })
++        });
++    }
+     let directory = codex_home.join(".tmp");
+     fs::create_dir_all(&directory)?;
+     let file = OpenOptions::new()
+@@ -45,7 +57,10 @@ pub fn try_acquire_rollout_maintenance_lock(
+         .open(directory.join(ROLLOUT_MAINTENANCE_LOCK))?;
+ 
+     match file.try_lock() {
+-        Ok(()) => Ok(Some(RolloutMaintenanceGuard { file })),
++        Ok(()) => Ok(Some(RolloutMaintenanceGuard {
++            file,
++            _canonical_directory: None,
++        })),
+         Err(std::fs::TryLockError::WouldBlock) => Ok(None),
+         Err(std::fs::TryLockError::Error(error)) => Err(error),
+     }
+diff --git a/codex-rs/rollout/src/session_index.rs b/codex-rs/rollout/src/session_index.rs
+index e8b3fcea371ae90c268a525f4f3d316b5d00bedb..e9d52d52f418018df37b3cf90ec611bfb036422c 100644
+--- a/codex-rs/rollout/src/session_index.rs
++++ b/codex-rs/rollout/src/session_index.rs
+@@ -3,7 +3,6 @@
+ 
+ use std::collections::HashMap;
+ use std::collections::HashSet;
+-use std::fs::File;
+ use std::io::ErrorKind;
+ use std::io::Write;
+ use std::path::Path;
+@@ -20,6 +19,9 @@ use codex_protocol::protocol::SessionSource;
+ use serde::Deserialize;
+ use serde::Serialize;
+ 
++#[path = "canonical_session_index.rs"]
++mod canonical_index;
++
+ const SESSION_INDEX_FILE: &str = "session_index.jsonl";
+ const SESSION_INDEX_LOCK_FILE: &str = "session_index.jsonl.lock";
+ 
+@@ -59,15 +61,17 @@ pub async fn append_session_index_entry(
+ ) -> std::io::Result<()> {
+     let path = session_index_path(codex_home);
+     with_session_index_lock(codex_home, move || {
+-        let mut file = std::fs::OpenOptions::new()
+-            .create(true)
+-            .append(true)
+-            .open(&path)?;
+-        let mut line = serde_json::to_string(&entry).map_err(std::io::Error::other)?;
+-        line.push('\n');
+-        file.write_all(line.as_bytes())?;
+-        file.flush()?;
+-        Ok(())
++        canonical_index::with_index(&path, |path| {
++            let mut file = canonical_index::open_append(path)?;
++            let mut line = serde_json::to_string(&entry).map_err(std::io::Error::other)?;
++            line.push('\n');
++            file.write_all(line.as_bytes())?;
++            file.flush()?;
++            if std::env::var_os("CODEX_SESSION_INDEX_HOME").is_some() {
++                file.sync_all()?;
++            }
++            Ok(())
++        })
+     })
+     .await
+ }
+@@ -78,39 +82,33 @@ pub async fn remove_thread_name_entries(
+     thread_id: ThreadId,
+ ) -> std::io::Result<()> {
+     let path = session_index_path(codex_home);
+-    if !path.try_exists()? {
++    if std::env::var_os("CODEX_SESSION_INDEX_HOME").is_none() && !path.try_exists()? {
+         return Ok(());
+     }
+     with_session_index_lock(codex_home, move || {
+-        let contents = match std::fs::read_to_string(&path) {
+-            Ok(contents) => contents,
+-            Err(err) if err.kind() == ErrorKind::NotFound => return Ok(()),
+-            Err(err) => return Err(err),
+-        };
+-        let mut removed = false;
+-        let mut remaining = String::with_capacity(contents.len());
+-        for line in contents.lines() {
+-            let should_remove = serde_json::from_str::<SessionIndexEntry>(line.trim())
+-                .is_ok_and(|entry| entry.id == thread_id);
+-            if should_remove {
+-                removed = true;
+-            } else {
+-                remaining.push_str(line);
+-                remaining.push('\n');
++        canonical_index::with_index(&path, |path| {
++            let contents = match canonical_index::read_string(path) {
++                Ok(contents) => contents,
++                Err(err) if err.kind() == ErrorKind::NotFound => return Ok(()),
++                Err(err) => return Err(err),
++            };
++            let mut removed = false;
++            let mut remaining = String::with_capacity(contents.len());
++            for line in contents.lines() {
++                let should_remove = serde_json::from_str::<SessionIndexEntry>(line.trim())
++                    .is_ok_and(|entry| entry.id == thread_id);
++                if should_remove {
++                    removed = true;
++                } else {
++                    remaining.push_str(line);
++                    remaining.push('\n');
++                }
+             }
+-        }
+-        if !removed {
+-            return Ok(());
+-        }
+-        let mut temporary = tempfile::Builder::new()
+-            .prefix("session-index-")
+-            .tempfile_in(path.parent().unwrap_or(Path::new(".")))?;
+-        temporary
+-            .as_file()
+-            .set_permissions(std::fs::metadata(&path)?.permissions())?;
+-        temporary.write_all(remaining.as_bytes())?;
+-        temporary.persist(&path).map_err(|error| error.error)?;
+-        Ok(())
++            if !removed {
++                return Ok(());
++            }
++            canonical_index::replace(path, &remaining)
++        })
+     })
+     .await
+ }
+@@ -122,6 +120,10 @@ async fn with_session_index_lock(
+ ) -> std::io::Result<()> {
+     let lock_path = codex_home.join(SESSION_INDEX_LOCK_FILE);
+     tokio::task::spawn_blocking(move || {
++        if std::env::var_os("CODEX_SESSION_INDEX_HOME").is_some() {
++            // Canonical index I/O takes its own descriptor-relative lock.
++            return update();
++        }
+         // Keep this file in place. If we replace it, another process can lock a new
+         // file while this update still holds the old file's lock.
+         let file_lock = std::fs::OpenOptions::new()
+@@ -158,13 +160,17 @@ pub async fn find_thread_name_by_id(
+     thread_id: &ThreadId,
+ ) -> std::io::Result<Option<String>> {
+     let path = session_index_path(codex_home);
+-    if !path.exists() {
+-        return Ok(None);
+-    }
+     let id = *thread_id;
+-    let entry = tokio::task::spawn_blocking(move || scan_index_from_end_by_id(&path, &id))
+-        .await
+-        .map_err(std::io::Error::other)??;
++    let entry = tokio::task::spawn_blocking(move || {
++        canonical_index::with_index(&path, |path| {
++            if !canonical_index::exists(path)? {
++                return Ok(None);
++            }
++            scan_index_from_end_by_id(path, &id)
++        })
++    })
++    .await
++    .map_err(std::io::Error::other)??;
+     Ok(entry.map(|entry| entry.thread_name))
+ }
+ 
+@@ -191,25 +197,27 @@ pub async fn find_thread_name_entries_by_ids(
+     let path = session_index_path(codex_home);
+     let mut remaining_ids = thread_ids.clone();
+     tokio::task::spawn_blocking(move || {
+-        if !path.exists() {
+-            return Ok(HashMap::new());
+-        }
+-        let mut scanner = ReverseJsonlScanner::new(File::open(path)?)?;
+-        let mut names = HashMap::with_capacity(remaining_ids.len());
+-        while let Some(outcome) = scanner.scan_next::<SessionIndexEntry>()? {
+-            let ScanOutcome::Parsed(entry) = outcome else {
+-                continue;
+-            };
+-            let name = entry.thread_name.trim();
+-            // The first nonempty name seen for an id is its latest usable name.
+-            if !name.is_empty() && remaining_ids.remove(&entry.id) {
+-                names.insert(entry.id, entry);
+-                if remaining_ids.is_empty() {
+-                    break;
++        canonical_index::with_index(&path, |path| {
++            if !canonical_index::exists(path)? {
++                return Ok(HashMap::new());
++            }
++            let mut scanner = ReverseJsonlScanner::new(canonical_index::open_read(path)?)?;
++            let mut names = HashMap::with_capacity(remaining_ids.len());
++            while let Some(outcome) = scanner.scan_next::<SessionIndexEntry>()? {
++                let ScanOutcome::Parsed(entry) = outcome else {
++                    continue;
++                };
++                let name = entry.thread_name.trim();
++                // The first nonempty name seen for an id is its latest usable name.
++                if !name.is_empty() && remaining_ids.remove(&entry.id) {
++                    names.insert(entry.id, entry);
++                    if remaining_ids.is_empty() {
++                        break;
++                    }
+                 }
+             }
+-        }
+-        Ok(names)
++            Ok(names)
++        })
+     })
+     .await
+     .map_err(std::io::Error::other)?
+@@ -249,15 +257,18 @@ pub async fn find_thread_meta_candidates_by_name_str(
+         return Ok(Vec::new());
+     }
+     let path = session_index_path(codex_home);
+-    if !path.exists() {
+-        return Ok(Vec::new());
+-    }
+     let (tx, mut rx) = tokio::sync::mpsc::channel(1);
+     let name = name.to_string();
+     // Stream matching ids newest-first instead of stopping at the first name hit: the newest entry
+     // may point at a thread whose rollout was never materialized.
+-    let scan =
+-        tokio::task::spawn_blocking(move || stream_thread_ids_from_end_by_name(&path, &name, tx));
++    let scan = tokio::task::spawn_blocking(move || {
++        canonical_index::with_index(&path, |path| {
++            if !canonical_index::exists(path)? {
++                return Ok(());
++            }
++            stream_thread_ids_from_end_by_name(path, &name, tx)
++        })
++    });
+ 
+     let mut candidates = Vec::new();
+     while let Some(thread_id) = rx.recv().await {
+@@ -347,7 +358,7 @@ fn scan_index_from_end_for_each<F>(
+ where
+     F: FnMut(&SessionIndexEntry) -> std::io::Result<Option<SessionIndexEntry>>,
+ {
+-    let mut scanner = ReverseJsonlScanner::new(File::open(path)?)?;
++    let mut scanner = ReverseJsonlScanner::new(canonical_index::open_read(path)?)?;
+     while let Some(outcome) = scanner.scan_next::<SessionIndexEntry>()? {
+         let ScanOutcome::Parsed(entry) = outcome else {
+             continue;
+diff --git a/codex-rs/rollout/src/state_db.rs b/codex-rs/rollout/src/state_db.rs
+index 4cf78a279bc975a7be8efedb84b155202273a0b3..c932a0b70018535e2e5822f73245618af0825eb0 100644
+--- a/codex-rs/rollout/src/state_db.rs
++++ b/codex-rs/rollout/src/state_db.rs
+@@ -47,6 +47,29 @@ pub async fn init(config: &impl RolloutConfigView) -> Option<StateDbHandle> {
+     match try_init_with_roots(config.codex_home, config.sqlite, config.model_provider_id).await {
+         Ok(runtime) => Some(runtime),
+         Err(err) => {
++            #[cfg(target_os = "linux")]
++            if std::env::var_os("CODEX_ROLLOUT_HOME").is_some() {
++                // An optional-runtime fallback loses selected canonical state.
++                // Refuse without checkpoints, atexit writers or sensitive error
++                // details. A full diagnostic pipe must not delay refusal.
++                const MESSAGE: &[u8] = b"Canonical SQLite startup failed; no turn was sent.\n";
++                // SAFETY: the constant message outlives this bounded write. The
++                // process exits immediately; no borrowed native state returns.
++                unsafe {
++                    let flags = libc::fcntl(libc::STDERR_FILENO, libc::F_GETFL);
++                    if flags >= 0
++                        && libc::fcntl(libc::STDERR_FILENO, libc::F_SETFL, flags | libc::O_NONBLOCK)
++                            == 0
++                    {
++                        let _ = libc::write(
++                            libc::STDERR_FILENO,
++                            MESSAGE.as_ptr().cast(),
++                            MESSAGE.len(),
++                        );
++                    }
++                    libc::_exit(78);
++                }
++            }
+             emit_startup_warning(&format!("failed to initialize state runtime: {err:#}"));
+             None
+         }
+diff --git a/codex-rs/thread-store/src/local/rollout_migration.rs b/codex-rs/thread-store/src/local/rollout_migration.rs
+index da9243e35b32a84acce9a87e7dcbe27ada1ba305..1a163dc8154771d8df6d84578e29cf1e27830665 100644
+--- a/codex-rs/thread-store/src/local/rollout_migration.rs
++++ b/codex-rs/thread-store/src/local/rollout_migration.rs
+@@ -517,6 +517,12 @@ impl LocalThreadStore {
+         };
+ 
+         let journal_path = migration_journal_path(&self.config.codex_home, thread_id);
++        if options.mode == RolloutMigrationMode::Apply {
++            publish::canonical_migration_journals::validate(&journal_path)
++                .map_err(migration_error)?;
++            publish::canonical_migration_stages::validate_rollout(&path)
++                .map_err(migration_error)?;
++        }
+         let pending_published_migration = metadata.meta.history_mode
+             == ThreadHistoryMode::Paginated
+             && options.mode == RolloutMigrationMode::Apply
+@@ -721,7 +727,7 @@ impl LocalThreadStore {
+             rollout_path
+         };
+         let source_file = with_failure_reason(
+-            File::open(source_path).await.map_err(migration_error),
++            publish::open_migration_file(source_path).await,
+             RolloutMigrationFailureReason::RolloutReadFailed,
+         )?;
+         let mut source = BufReader::with_capacity(PROJECTION_BATCH_BYTES as usize, source_file);
+@@ -788,7 +794,11 @@ impl LocalThreadStore {
+             let modified_at = source_modified;
+             let path = staged_path.clone();
+             tokio::task::spawn_blocking(move || {
+-                let file = std::fs::OpenOptions::new().write(true).open(path)?;
++                let file = if std::env::var_os("CODEX_ROLLOUT_HOME").is_some() {
++                    publish::canonical_migration_stages::open_existing(&path, true)?
++                } else {
++                    std::fs::OpenOptions::new().write(true).open(path)?
++                };
+                 if let Some(modified_at) = modified_at {
+                     file.set_times(std::fs::FileTimes::new().set_modified(modified_at))?;
+                 }
+@@ -854,17 +864,13 @@ impl LocalThreadStore {
+             }
+ 
+             if let Some(compressed_staged_path) = compressed_staged_path {
+-                tokio::fs::rename(compressed_staged_path, rollout_path)
+-                    .await
+-                    .map_err(migration_error)?;
++                publish::publish_staged_file(&compressed_staged_path, rollout_path).await?;
+                 remove_file_if_present(&staged_path).await?;
+                 if let Some(decompressed_path) = decompressed_path.as_ref() {
+                     remove_file_if_present(decompressed_path).await?;
+                 }
+             } else {
+-                tokio::fs::rename(&staged_path, rollout_path)
+-                    .await
+-                    .map_err(migration_error)?;
++                publish::publish_staged_file(&staged_path, rollout_path).await?;
+             }
+             sync_parent_directory(rollout_path).await?;
+             self.finish_published_migration(thread_id, &journal_path, legacy_names)
+@@ -881,7 +887,7 @@ impl LocalThreadStore {
+         source_path: &Path,
+         limiter: &mut RolloutMigrationRateLimiter,
+     ) -> ThreadStoreResult<RollbackPlan> {
+-        let source_file = File::open(source_path).await.map_err(migration_error)?;
++        let source_file = publish::open_migration_file(source_path).await?;
+         let mut source = BufReader::with_capacity(PROJECTION_BATCH_BYTES as usize, source_file);
+         let mut bytes = Vec::new();
+         let mut planner = RollbackPlanner::new();
+@@ -926,13 +932,7 @@ impl LocalThreadStore {
+         items: Vec<RolloutItem>,
+         limiter: &mut RolloutMigrationRateLimiter,
+     ) -> ThreadStoreResult<(u64, u64)> {
+-        let staged_file = tokio::fs::OpenOptions::new()
+-            .create(true)
+-            .truncate(true)
+-            .write(true)
+-            .open(input.staged_path)
+-            .await
+-            .map_err(migration_error)?;
++        let staged_file = publish::create_staged_file(input.staged_path).await?;
+         staged_file
+             .set_permissions(input.source_permissions.clone())
+             .await
+@@ -968,16 +968,8 @@ impl LocalThreadStore {
+         plan: Option<&RollbackPlan>,
+         limiter: &mut RolloutMigrationRateLimiter,
+     ) -> ThreadStoreResult<CanonicalizationAttempt> {
+-        let source_file = File::open(input.source_path)
+-            .await
+-            .map_err(migration_error)?;
+-        let staged_file = tokio::fs::OpenOptions::new()
+-            .create(true)
+-            .truncate(true)
+-            .write(true)
+-            .open(input.staged_path)
+-            .await
+-            .map_err(migration_error)?;
++        let source_file = publish::open_migration_file(input.source_path).await?;
++        let staged_file = publish::create_staged_file(input.staged_path).await?;
+         staged_file
+             .set_permissions(input.source_permissions.clone())
+             .await
+@@ -1126,9 +1118,19 @@ impl LocalThreadStore {
+         legacy_names: &HashMap<ThreadId, String>,
+     ) -> ThreadStoreResult<()> {
+         self.promote_legacy_name(thread_id, legacy_names).await?;
+-        tokio::fs::remove_file(journal_path)
++        if std::env::var_os("CODEX_ROLLOUT_HOME").is_some() {
++            let path = journal_path.to_path_buf();
++            tokio::task::spawn_blocking(move || {
++                publish::canonical_migration_journals::remove(&path, true)
++            })
+             .await
++            .map_err(migration_error)?
+             .map_err(migration_error)?;
++        } else {
++            tokio::fs::remove_file(journal_path)
++                .await
++                .map_err(migration_error)?;
++        }
+         sync_parent_directory(journal_path).await
+     }
+ 
+@@ -1185,7 +1187,7 @@ impl LocalThreadStore {
+             .map_err(migration_error)?
+             .meta
+             .subagent_history_start_ordinal;
+-        let file = File::open(rollout_path).await.map_err(migration_error)?;
++        let file = publish::open_migration_file(rollout_path).await?;
+         let mut reader = BufReader::with_capacity(PROJECTION_BATCH_BYTES as usize, file);
+         let mut line_bytes = Vec::new();
+         let mut batch = Vec::new();
+diff --git a/codex-rs/thread-store/src/local/rollout_migration/publish.rs b/codex-rs/thread-store/src/local/rollout_migration/publish.rs
+index 731423714c9510d9325ca0389d90d4616b3da589..70c36746880f0402a23d1133c4036194f1fbe446 100644
+--- a/codex-rs/thread-store/src/local/rollout_migration/publish.rs
++++ b/codex-rs/thread-store/src/local/rollout_migration/publish.rs
+@@ -34,6 +34,11 @@ use super::MigrationLocks;
+ use super::migration_error;
+ use crate::ThreadStoreResult;
+ 
++#[path = "canonical_migration_journals.rs"]
++pub(super) mod canonical_migration_journals;
++#[path = "canonical_migration_stages.rs"]
++pub(super) mod canonical_migration_stages;
++
+ const MIGRATION_JOURNAL_DIRECTORY: &str = "rollout-migrations";
+ 
+ pub(super) fn migration_journal_path(codex_home: &Path, thread_id: ThreadId) -> PathBuf {
+@@ -99,13 +104,21 @@ pub(super) async fn decompress_rollout_to_path(
+     let locks = Arc::clone(locks);
+     tokio::task::spawn_blocking(move || -> io::Result<()> {
+         let _locks = locks;
+-        let input = std::fs::File::open(compressed_path)?;
++        let input = if std::env::var_os("CODEX_ROLLOUT_HOME").is_some() {
++            canonical_migration_stages::open_existing(&compressed_path, false)?
++        } else {
++            std::fs::File::open(compressed_path)?
++        };
+         let mut decoder = zstd::stream::read::Decoder::new(input)?;
+         let mut options = std::fs::OpenOptions::new();
+         options.create(true).truncate(true).write(true);
+         #[cfg(unix)]
+         options.mode(0o600);
+-        let mut output = options.open(plain_path)?;
++        let mut output = if std::env::var_os("CODEX_ROLLOUT_HOME").is_some() {
++            canonical_migration_stages::open_write(&plain_path)?
++        } else {
++            options.open(plain_path)?
++        };
+         #[cfg(unix)]
+         output.set_permissions(Permissions::from_mode(0o600))?;
+         io::copy(&mut decoder, &mut output)?;
+@@ -128,12 +141,20 @@ pub(super) async fn compress_rollout_to_path(
+     let locks = Arc::clone(locks);
+     tokio::task::spawn_blocking(move || -> io::Result<()> {
+         let _locks = locks;
+-        let mut input = std::fs::File::open(plain_path)?;
+-        let output = std::fs::OpenOptions::new()
+-            .create(true)
+-            .truncate(true)
+-            .write(true)
+-            .open(&compressed_path)?;
++        let mut input = if std::env::var_os("CODEX_ROLLOUT_HOME").is_some() {
++            canonical_migration_stages::open_existing(&plain_path, false)?
++        } else {
++            std::fs::File::open(plain_path)?
++        };
++        let output = if std::env::var_os("CODEX_ROLLOUT_HOME").is_some() {
++            canonical_migration_stages::open_write(&compressed_path)?
++        } else {
++            std::fs::OpenOptions::new()
++                .create(true)
++                .truncate(true)
++                .write(true)
++                .open(&compressed_path)?
++        };
+         let mut encoder = zstd::stream::write::Encoder::new(output, 3)?;
+         io::copy(&mut input, &mut encoder)?;
+         let output = encoder.finish()?;
+@@ -143,7 +164,11 @@ pub(super) async fn compress_rollout_to_path(
+         }
+         output.sync_all()?;
+ 
+-        let input = std::fs::File::open(compressed_path)?;
++        let input = if std::env::var_os("CODEX_ROLLOUT_HOME").is_some() {
++            canonical_migration_stages::open_existing(&compressed_path, false)?
++        } else {
++            std::fs::File::open(compressed_path)?
++        };
+         let mut decoder = zstd::stream::read::Decoder::new(input)?;
+         io::copy(&mut decoder, &mut io::sink())?;
+         Ok(())
+@@ -170,7 +195,7 @@ pub(super) async fn rewrite_subagent_history_boundary(
+         .await
+         .map_err(migration_error)?
+         .permissions();
+-    let source = File::open(staged_path).await.map_err(migration_error)?;
++    let source = open_migration_file(staged_path).await?;
+     let mut source = BufReader::new(source);
+     let mut head_bytes = Vec::new();
+     source
+@@ -185,13 +210,7 @@ pub(super) async fn rewrite_subagent_history_boundary(
+     };
+     session_meta.meta.subagent_history_start_ordinal = Some(boundary);
+ 
+-    let rewritten = tokio::fs::OpenOptions::new()
+-        .create(true)
+-        .truncate(true)
+-        .write(true)
+-        .open(&rewritten_path)
+-        .await
+-        .map_err(migration_error)?;
++    let rewritten = create_staged_file(&rewritten_path).await?;
+     rewritten
+         .set_permissions(permissions)
+         .await
+@@ -216,12 +235,75 @@ pub(super) async fn rewrite_subagent_history_boundary(
+         .await
+         .map_err(migration_error)?;
+     drop(rewritten);
+-    tokio::fs::rename(rewritten_path, staged_path)
++    publish_staged_file(&rewritten_path, staged_path).await
++}
++
++pub(super) async fn create_staged_file(path: &Path) -> ThreadStoreResult<File> {
++    if std::env::var_os("CODEX_ROLLOUT_HOME").is_some() {
++        let path = path.to_path_buf();
++        return tokio::task::spawn_blocking(move || canonical_migration_stages::open_write(&path))
++            .await
++            .map_err(migration_error)?
++            .map(File::from_std)
++            .map_err(migration_error);
++    }
++    tokio::fs::OpenOptions::new()
++        .create(true)
++        .truncate(true)
++        .write(true)
++        .open(path)
++        .await
++        .map_err(migration_error)
++}
++
++pub(super) async fn open_migration_file(path: &Path) -> ThreadStoreResult<File> {
++    if std::env::var_os("CODEX_ROLLOUT_HOME").is_some() {
++        let path = path.to_path_buf();
++        return tokio::task::spawn_blocking(move || {
++            canonical_migration_stages::open_existing(&path, false)
++        })
++        .await
++        .map_err(migration_error)?
++        .map(File::from_std)
++        .map_err(migration_error);
++    }
++    File::open(path).await.map_err(migration_error)
++}
++
++pub(super) async fn publish_staged_file(source: &Path, target: &Path) -> ThreadStoreResult<()> {
++    if std::env::var_os("CODEX_ROLLOUT_HOME").is_some() {
++        let source = source.to_path_buf();
++        let target = target.to_path_buf();
++        return tokio::task::spawn_blocking(move || {
++            canonical_migration_stages::publish(&source, &target)
++        })
++        .await
++        .map_err(migration_error)?
++        .map_err(migration_error);
++    }
++    tokio::fs::rename(source, target)
+         .await
+         .map_err(migration_error)
+ }
+ 
+ pub(super) async fn remove_file_if_present(path: &Path) -> ThreadStoreResult<()> {
++    if std::env::var_os("CODEX_ROLLOUT_HOME").is_some() {
++        let path = path.to_path_buf();
++        return tokio::task::spawn_blocking(move || {
++            if path
++                .parent()
++                .and_then(Path::file_name)
++                .is_some_and(|name| name == "rollout-migrations")
++            {
++                canonical_migration_journals::remove(&path, false)
++            } else {
++                canonical_migration_stages::remove(&path)
++            }
++        })
++        .await
++        .map_err(migration_error)?
++        .map_err(migration_error);
++    }
+     if tokio::fs::try_exists(path).await.map_err(migration_error)? {
+         tokio::fs::remove_file(path)
+             .await
+@@ -231,6 +313,13 @@ pub(super) async fn remove_file_if_present(path: &Path) -> ThreadStoreResult<()>
+ }
+ 
+ pub(super) async fn write_migration_journal(path: &Path) -> ThreadStoreResult<()> {
++    if std::env::var_os("CODEX_ROLLOUT_HOME").is_some() {
++        let path = path.to_path_buf();
++        return tokio::task::spawn_blocking(move || canonical_migration_journals::write(&path))
++            .await
++            .map_err(migration_error)?
++            .map_err(migration_error);
++    }
+     let parent = path
+         .parent()
+         .ok_or_else(|| migration_error("rollout migration journal has no parent directory"))?;

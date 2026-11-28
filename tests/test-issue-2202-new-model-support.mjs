@@ -292,8 +292,8 @@ test('the claude default stays opus (Fable 5.1 is $10/$50 vs Opus 5 $5/$25)', ()
   assert.strictEqual(defaultModels.claude, 'opus');
 });
 
-test('the codex default advances to gpt-6-sol while GPT-6 Astra stays preview-only', () => {
-  assert.strictEqual(defaultModels.codex, 'gpt-6-sol');
+test('the Codex default is GPT-6.2 Sol', () => {
+  assert.strictEqual(defaultModels.codex, 'gpt-6.2-sol');
 });
 
 // ============================================================

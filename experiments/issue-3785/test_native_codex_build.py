@@ -49,7 +49,7 @@ class NativeBuildAdmission(unittest.TestCase):
 
     def test_exact_native_release_inputs(self):
         recipe, digest = BUILD.load_recipe(self.recipe, self.inputs)
-        self.assertEqual(recipe["version"], "0.164.0")
+        self.assertEqual(recipe["version"], "0.172.0")
         self.assertEqual(len(digest), 64)
         inventory = json.loads((ROOT / "src/native-codex/source-files.json").read_text())
         self.assertEqual(BUILD.source_digest(inventory), recipe["sourceInventorySha256"])
@@ -130,6 +130,8 @@ class NativeBuildAdmission(unittest.TestCase):
             "PATH": "/usr/bin", "CARGO_HOME": str(self.root / "cargo-cache"),
             **overrides,
         })
+        self.assertEqual(set(env["LIBSQLITE3_FLAGS"].split()),
+                         {"SQLITE_ENABLE_FILESTAT", "SQLITE_ENABLE_WALSTAT"})
         for name in overrides:
             if name in recipe["cargoEnvironment"]:
                 self.assertEqual(env[name], recipe["cargoEnvironment"][name])

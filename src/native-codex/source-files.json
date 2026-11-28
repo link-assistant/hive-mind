@@ -1,18 +1,23 @@
 {
   "codex-rs/Cargo.lock": {
-    "bytes": 407547,
+    "bytes": 419061,
     "mode": 420,
-    "sha256": "3c14b3c5b24ad592a30025619cf06bf03ed97d4e97215fcd2b986f0c0843dd0f"
+    "sha256": "eb74f10149aa3c96fc6db7ad8999fb7d6f7b37947bd8369cfadd05e6f9073ead"
   },
   "codex-rs/app-server/src/lib.rs": {
-    "bytes": 67930,
+    "bytes": 66379,
     "mode": 420,
-    "sha256": "10b348713465bfb40d6b5a84719f2fe6692056cff7f546b0c3c3273518a5d0e7"
+    "sha256": "4555b75d417d2690275f2c8ec72a26c607ba638efdb3b3ca7096a99b4bcc5d32"
   },
   "codex-rs/app-server/src/request_processors/account_processor.rs": {
-    "bytes": 64166,
+    "bytes": 66100,
     "mode": 420,
-    "sha256": "03a7f87116f0ebcb82ea05ade3ca7311b2ab2756cf0b18647676378ec0003926"
+    "sha256": "3c73f9f0b6da07b9e3f829410dd38635030a90b0b138acae024ceee95116fa8d"
+  },
+  "codex-rs/cloud-config/src/lib.rs": {
+    "bytes": 1122,
+    "mode": 420,
+    "sha256": "85461eb2cef20204dde2ec8e0a2867b4c8674829eb6b74661d33f3324ba57c6e"
   },
   "codex-rs/core/src/config/canonical_sqlite_authority.rs": {
     "bytes": 4457,
@@ -25,9 +30,9 @@
     "sha256": "4c4f3cbe0acc7d08de168a2deb6da19ef8827d14b7794a81e82aefb487e3079e"
   },
   "codex-rs/core/src/config/mod.rs": {
-    "bytes": 212178,
+    "bytes": 229837,
     "mode": 420,
-    "sha256": "e000290e064801b44f70d58d17462b45e57303f541eaa2f0062d2e26fd2bdc34"
+    "sha256": "f6fa88fb642af26162a46423d238ade15340df15e16e14c1980614417957c6f5"
   },
   "codex-rs/login/src/auth/account_grant.rs": {
     "bytes": 5082,
@@ -55,14 +60,14 @@
     "sha256": "7a0780b1b347fd5a89235f8a43e0e328481723c7bd0ac6b61c16c111577a3b1d"
   },
   "codex-rs/login/src/auth/manager.rs": {
-    "bytes": 142465,
+    "bytes": 159440,
     "mode": 420,
-    "sha256": "38542e94195a33541471fe120a7037b51bada9f66e7e1812c1c957fde5d90b08"
+    "sha256": "a57255aa393d343b9ee54a1b6699e46e227fc84df9bd4f0b10ceb36621799682"
   },
   "codex-rs/login/src/auth/storage.rs": {
-    "bytes": 24171,
+    "bytes": 28895,
     "mode": 420,
-    "sha256": "7e7ae3e31408072c2007e18e9571b324bd34692792056a51d5851e88802062db"
+    "sha256": "38f43ae2bc4879ba17522a8625626de3323cf92b4a8473ac5f6434bbf0a79a31"
   },
   "codex-rs/message-history/src/batch.rs": {
     "bytes": 15474,
@@ -75,19 +80,19 @@
     "sha256": "e425fc516afe5392a48c203f202dbf98723a0b75fa8c7ac35ab2b4fdae9a8f16"
   },
   "codex-rs/message-history/src/lib.rs": {
-    "bytes": 16246,
+    "bytes": 16189,
     "mode": 420,
-    "sha256": "e62f75a8a943d12279f4df885991e4623c5366cf2269a30498bc1c26e2ee97fc"
+    "sha256": "fe3526e45b2084c59c362802e78eef4645937bd8205e2ada91adc705a744eb1c"
   },
   "codex-rs/model-provider/src/auth.rs": {
-    "bytes": 40070,
+    "bytes": 22133,
     "mode": 420,
-    "sha256": "b2b835eecdefae767f4b3e4622c34a7ff534ea6664ea2693c45c37a465de5cfe"
+    "sha256": "3e7756c69fd886b44769824d692d13e708cba42465b6514fc384c0162b0de794"
   },
   "codex-rs/model-provider/src/provider.rs": {
-    "bytes": 57191,
+    "bytes": 33118,
     "mode": 420,
-    "sha256": "76f8c1c3ccb57ff07c768397e869aefcb99dd00e7eb47ddb55d96c8b8d7a6b31"
+    "sha256": "c843613a1e13cfbaf7e966da570bfa684e5e94547899958fb9d05d052836d547"
   },
   "codex-rs/rollout/src/canonical_rollout_maintenance.rs": {
     "bytes": 3283,
@@ -105,24 +110,24 @@
     "sha256": "5b48d7b780da2078fd6b35491274c50717201da2f914da63b6ad7c27eceb8dee"
   },
   "codex-rs/rollout/src/maintenance.rs": {
-    "bytes": 2031,
+    "bytes": 2260,
     "mode": 420,
-    "sha256": "23677f28dca9aaf9491a4d56bb50d41f901c660fb2514883e09f4edb37bfb861"
+    "sha256": "09c37a32f9838b6ba4aefcb8e6458aa6bb24a9652195ee83ba713251de1f9fac"
   },
   "codex-rs/rollout/src/session_index.rs": {
-    "bytes": 11295,
+    "bytes": 13230,
     "mode": 420,
-    "sha256": "aab70abe6fa97f4c038512f612302ecbd176c3ba76eb36a80302c1038df58713"
+    "sha256": "7455486947c5e05b39d368d7a3c682fae3d036a45d47de69095986478349c2ea"
   },
   "codex-rs/rollout/src/state_db.rs": {
-    "bytes": 25980,
+    "bytes": 26362,
     "mode": 420,
-    "sha256": "e72353d43fd4b26b1385b619e0968ca45e9ccd245dd9b2d16297d6451e6653fe"
+    "sha256": "85fd7fc63da6adb42ce72fec8511a9bf147ce7ed115734bd81b43f87b302a908"
   },
   "codex-rs/state/Cargo.toml": {
-    "bytes": 1081,
+    "bytes": 1186,
     "mode": 420,
-    "sha256": "503f5557b8a617c87bad344b0051be374dcd05e0021ef4e1d7761649f7249474"
+    "sha256": "a429be7789b116e578690e24e687a6b40daa8cc37fb37c8bea3dac3b9efad0d2"
   },
   "codex-rs/state/build.rs": {
     "bytes": 535,
@@ -130,9 +135,9 @@
     "sha256": "f5ec3ec3f02bc14325bb03d9cf1273729d03fad887e5f2b734c4de30c7ece4c3"
   },
   "codex-rs/state/src/lib.rs": {
-    "bytes": 7038,
+    "bytes": 7404,
     "mode": 420,
-    "sha256": "6320c235f97cb452ce392fdcdc1ac1867f774bbc88fd4f70e291d884dbdb6927"
+    "sha256": "e22c33706e91c3f20d6f1aaf1d2364d1648cc6f38cd42a8f957742d44b7421fa"
   },
   "codex-rs/state/src/runtime/canonical_rollout_paths.rs": {
     "bytes": 4909,
@@ -155,14 +160,14 @@
     "sha256": "2aa1f45d552cf144e83d20cd15859d6c9c28ce3c594561bf32a495c61ebe5818"
   },
   "codex-rs/state/src/runtime/threads.rs": {
-    "bytes": 139935,
+    "bytes": 158358,
     "mode": 420,
-    "sha256": "a8a7cbcaf9ff9ec57970f1c094dbb457c0087ed7d62222a0f9a524dce225e146"
+    "sha256": "ace9ba0df10f08b104c5a25c878a89d16e176bc0df1d91865ab28c110e4fd0b9"
   },
   "codex-rs/state/src/sqlite.rs": {
-    "bytes": 22014,
+    "bytes": 22588,
     "mode": 420,
-    "sha256": "5e72e09a12f1a9dea1a89d27e5f4025f96b0e4989a92c8f07680a1329b4f6d8c"
+    "sha256": "6a22b32c126d18fa47434bfbb7e8da69046302855ca0306cc9fca6d6595c5af0"
   },
   "codex-rs/state/src/sqlite/canonical_sqlite_vfs.c": {
     "bytes": 25542,
@@ -175,9 +180,9 @@
     "sha256": "b87bc042c493b64af886d0ad7fd59ecd9ada637f9e20a4df61a65ec1099e35fe"
   },
   "codex-rs/thread-store/src/local/rollout_migration.rs": {
-    "bytes": 55025,
+    "bytes": 56123,
     "mode": 420,
-    "sha256": "99cdfb6c72f4d97bebbd90d154983ac79ee45240d8186e0a7615dcac76d53743"
+    "sha256": "178c6ca6c2e0bed115369bec58df1e611cf5f0863cf3e4f390dc10ef953dbcff"
   },
   "codex-rs/thread-store/src/local/rollout_migration/canonical_migration_journals.rs": {
     "bytes": 7569,
@@ -205,23 +210,23 @@
     "sha256": "54febe0c6c7a06248e84b3051655be04caf35dfd21f7ad4188227b264e0d661e"
   },
   "codex-rs/tui/src/app/event_dispatch.rs": {
-    "bytes": 191729,
+    "bytes": 229123,
     "mode": 420,
-    "sha256": "682aa035d6de59b7d4dc973a9afdd307f6f9d4cdd88af865a7d70f8963251dd8"
+    "sha256": "75908525433a06485ac57f6d4dd7eaf714c273c5e97ff9f6ca54163bcb915d5c"
   },
   "codex-rs/tui/src/app_event.rs": {
-    "bytes": 58931,
+    "bytes": 69816,
     "mode": 420,
-    "sha256": "86da8f418a62c942461fc6f3ef8e06b6b859018099f99829460976efb80f1328"
+    "sha256": "3006bdbb9d56e0d7a309b0d12a7082e9cb8b0278e74c0ccc052a56e7f6fc3b16"
   },
   "codex-rs/tui/src/chatwidget.rs": {
-    "bytes": 90339,
+    "bytes": 91953,
     "mode": 420,
-    "sha256": "4b756259c5b0652f51eea81e2391eb6af633b6ffb4f7adfe56c4600f8d266ec3"
+    "sha256": "15b5652a0ed24ba19bc4b0ac4df5d79d280604d4ed52ba76327076fb85ef2cd4"
   },
   "codex-rs/tui/src/chatwidget/input_submission.rs": {
-    "bytes": 23320,
+    "bytes": 25862,
     "mode": 420,
-    "sha256": "d38b53470df0f0145dad18eab41484e0f429884a4c61997163ed75399cdb63bb"
+    "sha256": "a631578dd63e5a56b6f94f2960b8476637720cbe736343e925373339e626e95a"
   }
 }

@@ -83,6 +83,7 @@ def source_digest(inventory):
 def build_environment(recipe, inherited=None):
     inherited = os.environ if inherited is None else inherited
     # The selected VFS needs checked bundled SQLite and its FILESTAT flag.
+    # The pinned amalgamation also registers sqlite_walstat under FILESTAT.
     # libsqlite3-sys also accepts environment-only switches to another library.
     native_inputs = ("CC", "CXX", "AR", "RANLIB", "CFLAGS", "CXXFLAGS", "CPPFLAGS", "CXXSTDLIB")
     sqlite_targets = tuple(item["target"].upper().replace("-", "_") + "_SQLITE3_"
@@ -140,12 +141,6 @@ def prepare(root, state):
     for step in recipe["steps"]:
         subprocess.run(["python3", str(ADAPTERS / ("apply_" + step + ".py")),
                         str(root)], env=env, check=True)
-    # apply_adapter also supplies a separate experimental executable. Omit
-    # that unused driver from prepared release source.
-    driver = root / "codex-rs/login/src/bin/hive-canonical-auth-probe.rs"
-    if sha256(driver) != recipe["inputs"]["native_lifecycle_probe.rs"]:
-        raise ValueError("Unexpected native driver bytes during source preparation.")
-    driver.unlink()
     inventory = source_inventory(root)
     if source_digest(inventory) != recipe["sourceInventorySha256"]:
         raise ValueError("Native preparation differs from the pinned complete source inventory.")

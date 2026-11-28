@@ -83,7 +83,7 @@ const installedCodexHiddenModels = new Set();
 // Issue #2290: the preferred default is discovered from the installed Codex
 // catalogue. This chain is only consulted when that catalogue exposes no Sol
 // model at all, and remains ordered by capability rather than release number.
-const CODEX_DEFAULT_FALLBACK_CHAIN = ['gpt-5.6-terra', 'openai.gpt-5.6-terra', 'gpt-5.5', 'openai.gpt-5.5', 'gpt-6-luna', 'openai.gpt-6-luna', 'gpt-5.4', 'openai.gpt-5.4', 'gpt-5.2', 'gpt-5.6-luna', 'openai.gpt-5.6-luna', 'gpt-5.5-mini', 'gpt-5.4-mini', 'gpt-5.3-codex', 'gpt-5.3-codex-spark', 'gpt-5.2-codex', 'gpt-5.5-nano', 'gpt-5.4-nano'];
+const CODEX_DEFAULT_FALLBACK_CHAIN = ['gpt-6.1-terra', 'openai.gpt-6.1-terra', 'gpt-5.6-terra', 'openai.gpt-5.6-terra', 'gpt-5.5', 'openai.gpt-5.5', 'gpt-6-luna', 'openai.gpt-6-luna', 'gpt-5.4', 'openai.gpt-5.4', 'gpt-5.2', 'gpt-5.6-luna', 'openai.gpt-5.6-luna', 'gpt-5.5-mini', 'gpt-5.4-mini', 'gpt-5.3-codex', 'gpt-5.3-codex-spark', 'gpt-5.2-codex', 'gpt-5.5-nano', 'gpt-5.4-nano'];
 
 const CODEX_SOL_PATTERN = /^(?:(openai)[/.])?gpt-(\d+(?:\.\d+)*)-sol$/i;
 
@@ -98,7 +98,7 @@ export const getInstalledCodexModels = async () => {
   if (!cachedInstalledCodexModelsPromise) {
     cachedInstalledCodexModelsPromise = (async () => {
       try {
-        const { stdout } = await execFileAsync('codex', ['debug', 'models'], {
+        const { stdout } = await execFileAsync(process.env.CODEX_PATH || 'codex', ['debug', 'models'], {
           encoding: 'utf8',
           maxBuffer: 10 * 1024 * 1024,
         });
@@ -128,14 +128,17 @@ export const resolveRuntimeDefaultModel = async (tool, options = {}) => {
 
   const availableCodexModels = options.availableCodexModels === undefined ? await getInstalledCodexModels() : options.availableCodexModels;
 
-  if (!Array.isArray(availableCodexModels) || availableCodexModels.length === 0) {
+  if (!Array.isArray(availableCodexModels)) {
     return preferredDefault;
   }
 
-  const latestSol = selectLatestCodexSolModel(availableCodexModels);
-  if (latestSol) return latestSol;
-
-  return CODEX_DEFAULT_FALLBACK_CHAIN.find(model => availableCodexModels.includes(model)) || preferredDefault;
+  const selected = selectLatestCodexSolModel(availableCodexModels) ?? CODEX_DEFAULT_FALLBACK_CHAIN.find(model => availableCodexModels.includes(model));
+  const bareSelected = selected?.replace(/^openai[/.]/i, '');
+  if (bareSelected !== preferredDefault && (!bareSelected || selectLatestCodexSolModel([preferredDefault, bareSelected]) === preferredDefault)) {
+    const message = selected ? `Codex default model "${preferredDefault}" is missing from the installed CLI catalogue (codex debug models). Using "${selected}".` : `Codex default model "${preferredDefault}" is missing from the installed CLI catalogue (codex debug models). The catalogue has no configured fallback.`;
+    await (options.log ?? log)(message, { level: 'warn' });
+  }
+  return selected ?? preferredDefault;
 };
 
 /**
@@ -578,8 +581,8 @@ const resolveLiveFamilyAlias = (baseModel, toolName, liveModelIds) => {
 };
 
 const discoverRuntimeModels = async (toolName, options) => {
-  const discovered = [];
-  if (toolName === 'codex') discovered.push(...normalizeRuntimeModelIds(await getInstalledCodexModels()));
+  const installed = toolName === 'codex' ? await getInstalledCodexModels() : null;
+  const discovered = normalizeRuntimeModelIds(installed);
 
   if (options.useRouter || options.loadCatalogue) {
     try {
@@ -592,14 +595,14 @@ const discoverRuntimeModels = async (toolName, options) => {
       traceModelResolution('live catalogue unavailable', { tool: toolName, error: error?.message });
     }
   }
-  return discovered;
+  return installed === null && discovered.length === 0 ? null : discovered;
 };
 
 /**
  * Validate a model name against the bundled and the authoritative runtime catalogue.
  *
- * Bundled aliases keep their mappings unless the live catalogue names a newer
- * member of the same family (issue #2591). A new exact ID is accepted when the
+ * Codex aliases use the newest member of their family in the installed catalogue.
+ * A new exact ID is accepted when the
  * installed CLI/router reports it, even when Hive Mind was released before that
  * model existed, and the alias for a new family is derived from it.
  */
@@ -614,10 +617,17 @@ export const validateRuntimeModelName = async (model, tool = 'claude', options =
   const suffix = has1mSuffix ? '[1m]' : '';
 
   const liveAlias = typeof baseModel === 'string' ? resolveLiveFamilyAlias(baseModel, toolName, liveModelIds) : null;
-  if (liveAlias && (!staticValidation.valid || staticValidation.mappedModel !== `${liveAlias.mappedModel}${suffix}`)) {
-    registerRuntimeModelAlias(toolName, liveAlias.alias, liveAlias.modelId);
-    traceModelResolution('live alias', { tool: toolName, model, mappedModel: liveAlias.mappedModel, bundled: staticValidation.mappedModel ?? null });
-    return { valid: true, mappedModel: `${liveAlias.mappedModel}${suffix}`, has1mSuffix, source: 'live-alias' };
+  if (liveAlias) {
+    const mappedModel = `${liveAlias.mappedModel}${suffix}`;
+    const bundledCodexAlias = toolName === 'codex' && Object.hasOwn(CODEX_MODEL_VARIANTS, baseModel.toLowerCase()) ? CODEX_MODEL_VARIANTS[baseModel.toLowerCase()] : null;
+    const bundledId = bundledCodexAlias ? bundledCodexAlias.replace(/^openai[/.]/i, '') : null;
+    const fallback = bundledId && bundledId !== liveAlias.modelId && !liveModelIds.includes(bundledId) && deriveFamilyAliasesForTool('codex', [bundledId, liveAlias.modelId])[liveAlias.alias] === bundledId;
+    if (fallback || !staticValidation.valid || staticValidation.mappedModel !== mappedModel) {
+      registerRuntimeModelAlias(toolName, liveAlias.alias, liveAlias.modelId);
+      traceModelResolution('live alias', { tool: toolName, model, mappedModel: liveAlias.mappedModel, bundled: staticValidation.mappedModel ?? null });
+      const warning = fallback ? `Codex model "${bundledId}" for alias "${model}" is missing from the installed CLI catalogue (codex debug models). Using "${liveAlias.mappedModel}".` : undefined;
+      return { valid: true, mappedModel, has1mSuffix, source: 'live-alias', ...(warning && { warning }) };
+    }
   }
 
   if (staticValidation.valid) {
@@ -627,8 +637,13 @@ export const validateRuntimeModelName = async (model, tool = 'claude', options =
       .replace(/^openai[/.]/, '');
     // The installed Codex CLI is authoritative: a pinned model it no longer offers
     // fails only after the run starts, so say so while the user can still react.
-    if (toolName === 'codex' && liveModelIds.length > 0 && !liveModelIds.includes(bareModelId)) {
-      const warning = `Model "${model}" (${bareModelId}) is not in the installed Codex CLI's catalogue (codex debug models). Available: ${listCodexModelNames(liveModelIds, [...installedCodexHiddenModels]).join(', ')}`;
+    if (toolName === 'codex' && Array.isArray(availableModels) && !liveModelIds.includes(bareModelId)) {
+      const visibleModels = listCodexModelNames(liveModelIds, [...installedCodexHiddenModels]);
+      const choices = visibleModels.length ? ` Available models include ${visibleModels.join(', ')}.` : '';
+      const warning = `Model "${model}" (${bareModelId}) is not in the installed Codex CLI's catalogue (codex debug models).${choices}`;
+      if (bareModelId === defaultModels.codex) {
+        return { valid: false, message: `${warning} Upgrade Codex or choose an available model.` };
+      }
       return { ...staticValidation, source: 'bundled', warning };
     }
     return { ...staticValidation, source: 'bundled' };
@@ -1126,6 +1141,10 @@ export const defaultFallbackModels = {
     'openai.gpt-6-astra': 'openai.gpt-6.1-sol',
     'gpt-6.1-sol': 'gpt-6-sol',
     'openai.gpt-6.1-sol': 'openai.gpt-6-sol',
+    'gpt-6.2-sol': 'gpt-6.1-sol',
+    'openai.gpt-6.2-sol': 'openai.gpt-6.1-sol',
+    'gpt-6.2-astra': 'gpt-6.2-sol',
+    'openai.gpt-6.2-astra': 'openai.gpt-6.2-sol',
     'gpt-5.6-sol': 'gpt-5.6-terra',
     'gpt-5.6-terra': 'gpt-5.5',
     'gpt-5.6-luna': 'gpt-5.5',

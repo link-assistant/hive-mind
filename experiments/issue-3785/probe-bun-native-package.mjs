@@ -23,7 +23,7 @@ try {
     const version = '0.0.0-synthetic';
     await fs.writeFile(path.join(source, 'package.json'), JSON.stringify({ name: '@link-assistant/hive-mind', version, type: 'module', bin: { hive: 'src/hive.mjs' }, files: ['src', '!src/native-codex/runtime'] }));
     await fs.writeFile(path.join(source, 'src/hive.mjs'), `#!/usr/bin/env node\nconsole.log('${version}');\n`, { mode: 0o755 });
-    for (const name of ['verify-agent-runtime.mjs', 'codex-stock-skills-0.164.0.json', 'install-native-gemini.mjs', 'install-native-codex.mjs', 'native-gemini/recipe/manifest.json']) {
+    for (const name of ['verify-agent-runtime.mjs', 'codex-stock-skills-0.172.0.json', 'install-native-gemini.mjs', 'install-native-codex.mjs', 'native-gemini/recipe/manifest.json']) {
       const target = path.join(source, 'src', name);
       await fs.mkdir(path.dirname(target), { recursive: true });
       await fs.writeFile(target, '{}\n');
@@ -40,7 +40,7 @@ try {
 
     const stock = path.join(root, 'stock');
     await fs.mkdir(path.join(stock, 'bin'), { recursive: true });
-    await fs.writeFile(path.join(stock, 'package.json'), JSON.stringify({ name: '@openai/codex', version: '0.164.0', bin: { codex: 'bin/codex.js' } }));
+    await fs.writeFile(path.join(stock, 'package.json'), JSON.stringify({ name: '@openai/codex', version: '0.172.0', bin: { codex: 'bin/codex.js' } }));
     await fs.writeFile(path.join(stock, 'bin/codex.js'), '#!/bin/sh\nexit 99\n', { mode: 0o755 });
     const { stdout } = await run('npm', ['pack', '--ignore-scripts', '--silent', '--pack-destination', root], env, stock);
     const archive = path.join(root, stdout.trim());

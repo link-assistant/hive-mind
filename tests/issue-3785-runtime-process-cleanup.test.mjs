@@ -50,7 +50,7 @@ for (const outcome of ['leader-exit', 'invalid-json', 'catalog-refusal']) {
       `#!${process.execPath}
 import {spawn} from 'node:child_process';
 import readline from 'node:readline';
-if (process.argv.includes('--version')) { console.log('codex-cli 0.164.0'); process.exit(0); }
+if (process.argv.includes('--version')) { console.log('codex-cli 0.172.0'); process.exit(0); }
 const helper = spawn(process.execPath, [${JSON.stringify(helper)}], {stdio: ['ignore', 'ignore', 'ignore', 'ipc']});
 helper.once('message', () => {
   helper.disconnect();

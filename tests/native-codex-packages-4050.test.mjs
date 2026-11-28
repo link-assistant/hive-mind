@@ -163,7 +163,7 @@ test('packing stages exactly the platform runtime with independent bytes', { tim
 
 test('the runtime admits only the variant whose version pins the main package', { timeout: 10000, skip: !supported }, async t => {
   const healthy = await packagingFixture(t);
-  assert.equal((await healthy.api.verifyNativeCodexRuntime(healthy.runtime)).version, '0.164.0');
+  assert.equal((await healthy.api.verifyNativeCodexRuntime(healthy.runtime)).version, '0.172.0');
   const stale = await packagingFixture(t, { variantVersion: `1.2.2-native-codex-${platform}` });
   await assert.rejects(stale.api.installNativeCodexRuntime({ destination: stale.destination }), /execution were refused/u);
   await assert.rejects(fs.lstat(stale.destination), { code: 'ENOENT' });

@@ -179,19 +179,25 @@ const runPreflight = async ({ root, projectDir, codex, logs, env = {} }) => {
 test('an extra stock system skill requires the task system-skills opt-in', async t => {
   const root = await tempRoot(t);
   const { projectDir, skills } = await makeCheckout(root);
+  const bundledSkill = 'create-statusline';
+  const extraSkill = 'extra-stock-skill';
   const codex = fakeCodex({
-    candidates: async codexHome => [...skills, ['create-statusline', await write(path.join(codexHome, 'skills/.system/create-statusline/SKILL.md'), skill('create-statusline'))]],
+    candidates: async codexHome => {
+      const systemSkills = await Promise.all([bundledSkill, extraSkill].map(async name => [name, await write(path.join(codexHome, 'skills', '.system', name, 'SKILL.md'), skill(name))]));
+      return [...skills, ...systemSkills];
+    },
   });
   const env = { HIVE_MIND_ALLOW_STOCK_CODEX: '1' };
   const filtered = await runPreflight({ root, projectDir, codex, logs: [], env });
   t.after(() => filtered.dispose?.());
   assert.equal(filtered.skillCatalog.length, skills.length);
   assert.equal(codex.probes.length, 2);
-  assert.ok(codex.probes[0].includes('create-statusline'));
-  assert.ok(!codex.probes[1].includes('create-statusline'));
+  assert.ok(!codex.probes[0].includes(bundledSkill), 'the bundled skill is disabled before probing');
+  assert.ok(codex.probes[0].includes(extraSkill));
+  assert.ok(!codex.probes[1].includes(extraSkill));
   const allowed = await runPreflight({ root, projectDir, codex, logs: [], env: { ...env, HIVE_MIND_CODEX_SYSTEM_SKILLS: '1' } });
   t.after(() => allowed.dispose?.());
-  assert.ok(allowed.skillCatalog.some(entry => entry.name === 'create-statusline' && entry.providerId === 'codex-system'));
+  for (const name of [bundledSkill, extraSkill]) assert.ok(allowed.skillCatalog.some(entry => entry.name === name && entry.providerId === 'codex-system'));
 });
 
 test('preflight disables a host skill for the task only and keeps every repository skill', async t => {

@@ -195,9 +195,10 @@ export async function runOrganizationClassifier({ prompts, tool = 'claude', mode
   const normalizedTool = String(tool || 'claude').toLowerCase();
   if (!ORGANIZE_TOOLS.includes(normalizedTool)) throw new Error(`Unsupported organization tool "${normalizedTool}". Supported tools: ${ORGANIZE_TOOLS.join(', ')}`);
   const { resolveRuntimeDefaultModel, validateRuntimeModelName } = await import('./models/index.mjs');
-  const selectedModel = model || (await resolveRuntimeDefaultModel(normalizedTool));
+  const selectedModel = model || (await resolveRuntimeDefaultModel(normalizedTool, { log }));
   const validation = await validateRuntimeModelName(selectedModel, normalizedTool);
   if (!validation.valid) throw new Error(validation.message);
+  if (validation.warning) await (log ?? console.warn)(validation.warning, { level: 'warn' });
   const mappedModel = normalizedTool === 'claude' ? await resolveClaudeModelForExecution(selectedModel) : validation.mappedModel;
 
   const tempDir = await mkdtemp(join(tmpdir(), 'hive-organize-'));

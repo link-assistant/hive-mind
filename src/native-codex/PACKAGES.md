@@ -130,3 +130,8 @@ node experiments/issue-4169/probe-stock-codex.mjs VERSION /absolute/path/to/code
 Use the generated JSON for the versioned stock-skills manifest. Update its
 import in `src/codex-stock-skills.lib.mjs` and its packaging check in
 `scripts/install-image-package.sh` alongside the recipe change.
+The installed-runtime workflow compares that manifest with the native npm
+artifact, checks that `codex debug models` advertises `gpt-6.2-sol`, and runs
+`codex exec --model gpt-6.2-sol` against a local Responses API fixture. It checks
+that the requested model is sent and that the separate Code Mode host returns
+the shell command's output.

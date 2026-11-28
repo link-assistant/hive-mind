@@ -34,6 +34,7 @@ jobs:
             runner: ubuntu-24.04-arm
     env:
       PYTHONDONTWRITEBYTECODE: '1'
+      CODEX_PROBE_VERSION: '0.172.0'
     steps:
       - uses: actions/checkout@v7
         with:
@@ -58,7 +59,7 @@ jobs:
           native_source="$RUNNER_TEMP/codex-release-source"
           git init "$native_source"
           git -C "$native_source" remote add origin https://github.com/openai/codex.git
-          node scripts/github-retry.mjs git -C "$native_source" fetch --depth 1 origin 6aaac694803004a63c6f393d153c96d22521a6b9
+          node scripts/github-retry.mjs git -C "$native_source" fetch --depth 1 origin 3d86e43b075adeba2193ec5c22ac92f55afd82e6
           git -C "$native_source" checkout --detach FETCH_HEAD
           python3 scripts/build-native-codex.py prepare "$native_source" "$RUNNER_TEMP/native-release-source.json" > "$RUNNER_TEMP/native-release-prepare.log" 2>&1
       - name: Verify Cargo executable hardlink handoff
@@ -202,12 +203,17 @@ jobs:
           package="$RUNNER_TEMP/native-codex-npm-package"
           archive=$(node -p 'JSON.parse(require("node:fs").readFileSync(process.argv[1], "utf8"))[0].filename' "$package/pack.json")
           variant=$(node -p 'JSON.parse(require("node:fs").readFileSync(process.argv[1], "utf8")).find(entry => entry.platform === process.argv[2]).filename' "$package/variants/variants.json" "$PLATFORM")
-          npm install --prefix "$RUNNER_TEMP/codex-runtime-install" --ignore-scripts --omit=optional --no-audit --no-fund "$package/$archive" "@link-assistant/hive-mind-native-codex-$PLATFORM@file:$package/variants/$variant" @openai/codex@0.164.0 > "$RUNNER_TEMP/native-installed-package.log" 2>&1 &
+          npm install --prefix "$RUNNER_TEMP/codex-runtime-install" --ignore-scripts --omit=optional --no-audit --no-fund "$package/$archive" "@link-assistant/hive-mind-native-codex-$PLATFORM@file:$package/variants/$variant" @openai/codex@0.172.0 > "$RUNNER_TEMP/native-installed-package.log" 2>&1 &
           wait "$!"
           node experiments/issue-4116/installed-manager.mjs "$RUNNER_TEMP/codex-runtime-install" > "$RUNNER_TEMP/native-installed-manager.log" 2>&1
           node --max-old-space-size=256 experiments/issue-3785/probe-packaged-native-codex.mjs "$RUNNER_TEMP/codex-runtime-install/node_modules/@link-assistant/hive-mind" "$RUNNER_TEMP/native-installed-generation" "$RUNNER_TEMP/codex-runtime-install/node_modules/.bin/codex" > "$RUNNER_TEMP/native-installed-controls.log" 2>&1
-      - name: Run a shell command through the installed Code Mode host
-        run: node --max-old-space-size=96 experiments/issue-4159/probe-native-code-mode.mjs "$RUNNER_TEMP/codex-runtime-install/node_modules/.bin/codex" > "$RUNNER_TEMP/native-installed-code-mode.log" 2>&1
+      - name: Verify the installed stock assets and GPT-6.2 Sol execution
+        run: |
+          command="$RUNNER_TEMP/codex-runtime-install/node_modules/.bin/codex"
+          version=$(node -p 'require("./src/native-codex/recipe.json").version')
+          node --max-old-space-size=96 experiments/issue-4169/probe-stock-codex.mjs "$version" "$command" > "$RUNNER_TEMP/native-installed-stock-skills.log" 2>&1
+          diff -u "src/codex-stock-skills-$version.json" "$RUNNER_TEMP/native-installed-stock-skills.log"
+          node --max-old-space-size=96 experiments/issue-4159/probe-native-code-mode.mjs "$command" gpt-6.2-sol > "$RUNNER_TEMP/native-installed-code-mode.log" 2>&1
       - name: Preserve installed-package diagnostics
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7

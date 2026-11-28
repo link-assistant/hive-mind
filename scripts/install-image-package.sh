@@ -15,7 +15,7 @@ package_archive="$package_stage/$package_archive"
 test -f "$package_archive"
 # These are runtime inputs, not development scripts mounted into a test image.
 package_files=$(tar -tzf "$package_archive")
-for package_file in src/hive.mjs src/hive-manager/cli.sh src/verify-agent-runtime.mjs src/codex-stock-skills-0.164.0.json src/install-native-gemini.mjs src/native-gemini/recipe/manifest.json src/install-native-codex.mjs src/native-codex/recipe.json; do
+for package_file in src/hive.mjs src/hive-manager/cli.sh src/verify-agent-runtime.mjs src/codex-stock-skills-0.164.0.json src/codex-stock-skills-0.172.0.json src/install-native-gemini.mjs src/native-gemini/recipe/manifest.json src/install-native-codex.mjs src/native-codex/recipe.json; do
   grep -Fx "package/$package_file" >/dev/null <<<"$package_files"
 done
 # The executables must never return to the main tarball (npm refused it with E413).

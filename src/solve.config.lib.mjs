@@ -474,7 +474,7 @@ export const SOLVE_OPTION_DEFINITIONS = {
   },
   'fallback-model': {
     type: 'string',
-    description: 'Fallback model to switch to on model capacity/overload errors (and, for Fable 5, on safety-classifier refusals). When supported, retries resume the same session with this model. An explicit value is pinned exactly; the built-in defaults form a chain that steps to the next-closest model on repeated capacity errors. Defaults: claude fable/claude-fable-5 -> opus; claude mythos-5/claude-mythos-5 -> fable; claude opus/opus-5 -> opus-4-8; claude opus-4-8 -> opus-4-7; claude opus-4-7 -> opus-4-6; codex gpt-6-sol -> gpt-5.6-sol -> gpt-5.6-terra -> gpt-5.5 -> gpt-5.4; all others unset.',
+    description: 'Fallback model to switch to on model capacity/overload errors (and, for Fable 5, on safety-classifier refusals). When supported, retries resume the same session with this model. An explicit value is pinned exactly; the built-in defaults form a chain that steps to the next-closest model on repeated capacity errors. Defaults: claude fable/claude-fable-5 -> opus; claude mythos-5/claude-mythos-5 -> fable; claude opus/opus-5 -> opus-4-8; claude opus-4-8 -> opus-4-7; claude opus-4-7 -> opus-4-6; codex gpt-6.2-astra -> gpt-6.2-sol -> gpt-6.1-sol -> gpt-6-sol -> gpt-5.6-sol -> gpt-5.6-terra -> gpt-5.5 -> gpt-5.4; all others unset.',
     default: undefined,
   },
   'sub-agent-model': {
@@ -1082,9 +1082,9 @@ export const parseArguments = async (_yargs = getLinoYargsFactory(), hideBinFn =
   // Post-processing: Fix model default for opencode and codex tools
   // Yargs doesn't properly handle dynamic defaults based on other arguments,
   // so we need to handle this manually after parsing
-  const modelExplicitlyProvided = rawArgs.includes('--model') || rawArgs.includes('-m') || rawArgs.includes('--worker-model');
-  const fallbackModelExplicitlyProvided = rawArgs.includes('--fallback-model');
-  const planModelExplicitlyProvided = rawArgs.includes('--plan-model');
+  const modelExplicitlyProvided = ['--model', '-m', '--worker-model'].some(option => hasRawOption(rawArgs, option));
+  const fallbackModelExplicitlyProvided = hasRawOption(rawArgs, '--fallback-model');
+  const planModelExplicitlyProvided = hasRawOption(rawArgs, '--plan-model');
   const thinkExplicitlyProvided = hasRawOption(rawArgs, '--think');
   const thinkingBudgetExplicitlyProvided = hasRawOption(rawArgs, '--thinking-budget');
 

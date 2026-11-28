@@ -20,6 +20,8 @@ import { validateRuntimeModelInArgs } from '../src/telegram-command-args.lib.mjs
 // Codex CLI 0.161.0 `codex debug models` (docs/case-studies/issue-2591/data/codex/).
 const CODEX_0_161_MODELS = ['gpt-6-astra', 'gpt-6.1-sol', 'gpt-6-sol', 'gpt-6-luna', 'gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna', 'gpt-daybreak-blue-latest', 'gpt-daybreak-red-latest', 'gpt-5.5', 'codex-auto-review'];
 
+const CODEX_0_172_MODELS = [...CODEX_0_161_MODELS, 'gpt-6.2-astra', 'gpt-6.2-sol', 'gpt-6.1-terra'];
+
 let passed = 0;
 const test = async (name, fn) => {
   clearRuntimeModelAliases();
@@ -30,13 +32,13 @@ const test = async (name, fn) => {
 
 console.log('Issue #2591: latest-version model aliases');
 
-await test('the reported command: --tool codex --model astra resolves to GPT-6 Astra', async () => {
+await test('the reported command: --tool codex --model astra resolves to GPT-6.2 Astra', async () => {
   const validation = validateModelName('astra', 'codex');
   assert.equal(validation.valid, true, validation.message);
-  assert.equal(validation.mappedModel, 'gpt-6-astra');
-  assert.equal(mapCodexModelToId('astra'), 'gpt-6-astra');
-  assert.equal(resolveModelId('openai/astra', 'codex'), 'openai/gpt-6-astra');
-  assert.equal(resolveModelId('openai.astra', 'codex'), 'openai.gpt-6-astra');
+  assert.equal(validation.mappedModel, 'gpt-6.2-astra');
+  assert.equal(mapCodexModelToId('astra'), 'gpt-6.2-astra');
+  assert.equal(resolveModelId('openai/astra', 'codex'), 'openai/gpt-6.2-astra');
+  assert.equal(resolveModelId('openai.astra', 'codex'), 'openai.gpt-6.2-astra');
 });
 
 await test('the Telegram /codex command from the issue screenshot is accepted', async () => {
@@ -45,17 +47,15 @@ await test('the Telegram /codex command from the issue screenshot is accepted', 
 });
 
 await test('each Codex family alias names its own newest generation', async () => {
-  // GPT-6 has Sol, Luna and Astra but no Terra; the complete-trio rule of
-  // issue #2043 kept `sol` and `luna` on GPT-5.6 and gave `astra` nothing.
   assert.deepEqual(CODEX_FAMILY_ALIASES, {
-    astra: 'gpt-6-astra',
-    sol: 'gpt-6.1-sol',
+    astra: 'gpt-6.2-astra',
+    sol: 'gpt-6.2-sol',
     luna: 'gpt-6-luna',
-    terra: 'gpt-5.6-terra',
+    terra: 'gpt-6.1-terra',
     'daybreak-blue': 'gpt-daybreak-blue-latest',
     'daybreak-red': 'gpt-daybreak-red-latest',
   });
-  assert.equal(mapModelForTool('codex', 'sol'), 'gpt-6.1-sol');
+  assert.equal(mapModelForTool('codex', 'sol'), 'gpt-6.2-sol');
   assert.equal(mapModelForTool('codex', 'luna'), 'gpt-6-luna');
   assert.deepEqual(deriveCodexFamilyAliases(['gpt-6-sol', 'gpt-6.10-sol', 'gpt-6.9-sol']), { sol: 'gpt-6.10-sol' });
 });
@@ -72,16 +72,16 @@ await test('an alias for a family released after this build comes from the live 
 });
 
 await test('a known alias follows a newer generation the installed CLI already offers', async () => {
-  const result = await validateRuntimeModelName('sol', 'codex', { availableModels: [...CODEX_0_161_MODELS, 'gpt-6.2-sol'] });
-  assert.equal(result.mappedModel, 'gpt-6.2-sol');
-  assert.equal(mapCodexModelToId('sol'), 'gpt-6.2-sol');
-  const prefixed = await validateRuntimeModelName('openai/sol', 'codex', { availableModels: [...CODEX_0_161_MODELS, 'gpt-6.2-sol'] });
-  assert.equal(prefixed.mappedModel, 'openai/gpt-6.2-sol');
+  const result = await validateRuntimeModelName('sol', 'codex', { availableModels: [...CODEX_0_172_MODELS, 'gpt-6.3-sol'] });
+  assert.equal(result.mappedModel, 'gpt-6.3-sol');
+  assert.equal(mapCodexModelToId('sol'), 'gpt-6.3-sol');
+  const prefixed = await validateRuntimeModelName('openai/sol', 'codex', { availableModels: [...CODEX_0_172_MODELS, 'gpt-6.3-sol'] });
+  assert.equal(prefixed.mappedModel, 'openai/gpt-6.3-sol');
 });
 
 await test('the live alias matches the bundled one for the current Codex catalogue', async () => {
-  for (const [alias, modelId] of Object.entries({ astra: 'gpt-6-astra', sol: 'gpt-6.1-sol', luna: 'gpt-6-luna', terra: 'gpt-5.6-terra' })) {
-    const result = await validateRuntimeModelName(alias, 'codex', { availableModels: CODEX_0_161_MODELS });
+  for (const [alias, modelId] of Object.entries({ astra: 'gpt-6.2-astra', sol: 'gpt-6.2-sol', luna: 'gpt-6-luna', terra: 'gpt-6.1-terra' })) {
+    const result = await validateRuntimeModelName(alias, 'codex', { availableModels: CODEX_0_172_MODELS });
     assert.equal(result.mappedModel, modelId, alias);
     assert.equal(result.warning, undefined);
   }
@@ -110,7 +110,7 @@ await test('a typo lists what the installed Codex CLI offers', async () => {
 await test('a model missing from the installed Codex catalogue is flagged', async () => {
   const result = await validateRuntimeModelName('astra', 'codex', { availableModels: ['gpt-6-sol', 'gpt-6-luna'] });
   assert.equal(result.valid, true);
-  assert.equal(result.mappedModel, 'gpt-6-astra');
+  assert.equal(result.mappedModel, 'gpt-6.2-astra');
   assert.match(result.warning, /not in the installed Codex CLI's catalogue/);
 });
 
@@ -158,8 +158,8 @@ await test('the Claude listing hides dotted duplicates and legacy Claude 3 alias
 });
 
 await test('fallbacks cover the newest models', async () => {
-  assert.equal(resolveDefaultFallbackModel('codex', 'sol'), 'gpt-6-sol');
-  assert.equal(resolveDefaultFallbackModel('codex', 'astra'), 'gpt-6.1-sol');
+  assert.equal(resolveDefaultFallbackModel('codex', 'sol'), 'gpt-6.1-sol');
+  assert.equal(resolveDefaultFallbackModel('codex', 'astra'), 'gpt-6.2-sol');
   assert.equal(resolveDefaultFallbackModel('claude', 'sonnet-5-5'), 'sonnet-5');
 });
 

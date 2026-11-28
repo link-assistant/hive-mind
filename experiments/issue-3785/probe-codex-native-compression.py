@@ -108,7 +108,8 @@ requires_openai_auth = false
     def initialize(self):
         result = self.request('initialize', {'clientInfo': {'name': 'hive-3785-compression', 'version': '0.0.0'},
                                              'capabilities': {'experimentalApi': True}})
-        assert '0.164.0' in result['userAgent'], 'Require the pinned actual native CLI.'
+        version = os.environ.get('CODEX_PROBE_VERSION', '0.164.0')
+        assert version in result['userAgent'], 'Require the pinned actual native CLI.'
         self.child.stdin.write('{"method":"initialized"}\n')
         self.child.stdin.flush()
 

@@ -15,8 +15,9 @@ const execute = promisify(execFile);
 export async function installImageRipgrep({ codexRoot, destination, arch = process.arch }) {
   assert.ok(['x64', 'arm64'].includes(arch), 'Unsupported image search architecture.');
   const require = createRequire(path.join(codexRoot, 'package.json'));
+  const recipe = JSON.parse(await fs.readFile(new URL('../src/native-codex/recipe.json', import.meta.url), 'utf8'));
   const codex = JSON.parse(await fs.readFile(path.join(codexRoot, 'package.json'), 'utf8'));
-  assert.equal(codex.version, '0.164.0', 'Image search must come from the pinned Codex package.');
+  assert.equal(codex.version, recipe.version, 'Image search must come from the pinned Codex package.');
   const platformRoot = path.dirname(require.resolve(`@openai/codex-linux-${arch}/package.json`));
   const platform = JSON.parse(await fs.readFile(path.join(platformRoot, 'package.json'), 'utf8'));
   assert.equal(platform.version, `${codex.version}-linux-${arch}`, 'Image search platform package differs from the CLI pin.');

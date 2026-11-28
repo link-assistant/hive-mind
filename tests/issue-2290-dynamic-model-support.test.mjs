@@ -24,7 +24,7 @@ const currentOpus = validateModelName('claude-opus-5-5', 'claude');
 assert.equal(currentOpus.valid, true, currentOpus.message);
 assert.equal(currentOpus.mappedModel, 'claude-opus-5-5');
 
-assert.equal(defaultModels.codex, 'gpt-6-sol', 'GPT-6 Sol is the bundled Codex default');
+assert.equal(defaultModels.codex, 'gpt-6.2-sol', 'GPT-6.2 Sol is the bundled Codex default');
 assert.equal(defaultModels.claude, 'opus', 'Claude stays on the vendor-managed rolling Opus alias');
 assert.equal(mapModelToId('opus', { preserveRollingAlias: true }), 'opus', 'direct Claude execution must not pin the rolling alias to an old release');
 assert.equal(await resolveClaudeModelForExecution('opus', { useRouter: false }), 'opus', 'Claude Code resolves its rolling alias when used directly');
@@ -55,18 +55,40 @@ assert.equal(
   'gpt-6-sol'
 );
 
-assert.equal(
-  await resolveRuntimeDefaultModel('codex', {
-    availableCodexModels: ['gpt-6-sol', 'gpt-6.1-sol', 'gpt-6.1-luna'],
-  }),
-  'gpt-6.1-sol',
-  'a future Sol release becomes the default from the installed CLI catalogue alone'
-);
+const warnings = [];
+const log = (message, { level }) => warnings.push({ message, level });
+const previousCatalogue = ['gpt-6-sol', 'gpt-6.1-sol', 'gpt-5.6-sol'];
+assert.equal(await resolveRuntimeDefaultModel('codex', { availableCodexModels: previousCatalogue, log }), 'gpt-6.1-sol');
+assert.equal(warnings[0]?.level, 'warn');
+assert.match(warnings[0]?.message, /gpt-6\.2-sol.*missing.*Using "gpt-6\.1-sol"/u);
 
-const futureCodex = await validateRuntimeModelName('gpt-6.2-sol', 'codex', {
-  availableModels: ['gpt-6-sol', 'gpt-6.2-sol'],
+const unavailableSol = await validateRuntimeModelName('gpt-6.2-sol', 'codex', { availableModels: previousCatalogue });
+assert.equal(unavailableSol.valid, false);
+assert.match(unavailableSol.message, /gpt-6\.2-sol.*codex debug models.*Upgrade Codex/u);
+const emptyCatalogue = await validateRuntimeModelName('gpt-6.2-sol', 'codex', { availableModels: [] });
+assert.equal(emptyCatalogue.valid, false);
+assert.match(emptyCatalogue.message, /gpt-6\.2-sol.*codex debug models.*Upgrade Codex/u);
+assert.equal((await validateRuntimeModelName('gpt-6.2-sol', 'codex', { availableModels: null })).valid, true);
+const oldAlias = await validateRuntimeModelName('openai/sol', 'codex', { availableModels: previousCatalogue });
+assert.equal(oldAlias.mappedModel, 'openai/gpt-6.1-sol');
+assert.match(oldAlias.warning, /gpt-6\.2-sol.*Using "openai\/gpt-6\.1-sol"/u);
+for (let attempt = 0; attempt < 2; attempt++) {
+  const alias = await validateRuntimeModelName('sol', 'codex', { availableModels: previousCatalogue });
+  assert.match(alias.warning, /gpt-6\.2-sol.*Using "gpt-6\.1-sol"/u);
+}
+
+for (const supported of ['gpt-6.2-sol', 'gpt-6.3-sol']) {
+  warnings.length = 0;
+  const activeCatalogue = [...previousCatalogue, supported];
+  assert.equal(await resolveRuntimeDefaultModel('codex', { availableCodexModels: activeCatalogue, log }), supported);
+  assert.deepEqual(warnings, []);
+}
+assert.equal((await validateRuntimeModelName('gpt-6.2-sol', 'codex', { availableModels: ['gpt-6.2-sol'] })).valid, true);
+
+const futureCodex = await validateRuntimeModelName('gpt-6.3-sol', 'codex', {
+  availableModels: ['gpt-6-sol', 'gpt-6.3-sol'],
 });
-assert.deepEqual({ valid: futureCodex.valid, mappedModel: futureCodex.mappedModel, source: futureCodex.source }, { valid: true, mappedModel: 'gpt-6.2-sol', source: 'live' }, 'an installed model is accepted without adding it to the bundled map');
+assert.deepEqual({ valid: futureCodex.valid, mappedModel: futureCodex.mappedModel, source: futureCodex.source }, { valid: true, mappedModel: 'gpt-6.3-sol', source: 'live' }, 'an installed model is accepted without adding it to the bundled map');
 
 const futureRoutedModel = await validateRuntimeModelName('router-vendor/new-coder-1', 'codex', {
   availableModels: ['router-vendor/new-coder-1'],

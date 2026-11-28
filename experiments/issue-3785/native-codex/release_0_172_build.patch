@@ -1,0 +1,14 @@
+diff --git a/codex-rs/cloud-config/src/lib.rs b/codex-rs/cloud-config/src/lib.rs
+index 6a91454561982d8043da0ed167284caa5c5c4dba..38f253269416be7b1a3a622c0b9bc3728b337ff1 100644
+--- a/codex-rs/cloud-config/src/lib.rs
++++ b/codex-rs/cloud-config/src/lib.rs
+@@ -3,6 +3,9 @@
+ //! This crate owns transport, caching, and refresh behavior for cloud-delivered
+ //! config data. Parsing and composition remain in `codex-config`.
+ 
++// Cargo feature unification deepens the HTTP client future layout.
++#![recursion_limit = "256"]
++
+ mod backend;
+ mod bundle_loader;
+ mod cache;

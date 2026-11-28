@@ -78,6 +78,7 @@ if (!modelValidation.valid) {
   console.error(modelValidation.message);
   process.exit(1);
 }
+if (modelValidation.warning) console.warn(modelValidation.warning);
 
 const scriptDir = path.dirname(process.argv[1]);
 const timestamp = new Date().toISOString().replace(/[:.]/g, '-');

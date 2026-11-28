@@ -135,7 +135,7 @@ export async function validateAgentConfigAuditInputs({ tool = 'all', homeDir, en
       }
       if (name === 'codex') {
         const directory = path.join(configDir, 'skills', '.system');
-        const stock = await validateCodexStockSkills({ directory, fsImpl }).catch(async error => {
+        const stock = await validateCodexStockSkills({ directory, fsImpl, allowPrevious: true }).catch(async error => {
           if (!(error instanceof CodexStockBaselineError) || !readStockManifest) throw error;
           const manifest = await readStockManifest();
           if (!manifest) throw error;

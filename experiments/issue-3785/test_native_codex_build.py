@@ -95,12 +95,18 @@ class NativeBuildAdmission(unittest.TestCase):
             "CARGO_PROFILE_RELEASE_OPT_LEVEL": "0",
             "CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER": "other-linker",
             "CARGO_BUILD_RUSTFLAGS": "unexpected build arguments",
+            "RUSTY_V8_ARCHIVE": "unverified-v8.a",
+            "RUSTY_V8_SRC_BINDING_PATH": "unverified-v8.rs",
+            "V8_FROM_SOURCE": "1",
         })
         self.assertEqual(env["CARGO_PROFILE_RELEASE_OPT_LEVEL"], "2")
         self.assertNotIn("RUSTFLAGS", env)
         self.assertNotIn("CARGO_ENCODED_RUSTFLAGS", env)
         self.assertNotIn("CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER", env)
         self.assertNotIn("CARGO_BUILD_RUSTFLAGS", env)
+        self.assertNotIn("RUSTY_V8_ARCHIVE", env)
+        self.assertNotIn("RUSTY_V8_SRC_BINDING_PATH", env)
+        self.assertNotIn("V8_FROM_SOURCE", env)
 
     def test_native_c_and_sqlite_build_overrides_are_removed(self):
         recipe, _ = BUILD.load_recipe(self.recipe, self.inputs)
@@ -133,6 +139,48 @@ class NativeBuildAdmission(unittest.TestCase):
         self.assertEqual(env["CARGO_HOME"], str(self.root / "cargo-cache"))
 
 
+class NativeV8Inputs(unittest.TestCase):
+    def setUp(self):
+        temporary = tempfile.TemporaryDirectory(prefix="native-v8-input-test-")
+        self.addCleanup(temporary.cleanup)
+        self.directory = Path(temporary.name)
+        self.target = "aarch64-unknown-linux-gnu"
+        self.archive = "librusty_v8_ptrcomp_sandbox_release_" + self.target + ".a.gz"
+        self.binding = "src_binding_ptrcomp_sandbox_release_" + self.target + ".rs"
+        self.files = {self.archive: b"test V8 archive", self.binding: b"test V8 binding"}
+        ledger = "\n".join(f"{hashlib.sha256(data).hexdigest()}  {name}"
+                           for name, data in self.files.items())
+        sources = {"HEAD:codex-rs/Cargo.lock": b'[[package]]\nname = "v8"\nversion = "152.2.0"\n',
+                   "HEAD:third_party/v8/rusty_v8_152_2_0.sha256": ledger.encode()}
+
+        def git(root, operation, reference):
+            self.assertEqual(operation, "show")
+            return sources[reference]
+
+        def download(arguments, *, check):
+            self.assertTrue(check)
+            destination = Path(arguments[arguments.index("--output") + 1])
+            self.assertEqual(arguments[-1],
+                             "https://github.com/openai/codex/releases/download/"
+                             "rusty-v8-v152.2.0/" + destination.name)
+            destination.write_bytes(self.files[destination.name])
+
+        for target, name, implementation in [(BUILD, "git", git), (BUILD.subprocess, "run", download)]:
+            mock = patch.object(target, name, implementation)
+            mock.start()
+            self.addCleanup(mock.stop)
+
+    def test_stages_only_the_matching_verified_release_pair(self):
+        self.assertEqual(BUILD.stage_v8_artifacts(self.directory, self.target, self.directory),
+                         {"RUSTY_V8_ARCHIVE": str(self.directory / self.archive),
+                          "RUSTY_V8_SRC_BINDING_PATH": str(self.directory / self.binding)})
+
+    def test_rejects_a_changed_release_asset(self):
+        self.files[self.archive] = b"unexpected V8 archive"
+        with self.assertRaisesRegex(ValueError, "pinned Codex checksum"):
+            BUILD.stage_v8_artifacts(self.directory, self.target, self.directory)
+
+
 class NativeCompilerOutput(unittest.TestCase):
     """Cargo's internal executable alias must not become a distributed alias."""
 
@@ -160,6 +208,11 @@ class NativeCompilerOutput(unittest.TestCase):
         self.alias = self.binary.parent / "deps/codex-fixture"
         self.alias.parent.mkdir()
         os.link(self.binary, self.alias)
+        self.host = self.binary.with_name("codex-code-mode-host")
+        self.host.write_bytes(header + b"host")
+        self.host.chmod(0o755)
+        self.host_alias = self.alias.with_name("codex-code-mode-host-fixture")
+        os.link(self.host, self.host_alias)
         self.output = self.root / "artifact"
         self.prepared = {
             "schema": 1, "recipeSha256": self.digest,
@@ -172,6 +225,7 @@ class NativeCompilerOutput(unittest.TestCase):
             ("load_recipe", {"return_value": (self.recipe, self.digest)}),
             ("verify_source", {"return_value": self.prepared}),
             ("compiler", {"return_value": self.prepared["compiler"]}),
+            ("stage_v8_artifacts", {"return_value": {}}),
         ]:
             mock = patch.object(BUILD, name, **options)
             mock.start()
@@ -206,6 +260,9 @@ class NativeCompilerOutput(unittest.TestCase):
         self.assertEqual(self.alias.stat().st_ino, before.st_ino)
         self.assertEqual((self.output / "codex").stat().st_nlink, 1)
         self.assertEqual((self.output / "codex").read_bytes(), self.alias.read_bytes())
+        self.assertEqual(self.host.stat().st_nlink, 2)
+        self.assertEqual((self.output / self.host.name).stat().st_nlink, 1)
+        self.assertEqual((self.output / self.host.name).read_bytes(), self.host_alias.read_bytes())
         self.assertEqual(self.executed, [self.output / "codex"])
         BUILD.verify_artifact(self.output, self.recipe, self.digest, "linux-x64", executable=True)
 
@@ -223,9 +280,13 @@ class NativeCompilerOutput(unittest.TestCase):
 
     def test_copy_is_private_before_admission_even_with_permissive_umask(self):
         original_read = os.read
+        names = {binary.stat().st_ino: binary.name for binary in (self.binary, self.host)}
+        observed = set()
 
         def observe(descriptor, amount):
-            self.assertEqual((self.output / "codex").stat().st_mode & 0o777, 0o600)
+            name = names[os.fstat(descriptor).st_ino]
+            self.assertEqual((self.output / name).stat().st_mode & 0o777, 0o600)
+            observed.add(name)
             return original_read(descriptor, amount)
 
         previous_umask = os.umask(0)
@@ -234,6 +295,7 @@ class NativeCompilerOutput(unittest.TestCase):
                 self.build()
         finally:
             os.umask(previous_umask)
+        self.assertEqual(observed, set(names.values()))
         self.assertEqual(self.executed, [self.output / "codex"])
 
     def test_linked_compiler_path_is_refused_without_execution(self):
@@ -316,10 +378,14 @@ class NativeArtifactAssembly(unittest.TestCase):
             header[:7] = b"\x7fELF\x02\x01\x01"
             header[16:18] = b"\x03\x00"
             header[18:20] = machine["elfMachine"].to_bytes(2, "little")
-            (directory / "codex").write_bytes(header)
-            # upload-artifact loses Unix executable modes. Assembly must admit
-            # bytes before restoring only the known CLI's executable mode.
-            (directory / "codex").chmod(0o644)
+            identities = {}
+            for name in self.recipe["executables"]:
+                binary = directory / name
+                binary.write_bytes(header + name.encode())
+                # upload-artifact loses Unix executable modes. Assembly must
+                # admit bytes before restoring each executable's mode.
+                binary.chmod(0o644)
+                identities[name] = {"sha256": BUILD.sha256(binary), "bytes": binary.stat().st_size}
             (directory / "recipe.json").write_bytes(recipe_bytes)
             (directory / "licenses").mkdir()
             (directory / "licenses/LICENSE").write_bytes(license_bytes)
@@ -331,11 +397,11 @@ class NativeArtifactAssembly(unittest.TestCase):
             }
             BUILD.write_json(directory / "source.json", prepared)
             BUILD.write_json(directory / "manifest.json", {
-                "schema": 1, "platform": platform, "target": machine["target"], "compiler": compiler,
+                "schema": 2, "platform": platform, "target": machine["target"], "compiler": compiler,
                 "version": self.recipe["version"], "upstreamCommit": self.recipe["upstreamCommit"],
                 "recipeSha256": self.digest, "sourceSha256": BUILD.sha256(directory / "source.json"),
                 "cargoEnvironment": self.recipe["cargoEnvironment"], "licenses": self.recipe["licenses"],
-                "binary": {"sha256": BUILD.sha256(directory / "codex"), "bytes": len(header)},
+                "executables": identities,
             })
         self.mock = patch.object(BUILD, "load_recipe", return_value=(self.recipe, self.digest))
         self.mock.start()
@@ -347,13 +413,26 @@ class NativeArtifactAssembly(unittest.TestCase):
         BUILD.assemble(self.artifacts, self.output)
         for platform in self.recipe["targets"]:
             BUILD.verify_artifact(self.output / platform, self.recipe, self.digest, platform, executable=True)
-            self.assertEqual((self.output / platform / "codex").stat().st_mode & 0o777, 0o755)
-        self.assertEqual((self.x64 / "codex").stat().st_mode & 0o777, 0o644)
+            for name in self.recipe["executables"]:
+                self.assertEqual((self.output / platform / name).stat().st_mode & 0o777, 0o755)
+                self.assertEqual((self.x64 / name).stat().st_mode & 0o777, 0o644)
 
     def test_changed_binary_is_refused_before_assembly(self):
         with (self.x64 / "codex").open("ab") as target:
             target.write(b"changed")
         with self.assertRaisesRegex(ValueError, "identity"):
+            BUILD.assemble(self.artifacts, self.output)
+        self.assertFalse(self.output.exists())
+
+    def test_changed_or_missing_code_mode_host_is_refused_before_assembly(self):
+        host = self.x64 / "codex-code-mode-host"
+        with host.open("r+b") as target:
+            target.seek(64)
+            target.write(b"X")
+        with self.assertRaisesRegex(ValueError, "identity changed: codex-code-mode-host"):
+            BUILD.assemble(self.artifacts, self.output)
+        host.unlink()
+        with self.assertRaisesRegex(ValueError, "Missing: codex-code-mode-host"):
             BUILD.assemble(self.artifacts, self.output)
         self.assertFalse(self.output.exists())
 
@@ -397,7 +476,9 @@ class NativeArtifactAssembly(unittest.TestCase):
         out = Path(tempfile.mkdtemp(prefix="pack-", dir=self.root))
         packed = subprocess.run(["npm", "pack", "--ignore-scripts", "--json", "--pack-destination", str(out), *extra],
                                 cwd=directory, env=env, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        return out / json.loads(packed.stdout)[0]["filename"]
+        entries = json.loads(packed.stdout)
+        [entry] = entries.values() if isinstance(entries, dict) else entries
+        return out / entry["filename"]
 
     def test_actual_npm_file_allowlist_ships_recipe_and_pins_variants(self):
         """Issue #4050: the executables left the 249,862,346-byte main tarball."""
@@ -467,11 +548,12 @@ class NativeArtifactAssembly(unittest.TestCase):
     def test_variant_admits_an_executable_larger_than_the_other_file_limit(self):
         """Issue #4050, job 131520166341: the real 351,203,584-byte linux-x64 codex was
         refused because only names ending in "/codex" got the executable size limit."""
-        binary = self.x64 / "codex"
-        payload = binary.read_bytes() + bytes(BUILD.VARIANT_FILE_LIMIT + 1 - binary.stat().st_size)
-        binary.write_bytes(payload)
         manifest = json.loads((self.x64 / "manifest.json").read_text())
-        manifest["binary"] = {"sha256": BUILD.sha256(binary), "bytes": len(payload)}
+        for name in self.recipe["executables"]:
+            binary = self.x64 / name
+            with binary.open("r+b") as target:
+                target.truncate(BUILD.VARIANT_FILE_LIMIT + 1)
+            manifest["executables"][name] = {"sha256": BUILD.sha256(binary), "bytes": binary.stat().st_size}
         (self.x64 / "manifest.json").unlink()
         BUILD.write_json(self.x64 / "manifest.json", manifest)
         runtime = self.root / "assembled-large"

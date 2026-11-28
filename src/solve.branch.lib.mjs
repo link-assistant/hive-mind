@@ -2,6 +2,7 @@
  * Branch creation and checkout functionality for solve.mjs
  * Handles creating new branches or checking out existing PR branches
  */
+import { isPrepareOnly } from './formal-ai.lib.mjs';
 
 /**
  * Regular expressions for branch name validation
@@ -229,7 +230,7 @@ async function originHasBaseBranch(tempDir, baseBranch, $) {
  * git's create-from-origin path, we proactively copy the upstream branch into the fork so that the
  * branch creation, the later PR comparison, and any ahead/behind checks all see a consistent state.
  */
-async function ensureBaseBranchInFork({ baseBranch, tempDir, log, formatAligned, $, reason = 'proactive' }) {
+async function ensureBaseBranchInFork({ baseBranch, tempDir, log, formatAligned, $, reason = 'proactive', prepareOnly = false }) {
   if (!(await hasUpstreamRemote(tempDir, $))) {
     return false;
   }
@@ -253,12 +254,13 @@ async function ensureBaseBranchInFork({ baseBranch, tempDir, log, formatAligned,
   }
 
   await log(`${formatAligned('✅', 'Base branch found:', `upstream/${baseBranch}`)}`);
+  if (prepareOnly) return true;
+
   const checkoutBaseResult = await $({ cwd: tempDir })`git checkout -B ${baseBranch} upstream/${baseBranch}`;
   if (checkoutBaseResult.code !== 0) {
     await log(`${formatAligned('⚠️', 'Warning:', `Failed to prepare local ${baseBranch}`)}`, { level: 'warning' });
     return false;
   }
-
   await log(`${formatAligned('🔄', 'Pushing to fork:', `${baseBranch} branch`)}`);
   const pushBaseResult = await $({ cwd: tempDir })`git push origin ${baseBranch} 2>&1`;
   if (pushBaseResult.code !== 0) {
@@ -289,22 +291,24 @@ async function proactivelySyncBaseBranchToFork({ baseBranch, defaultBranch, temp
   await ensureBaseBranchInFork({ baseBranch, tempDir, log, formatAligned, $, reason: 'proactive' });
 }
 
-async function retryBranchCreationFromUpstreamBase({ checkoutResult, branchName, baseBranch, tempDir, log, formatAligned, $ }) {
+async function retryBranchCreationFromUpstreamBase({ checkoutResult, branchName, baseBranch, tempDir, log, formatAligned, $, prepareOnly }) {
   const errorOutput = `${checkoutResult.stderr?.toString() || ''}${checkoutResult.stdout?.toString() || ''}`;
   if (!isMissingOriginBaseRefError(errorOutput, baseBranch)) {
     return checkoutResult;
   }
 
-  const synced = await ensureBaseBranchInFork({ baseBranch, tempDir, log, formatAligned, $, reason: 'reactive' });
+  const synced = await ensureBaseBranchInFork({ baseBranch, tempDir, log, formatAligned, $, reason: 'reactive', prepareOnly });
   if (!synced) {
     return checkoutResult;
   }
 
-  await log(`${formatAligned('🌿', 'Retrying branch:', `${branchName} from ${baseBranch}`)}`);
-  return await $({ cwd: tempDir })`git checkout -b ${branchName} ${baseBranch}`;
+  const branchSource = prepareOnly ? `upstream/${baseBranch}` : baseBranch;
+  await log(`${formatAligned('🌿', 'Retrying branch:', `${branchName} from ${branchSource}`)}`);
+  return await $({ cwd: tempDir })`git checkout -b ${branchName} ${branchSource}`;
 }
 
 export async function createOrCheckoutBranch({ isContinueMode, prBranch, issueNumber, tempDir, defaultBranch, argv, log, formatAligned, $, crypto, owner, repo, prNumber }) {
+  const prepareOnly = isPrepareOnly(argv);
   // Create a branch for the issue or checkout existing PR branch
   let branchName;
   let checkoutResult;
@@ -342,7 +346,7 @@ export async function createOrCheckoutBranch({ isContinueMode, prBranch, issueNu
     // Issue #1772: when a custom base branch is requested in fork mode, proactively copy it from
     // upstream to the fork before branch creation. The fork's `gh repo fork` snapshot may pre-date
     // upstream's custom branches, so we cannot assume origin already has the requested base.
-    if (argv.baseBranch) {
+    if (argv.baseBranch && !prepareOnly) {
       await proactivelySyncBaseBranchToFork({
         baseBranch,
         defaultBranch,
@@ -365,6 +369,7 @@ export async function createOrCheckoutBranch({ isContinueMode, prBranch, issueNu
       log,
       formatAligned,
       $,
+      prepareOnly,
     });
   }
 

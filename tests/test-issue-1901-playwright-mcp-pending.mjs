@@ -284,7 +284,8 @@ await asyncTest('Issue #1901: skip-tool-connection-check does not skip local Pla
   const solveSource = await read('src/solve.mjs');
 
   assert.doesNotMatch(solveSource, /if\s*\(!skipToolConnectionCheck\)\s*{\s*const playwrightMcpPreflight = await ensureSolvePlaywrightMcpReady/s);
-  assert.match(solveSource, /if\s*\(!argv\.dryRun && argv\.playwrightMcp !== false\)\s*{\s*const playwrightMcpPreflight = await ensureSolvePlaywrightMcpReady/s);
+  assert.match(solveSource, /const prepareOnly = isPrepareOnly\(argv\)/);
+  assert.match(solveSource, /if\s*\(!prepareOnly && argv\.playwrightMcp !== false\)\s*{\s*const playwrightMcpPreflight = await ensureSolvePlaywrightMcpReady/s);
   assert.ok(!solveSource.includes('skip-tool-connection-check enabled'), 'Playwright MCP preflight skip message should not mention skip-tool-connection-check');
 });
 

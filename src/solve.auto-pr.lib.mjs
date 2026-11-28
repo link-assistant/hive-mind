@@ -17,8 +17,10 @@ import { stagePlaceholderFileOrExplain, explainNothingStagedAndThrow } from './s
 import { sanitizeForPublication, writeSanitizedPublicationFile } from './token-sanitization.lib.mjs';
 import { markPullRequestCreatedByThisRun } from './pr-draft-state.lib.mjs'; // Issue #2312: a draft this run created is never left behind.
 import { isPullRequestAlreadyExistsError, findExistingPullRequestUrl } from './github-pr-idempotency.lib.mjs'; // Issue #2168: a retried `gh pr create` must not fail because the first (5xx'd) attempt already created the PR.
+import { isPrepareOnly } from './formal-ai.lib.mjs';
 
 export async function handleAutoPrCreation({ argv, tempDir, branchName, issueNumber, owner, repo, defaultBranch, forkedRepo, isContinueMode, prNumber, log, formatAligned, $, reportError, path, fs }) {
+  if (isPrepareOnly(argv)) return null;
   // Skip auto-PR creation if:
   // 1. Auto-PR creation is disabled AND we're not in continue mode with no PR
   // 2. Continue mode is active AND we already have a PR

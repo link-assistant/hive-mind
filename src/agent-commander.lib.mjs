@@ -25,6 +25,7 @@ import { ensureAiToolScratchIgnored, filterAiToolScratchFromStatus } from './ai-
 import { CLAUDE_MEMORY_DISABLE_ENV, buildCodexMemoryDisableConfigArgs, isAgentMemoryDisabled } from './agent-memory-policy.lib.mjs'; // Issue #2178
 import { buildCodexAuxiliaryDisableConfigArgs, buildCodexEssentialFeatureConfigArgs, isAuxiliaryModelCallsDisabled } from './auxiliary-model-calls-policy.lib.mjs'; // Issue #2236, #2406
 import { logFinalPrompts } from './prompt-log.lib.mjs';
+import { createPreparedToolResult, isPrepareOnly } from './formal-ai.lib.mjs';
 
 export const AGENT_COMMANDER_TOOLS = new Set(['claude', 'codex', 'opencode', 'agent', 'qwen', 'gemini']);
 
@@ -424,7 +425,7 @@ export const executeWithAgentCommander = async params => {
   });
 
   const controller = module.agent(controllerOptions);
-  const dryRun = !!(argv.dryRun || argv.onlyPrepareCommand);
+  const dryRun = isPrepareOnly(argv);
   await log(`\n[agent-commander] Starting ${tool} execution${dryRun ? ' (dry-run)' : ''}...`);
   await controller.start({
     dryRun,
@@ -436,17 +437,8 @@ export const executeWithAgentCommander = async params => {
   });
 
   if (dryRun) {
-    return {
-      success: true,
-      sessionId: null,
-      limitReached: false,
-      limitResetTime: null,
-      limitTimezone: null,
-      anthropicTotalCostUSD: null,
-      publicPricingEstimate: null,
-      pricingInfo: null,
-      resultSummary: null,
-    };
+    await log('🧪 Command prepared; AI execution skipped.');
+    return createPreparedToolResult();
   }
 
   const result = await controller.stop();

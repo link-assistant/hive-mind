@@ -49,10 +49,15 @@ if arguments.expect_missing:
     print("PASS: reproduced a missing native Codex platform; no variant package was produced.")
     raise SystemExit(0)
 
-with (output / "pack.json").open("wb") as log, (output / "pack-errors.log").open("wb") as errors:
-    subprocess.run(["npm", "pack", "--ignore-scripts", "--json", "--pack-destination", str(output)],
-                   cwd=ROOT, env=env, stdout=log, stderr=errors, check=True)
-archive = output / json.loads((output / "pack.json").read_text())[0]["filename"]
+with (output / "pack-errors.log").open("wb") as errors:
+    result = subprocess.run(["npm", "pack", "--ignore-scripts", "--json", "--pack-destination", str(output)],
+                            cwd=ROOT, env=env, stdout=subprocess.PIPE, stderr=errors, check=True)
+pack_entries = json.loads(result.stdout)
+if isinstance(pack_entries, dict):
+    pack_entries = list(pack_entries.values())
+[entry] = pack_entries
+(output / "pack.json").write_text(json.dumps(pack_entries, indent=2) + "\n")
+archive = output / entry["filename"]
 run("size", ["node", str(ROOT / "scripts/check-npm-tarball-size.mjs"), str(archive),
              *[entry["archive"] for entry in json.loads((output / "variants/variants.json").read_text())]])
 run("verify-unwired", ["python3", str(ROOT / "scripts/build-native-codex.py"), "verify-package", "--unwired", str(archive)])

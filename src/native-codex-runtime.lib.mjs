@@ -1,4 +1,4 @@
-/** Admit and install the native executable from this package's build outputs.
+/** Admit and install the native executables from this package's build outputs.
  *
  * The executables ship in per-platform variant versions of this same package
  * (`<version>-native-codex-<platform>`), installed as the optional dependency
@@ -17,7 +17,11 @@ import { isDeepStrictEqual } from 'node:util';
 
 const bundled = fileURLToPath(new URL('./native-codex/', import.meta.url));
 const packageRoot = fileURLToPath(new URL('../', import.meta.url));
+export const NATIVE_CODEX_MANIFEST_SCHEMA = 2;
+export const NATIVE_CODEX_HOST_MISSING = 'NATIVE_CODEX_HOST_MISSING';
+const codeModeHost = 'codex-code-mode-host';
 const refusal = () => new Error('The pinned native Codex runtime could not be verified; installation and execution were refused.');
+const missingHost = () => Object.assign(new Error(`The pinned native Codex runtime is missing ${codeModeHost}; installation and execution were refused.`), { code: NATIVE_CODEX_HOST_MISSING });
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
 const identity = info => `${info.dev}:${info.ino}`;
 const revision = info => `${identity(info)}:${info.size}:${info.mtimeNs}:${info.ctimeNs}`;
@@ -76,13 +80,19 @@ async function recipe(platform) {
   if (process.platform !== 'linux' || !['linux-x64', 'linux-arm64'].includes(selected) || platform !== selected) throw refusal();
   const input = await read(path.join(bundled, 'recipe.json'));
   const data = JSON.parse(input.bytes);
-  if (data.schema !== 1 || data.version !== '0.164.0' || data.profile !== 'release' || !data.targets[platform] || !Number.isSafeInteger(data.maxBinaryBytes) || data.maxBinaryBytes <= 0 || data.maxBinaryBytes > 402653184) throw refusal();
-  const files = new Set(['codex', 'manifest.json', 'source.json', 'recipe.json']);
+  if (data.schema !== 1 || typeof data.version !== 'string' || !/^\d+\.\d+\.\d+$/u.test(data.version) || data.profile !== 'release' || !data.targets[platform] || !Number.isSafeInteger(data.maxBinaryBytes) || data.maxBinaryBytes <= 0 || data.maxBinaryBytes > 402653184) throw refusal();
+  const executables = new Set(Object.keys(data.executables));
+  if (!isDeepStrictEqual(executables, new Set(['codex', codeModeHost]))) throw refusal();
+  const files = new Set([...executables, 'manifest.json', 'source.json', 'recipe.json']);
   for (const name of Object.keys(data.licenses)) {
     if (!safeName(name) || !/^[a-f0-9]{64}$/u.test(data.licenses[name])) throw refusal();
     files.add(`licenses/${name}`);
   }
-  return { data, digest: input.digest, files, platform };
+  return { data, digest: input.digest, executables, files, platform };
+}
+
+export async function readNativeCodexVersion() {
+  return (await recipe(`linux-${process.arch}`)).data.version;
 }
 
 async function entries(root, files) {
@@ -106,6 +116,7 @@ async function entries(root, files) {
     }
   }
   await visit();
+  if (!seen.has(codeModeHost)) throw missingHost();
   if (!isDeepStrictEqual(seen, files)) throw refusal();
 }
 
@@ -117,14 +128,15 @@ async function verify(root, prepared, expectedManifest) {
   const { data, platform } = prepared;
   const source = JSON.parse((await read(path.join(root, 'source.json'), { digest: manifest.sourceSha256 })).bytes);
   const target = data.targets[platform];
-  if (manifest.schema !== 1 || manifest.version !== data.version || manifest.platform !== platform || manifest.target !== target.target || manifest.upstreamCommit !== data.upstreamCommit || manifest.recipeSha256 !== prepared.digest || !isDeepStrictEqual(manifest.cargoEnvironment, data.cargoEnvironment) || !isDeepStrictEqual(manifest.licenses, data.licenses)) throw refusal();
+  if (manifest.schema !== NATIVE_CODEX_MANIFEST_SCHEMA || manifest.version !== data.version || manifest.platform !== platform || manifest.target !== target.target || manifest.upstreamCommit !== data.upstreamCommit || manifest.recipeSha256 !== prepared.digest || !isDeepStrictEqual(manifest.cargoEnvironment, data.cargoEnvironment) || !isDeepStrictEqual(manifest.licenses, data.licenses)) throw refusal();
   if (source.schema !== 1 || source.recipeSha256 !== prepared.digest || source.upstreamCommit !== data.upstreamCommit || !isDeepStrictEqual(source.cargoEnvironment, data.cargoEnvironment) || sourceDigest(source.sourceFiles) !== data.sourceInventorySha256 || source.compiler !== manifest.compiler || !source.compiler.startsWith(`rustc ${data.rustToolchain} `) || !source.compiler.split('\n').includes(`host: ${target.target}`)) throw refusal();
   await read(path.join(root, 'recipe.json'), { digest: prepared.digest });
-  const binary = manifest.binary;
-  if (!binary || !Number.isSafeInteger(binary.bytes) || binary.bytes <= 0 || !/^[a-f0-9]{64}$/u.test(binary.sha256)) throw refusal();
-  const inspected = await read(path.join(root, 'codex'), { max: data.maxBinaryBytes, size: binary.bytes, digest: binary.sha256, metadata: false, executable: true });
-  const header = inspected.header;
-  if (header?.length !== 64 || !header.subarray(0, 7).equals(Buffer.from([127, 69, 76, 70, 2, 1, 1])) || ![2, 3].includes(header.readUInt16LE(16)) || header.readUInt16LE(18) !== target.elfMachine) throw refusal();
+  if (!isDeepStrictEqual(new Set(Object.keys(manifest.executables)), prepared.executables)) throw refusal();
+  for (const [name, binary] of Object.entries(manifest.executables)) {
+    if (!binary || !Number.isSafeInteger(binary.bytes) || binary.bytes <= 0 || !/^[a-f0-9]{64}$/u.test(binary.sha256)) throw refusal();
+    const { header } = await read(path.join(root, name), { max: data.maxBinaryBytes, size: binary.bytes, digest: binary.sha256, metadata: false, executable: true });
+    if (header?.length !== 64 || !header.subarray(0, 7).equals(Buffer.from([127, 69, 76, 70, 2, 1, 1])) || ![2, 3].includes(header.readUInt16LE(16)) || header.readUInt16LE(18) !== target.elfMachine) throw refusal();
+  }
   for (const [name, digest] of Object.entries(data.licenses)) await read(path.join(root, 'licenses', name), { digest });
   if ((await directory(root)) !== rootIdentity) throw refusal();
   return { root, entrypoint: path.join(root, 'codex'), version: data.version, platform, manifestSha256: manifestInput.digest };
@@ -164,7 +176,7 @@ export async function verifyNativeCodexRuntime(root, { platform = `linux-${proce
     return await verify(selected, prepared, verified.manifestSha256);
   } catch (error) {
     debug(phase, error);
-    throw refusal();
+    throw error.code === NATIVE_CODEX_HOST_MISSING ? error : refusal();
   }
 }
 
@@ -214,13 +226,17 @@ export async function installNativeCodexRuntime({ destination, platform = `linux
       if (error.code !== 'ENOENT') throw error;
       return null;
     });
-    if (existing) return await verify(await fs.realpath(destination), prepared, verified.manifestSha256);
+    if (existing) {
+      phase = 'installed generation admission';
+      return await verify(await fs.realpath(destination), prepared, verified.manifestSha256);
+    }
     generation = await fs.mkdtemp(path.join(parent, '.hive-native-codex-'));
     phase = 'native generation copy';
     for (const name of prepared.files) {
       const target = path.join(generation, name);
       await fs.mkdir(path.dirname(target), { recursive: true, mode: 0o755 });
-      await copy(path.join(verified.root, name), target, name === 'codex' ? 0o755 : 0o644, name === 'codex' ? prepared.data.maxBinaryBytes : 4194304);
+      const executable = prepared.executables.has(name);
+      await copy(path.join(verified.root, name), target, executable ? 0o755 : 0o644, executable ? prepared.data.maxBinaryBytes : 4194304);
     }
     phase = 'complete generation admission';
     const installed = await verify(generation, prepared, verified.manifestSha256);
@@ -231,7 +247,7 @@ export async function installNativeCodexRuntime({ destination, platform = `linux
     return installed;
   } catch (error) {
     debug(phase, error);
-    throw refusal();
+    throw error.code === NATIVE_CODEX_HOST_MISSING ? error : refusal();
   } finally {
     if (generation && !published)
       await fs.rm(generation, { recursive: true, force: true }).catch(() => {

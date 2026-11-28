@@ -26,11 +26,21 @@ nested daemon, run the [Docker-in-Docker image](#option-3-docker-in-docker-image
 with its default entrypoint and pass `hive-telegram-bot --isolation docker` as the
 container command.
 
-Isolated tasks also need a Git identity. Set both `user.name` and `user.email` in
-a persisted Git config, and make it visible to the bot at `/home/box/.gitconfig`
-(for example, `-v /path/to/gitconfig:/home/box/.gitconfig:ro`). Keep the bot's
-credential and tool storage mounts on host binds or Docker volumes so the daemon
-can mount the same data into tasks.
+Isolated tasks also need a Git identity. For a manual deployment using the host
+Docker socket, set `user.name` and `user.email` in a regular file on the Docker
+host. Include this option when creating or recreating the bot container.
+
+```bash
+--mount type=bind,source=/root/.hive-mind/gitconfig,target=/home/box/.gitconfig,readonly
+```
+
+Create the source file first and make it readable by the image's `box` user.
+Reuse an existing saved `gitconfig` on redeploy. Replace any in-container
+symlink workaround with the bind mount. For a Git config that the bot needs to
+update, bind-mount its parent directory and set `GIT_CONFIG_GLOBAL` to the file
+inside that directory, as `hive-manager` does. Keep the bot's credential and
+tool storage on host binds or Docker volumes so the daemon can mount the same
+data into tasks.
 
 ### Option 2: Building Locally
 

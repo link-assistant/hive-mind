@@ -18,6 +18,7 @@ import { ensurePullRequestIsDraft, ensurePullRequestIsReady } from './pr-draft-s
 // leaves version drift invisible - all three 2026-09-13 tasks ran solve v2.22.0
 // while v2.28.1 was published, and no comment said so.
 import { resolveSessionRuntime } from './session-runtime-provenance.lib.mjs';
+import { isPrepareOnly } from './formal-ai.lib.mjs';
 /**
  * Session type definitions for different work session contexts
  * See: https://github.com/link-assistant/hive-mind/issues/1152
@@ -137,6 +138,10 @@ export async function startWorkSession({ isContinueMode, prNumber, argv, log, fo
   // so plain `--resume`/continue-mode sessions left the PR marked "ready for review" while the
   // AI was still working on it. Any continue-mode session with a PR now converts it to draft.
   const workStartTime = new Date();
+  if (isPrepareOnly(argv)) {
+    if (isContinueMode && prNumber) await log('🧪 Dry run: skipping session-start comment and draft conversion.', { verbose: true });
+    return workStartTime;
+  }
   const shouldPostSessionComment = argv.watch || argv.autoContinue;
   if (isContinueMode && prNumber) {
     await log(`\n${formatAligned('🚀', 'Starting work session:', workStartTime.toISOString())}`);
@@ -178,7 +183,7 @@ const terminalReadinessReasons = new Set(['mergeable', 'ready_for_review_blocked
 
 export async function endWorkSession({ isContinueMode, prNumber, argv, log, formatAligned, $, logsAttached = false, autoMergeResult = null }) {
   // Issue #4106: the watcher already settled readiness for these outcomes.
-  if (terminalReadinessReasons.has(autoMergeResult?.reason)) return;
+  if (isPrepareOnly(argv) || terminalReadinessReasons.has(autoMergeResult?.reason)) return;
 
   // Post end work session comment and convert PR back to ready for review.
   //

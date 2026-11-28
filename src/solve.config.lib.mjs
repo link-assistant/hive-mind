@@ -1082,7 +1082,7 @@ export const parseArguments = async (_yargs = getLinoYargsFactory(), hideBinFn =
   // Post-processing: Fix model default for opencode and codex tools
   // Yargs doesn't properly handle dynamic defaults based on other arguments,
   // so we need to handle this manually after parsing
-  const modelExplicitlyProvided = rawArgs.includes('--model') || rawArgs.includes('-m') || rawArgs.includes('--worker-model');
+  const modelExplicitlyProvided = ['--model', '-m', '--worker-model'].some(option => hasRawOption(rawArgs, option));
   const fallbackModelExplicitlyProvided = rawArgs.includes('--fallback-model');
   const planModelExplicitlyProvided = rawArgs.includes('--plan-model');
   const thinkExplicitlyProvided = hasRawOption(rawArgs, '--think');

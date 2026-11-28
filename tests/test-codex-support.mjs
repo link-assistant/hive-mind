@@ -49,9 +49,9 @@ const renderTaggedTemplateCommand = (strings, values) =>
     return result + stringPart + (index < values.length ? renderedValue : '');
   }, '');
 
-test('Codex preferred default model is gpt-6-sol', () => {
-  // Issue #2290: GPT-6 Sol is the released Codex default.
-  assert.equal(defaultModels.codex, 'gpt-6-sol');
+test('Codex preferred default model is gpt-6.2-sol', () => {
+  // Issue #4162: GPT-6.2 Sol is the bundled Codex default.
+  assert.equal(defaultModels.codex, 'gpt-6.2-sol');
 });
 
 test('Codex resolves gpt-5.5 model id', () => {
@@ -94,7 +94,7 @@ test('Codex validates hidden codex-auto-review model id from CLI catalog', () =>
 
 test('Codex primary model names list the family aliases and current visible catalog entries', () => {
   // Issue #2591: derived from the Codex CLI catalogue instead of a hand-kept list.
-  assert.deepEqual(primaryModelNames.codex, ['astra', 'sol', 'luna', 'terra', 'gpt-6-astra', 'gpt-6.1-sol', 'gpt-6-sol', 'gpt-6-luna', 'gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna', 'gpt-5.5', 'formal-ai']);
+  assert.deepEqual(primaryModelNames.codex, ['sol', 'astra', 'terra', 'luna', 'gpt-6.2-sol', 'gpt-6.2-astra', 'gpt-6-astra', 'gpt-6.1-sol', 'gpt-6.1-terra', 'gpt-6-sol', 'gpt-6-luna', 'gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna', 'gpt-5.5', 'formal-ai']);
   assert.equal(primaryModelNames.codex.includes('codex-auto-review'), false);
 });
 

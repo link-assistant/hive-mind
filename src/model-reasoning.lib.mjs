@@ -14,6 +14,10 @@ const delegated = [...maximum, 'ultra'];
 // Verified against codex-cli 0.160.0 and official model pages; see issue #2526's case study.
 // Exact IDs only: a future generation must supply its own capabilities.
 const bundledEfforts = {
+  // Verified against codex-cli 0.172.0.
+  'gpt-6.2-sol': delegated,
+  'gpt-6.2-astra': delegated,
+  'gpt-6.1-terra': delegated,
   'gpt-6.1-sol': delegated,
   'gpt-6-astra': delegated,
   'gpt-6-sol': ['none', ...delegated],

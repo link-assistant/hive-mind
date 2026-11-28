@@ -327,12 +327,12 @@ if (isRunningDirectly) {
         await safeExit(1, 'Error occurred');
       }
     }
+    const modelExplicitlyProvided = rawArgs.some(arg => /^(?:--model|-m|--worker-model)(?:=|$)/u.test(arg));
     // --plan flag expansion: shortcut for --plan-model opus --worker-model sonnet (Issue #1223)
     if (argv.plan) {
       if (!rawArgs.includes('--plan-model')) argv.planModel = 'opus';
-      if (!rawArgs.includes('--model') && !rawArgs.includes('-m') && !rawArgs.includes('--worker-model')) argv.model = 'sonnet';
+      if (!modelExplicitlyProvided) argv.model = 'sonnet';
     }
-    const modelExplicitlyProvided = rawArgs.includes('--model') || rawArgs.includes('-m') || rawArgs.includes('--worker-model');
     if (argv.tool && !modelExplicitlyProvided && defaultModels[argv.tool]) {
       argv.model = await resolveRuntimeDefaultModel(argv.tool);
     }

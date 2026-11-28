@@ -197,12 +197,15 @@ export const codexModels = {
   ...formalAiNativeModelAliases,
   // GPT-6 Sol is the current default, Luna is the smaller tier, and Reserve is
   // exposed by the Codex CLI catalogue (Issue #2290).
+  'gpt-6.2-sol': 'gpt-6.2-sol',
   'gpt-6.1-sol': 'gpt-6.1-sol',
+  'gpt-6.1-terra': 'gpt-6.1-terra',
   'gpt-6-sol': 'gpt-6-sol',
   'gpt-6-luna': 'gpt-6-luna',
   'gpt-reserve': 'gpt-reserve',
   // GPT-6 Astra — the first GPT-6 model, limited preview from 2026-09-03 (Issue #2202)
   'gpt-6-astra': 'gpt-6-astra',
+  'gpt-6.2-astra': 'gpt-6.2-astra',
   gpt5: 'gpt-5',
   'gpt-5': 'gpt-5',
   'gpt-5.5': 'gpt-5.5',
@@ -236,14 +239,13 @@ export const codexModels = {
   'gpt-4o': 'gpt-4o',
 };
 
-// What the Codex CLI offers today: `codex debug models` of codex-cli 0.161.0
-// (docs/case-studies/issue-2591/data/codex/). Everything else in codexModels is
+// Model slugs from `codex debug models` of the bundled Codex CLI. Everything else in codexModels is
 // still accepted for pinned configurations but no longer advertised (Issue #2591).
-export const CODEX_CURRENT_MODELS = ['gpt-6-astra', 'gpt-6.1-sol', 'gpt-6-sol', 'gpt-6-luna', 'gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna', 'gpt-daybreak-blue-latest', 'gpt-daybreak-red-latest', 'gpt-5.5', 'codex-auto-review'];
+export const CODEX_CURRENT_MODELS = ['gpt-6.2-sol', 'gpt-6.2-astra', 'gpt-6-astra', 'gpt-6.1-sol', 'gpt-6.1-terra', 'gpt-6-sol', 'gpt-6-luna', 'gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna', 'gpt-daybreak-blue-latest', 'gpt-daybreak-red-latest', 'gpt-5.5', 'codex-auto-review'];
 // Reported with "visibility": "hide" — gated programs and Codex's own reviewer.
 export const CODEX_HIDDEN_MODELS = ['gpt-daybreak-blue-latest', 'gpt-daybreak-red-latest', 'codex-auto-review'];
 
-// astra → gpt-6-astra, sol → gpt-6.1-sol, luna → gpt-6-luna, terra → gpt-5.6-terra,
+// astra → gpt-6.2-astra, sol → gpt-6.2-sol, luna → gpt-6-luna, terra → gpt-6.1-terra,
 // daybreak-blue → gpt-daybreak-blue-latest, ... Each family follows its own newest
 // member; see ./aliases.mjs (Issue #2591).
 export const CODEX_FAMILY_ALIASES = deriveCodexFamilyAliases(CODEX_CURRENT_MODELS);
@@ -336,7 +338,7 @@ export const defaultModels = {
   claude: 'opus', // Rolling Claude Code alias; direct execution intentionally does not pin it to this catalogue snapshot (Issue #2290)
   agent: 'nemotron-3-super-free', // Issue #1563: changed from qwen3.6-plus-free (free promotion ended) per agent PR #243
   opencode: 'big-pickle', // Issue #2591: grok-code is deprecated and deleted by OpenCode; big-pickle is OpenCode's own keyless default
-  codex: 'gpt-6-sol', // Issue #2290: GPT-6 Sol is the Codex default; runtime discovers newer Sol generations and falls back against the installed catalogue
+  codex: 'gpt-6.2-sol', // Prefer the newest Sol in the installed CLI catalogue when available.
   qwen: 'qwen3-coder-plus',
   gemini: 'flash',
 };

@@ -342,7 +342,8 @@ Telegram-бот хранит состояние экземпляра в двух
 | --------------------------------------- | -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `HIVE_MIND_STATE_DIR`                   | `~/.hive-mind/state` | Directory of `hive-mind-state.lino` (indented Links Notation) and its link-cli copy `hive-mind-state.links`. Mount it on the host to read the state without entering the container. One bot per directory. |
 | `HIVE_MIND_CLINK`                       | `clink` on `PATH`    | link-cli binary for the binary doublets copy; `off` keeps only the `.lino` file                                                                                                                            |
-| `HIVE_MIND_STATE_LOCK_MODE`             | `pid`                | State lock: `pid` (the lock records the owner PID, host and PID namespace and is released at once when that process is gone), `age` (released only after 15 minutes), `none` (no lock; tests only)         |
+| `HIVE_MIND_STATE_LOCK_MODE` | `pid` | `pid` checks local owners by PID and uses age for other owners, `age` expires all locks after 15 minutes, and `none` disables locking. |
+| `HIVE_MIND_STATE_SCHEMA_TARGET` | `1` | Startup migration target (`0` or `1`), or `off` to keep the stored version. |
 | `HIVE_MIND_STATE_PUBLISH_INTERVAL_MS`   | `5000`               | How often the bot publishes its tasks and checks for a drain request; it also rewrites the file at least once a minute as a heartbeat                                                                      |
 | `HIVE_MIND_STATE_LINKS_RETENTION`       | `sized:64`           | `clink --retention` policy for the link-cli transactions log                                                                                                                                               |
 | `HIVE_MIND_STATE_LINKS_LOG_MAX_BYTES`   | `65536`              | Legacy link-cli 3.1.x only: rotate its transactions marker log above this size (3.1.x replays the whole log on every call; 3.2+ keeps a self-compacting journal)                                           |
@@ -358,6 +359,8 @@ hive-telegram-bot --resume-intake     # cancel the drain
 ```
 
 Эти команды читают и пишут только каталог состояния, поэтому им не нужен токен бота: запускайте их через `docker exec` или на хосте с `--state-dir`, указывающим на смонтированный каталог. См. `examples/redeploy-after-drain.sh` и `docs/case-studies/issue-4143`.
+
+Схема `1` добавляет признак версии к схеме `0`. Перед восстановлением задач бот приводит оба хранилища к версии `HIVE_MIND_STATE_SCHEMA_TARGET` (по умолчанию `1`). Укажите `0` для отката при запуске или `off`, чтобы оставить сохранённую версию. Для ручной миграции остановите бота и выполните `hive-telegram-bot --state-migrate 1` для обновления или `--state-migrate 0` для отката. При ошибке записи двоичной копии повторите ту же команду. Для сохранения ручного отката запустите бота с целью `0` или `off`. Docker-образы содержат Link CLI 3.3.3. Вместе с подписками восстанавливаются настройки `/stop` для отдельных чатов и ссылки на исходные сообщения Telegram.
 
 ### 14. Интеграция с YouTrack
 
@@ -766,6 +769,7 @@ hive-telegram-bot [options]
 | `--wait-for-idle`                        |           | boolean | false                | Wait until the drain is acknowledged and no task is running or starting (exit 0), or until `--wait-timeout` (exit 1)                                                                                                                  |
 | `--wait-timeout`                         |           | number  | 0                    | Seconds `--wait-for-idle` waits (0 waits forever)                                                                                                                                                                                     |
 | `--state-dir`                            |           | string  | `~/.hive-mind/state` | Bot state directory (`HIVE_MIND_STATE_DIR`)                                                                                                                                                                                           |
+| `--state-migrate` | | string | | Migrate a stopped bot’s state to schema `0` or `1`. |
 
 Когда `/solve` включена, Telegram-бот также принимает `/do` и `/continue`
 как обычные псевдонимы `/solve`. Команды `/claude`, `/codex`, `/opencode`,

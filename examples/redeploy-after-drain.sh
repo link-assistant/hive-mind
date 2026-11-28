@@ -33,7 +33,7 @@ bot() {
 bot --status
 bot --drain --drain-reason "$REASON"
 if ! bot --wait-for-idle --wait-timeout "$WAIT_TIMEOUT"; then
-  echo "Tasks are still running after ${WAIT_TIMEOUT}s; resuming intake and aborting the deploy." >&2
+  echo 'Idle state could not be verified. Resuming intake and aborting the deploy.' >&2
   bot --resume-intake
   exit 1
 fi

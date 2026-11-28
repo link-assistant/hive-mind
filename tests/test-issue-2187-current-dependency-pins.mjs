@@ -27,7 +27,7 @@ const expected = {
   formalAi: '0.357.2',
   jscpd: '5.4.3',
   jscpdThreshold: 12,
-  lintStaged: '17.6.2',
+  lintStaged: '17.6.3',
   node: '26.13.1',
   prettier: '3.10.1',
   sentry: '11.20.0',

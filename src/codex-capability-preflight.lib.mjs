@@ -18,11 +18,11 @@ import { parse as parseToml, stringify as stringifyToml } from 'smol-toml';
 import { CODEX_PLUGIN_CLI, buildPluginCachePath as buildAgentPluginCachePath, buildPluginPayloadRepairs, pluginIdParts, readMaterializedPluginSkills as readAgentMaterializedPluginSkills, repairPluginPayloads } from './agent-plugin-cache.lib.mjs';
 import { AGENTS_MD_FILENAMES, CLAUDE_MD_FILENAME } from './agents-md-claude-support.lib.mjs';
 import { REPOSITORY_SKILL_DIRECTORIES, parseModelVisibleSkillCatalog, validateModelVisibleSkillCatalog } from './codex-skill-catalog.lib.mjs';
-import { REPOSITORY_CODEX_CONFIG, applyRepositoryCodexConfig, disableScopedCodexSkills, readRepositoryCodexConfig } from './codex-repository-config.lib.mjs';
+import { REPOSITORY_CODEX_CONFIG, applyRepositoryCodexConfig, disableScopedCodexSkills, isCodexSystemSkillsEnabled, readRepositoryCodexConfig } from './codex-repository-config.lib.mjs';
 import { describeScopedCodexSessions, shareScopedCodexSessions } from './codex-sessions.lib.mjs';
 import { createCodexTaskScopeAllocator } from './codex-task-scope.lib.mjs';
 import { readCanonicalCodexAuth, selectedCodexAuthHome } from './codex-canonical-auth.lib.mjs';
-import { verifyNativeCodexCommand } from './native-codex-command.lib.mjs';
+import { isStockCodexAllowed, verifyNativeCodexCommand } from './native-codex-command.lib.mjs';
 
 export { buildCodexCapabilityStatePath, buildCodexTaskScopeNamespace } from './codex-task-scope.lib.mjs';
 
@@ -258,7 +258,9 @@ const logModelVisibleSkills = async ({ catalog, validation, log }) => {
 const checkModelVisibleSkills = async ({ command, env, runCommand, log, requiredSkills = [], codexHome, projectDir, plugins = [] }) => {
   let catalog = await readModelVisibleSkills({ command, env, runCommand, log });
   if (!catalog) return { status: 'unknown', visible: null, missing: [], skillCatalog: [], fingerprint: null };
-  const validate = () => validateModelVisibleSkillCatalog({ catalog, codexHome, projectDir, selectedPlugins: plugins, requiredSkills });
+  // Stock releases can ship system skills outside the bundled native manifest.
+  const allowSystemSkills = !isStockCodexAllowed(env) || isCodexSystemSkillsEnabled(env);
+  const validate = () => validateModelVisibleSkillCatalog({ catalog, codexHome, projectDir, selectedPlugins: plugins, requiredSkills, allowSystemSkills });
   let validation = await validate();
   await logModelVisibleSkills({ catalog, validation, log });
   // Issue #4057: a skill outside the allowlist, typically one the host

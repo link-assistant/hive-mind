@@ -6,6 +6,7 @@
  *   hive-telegram-bot --drain [--drain-reason]   stop taking new tasks
  *   hive-telegram-bot --resume-intake            take new tasks again
  *   hive-telegram-bot --wait-for-idle [--wait-timeout s]
+ *   hive-telegram-bot --state-migrate <version>  migrate persisted state
  *
  * They only read and write the durable bot state (`hive-mind-state.lino` and
  * its link-cli mirror) in the state directory, so they need no bot token and
@@ -17,6 +18,7 @@
  */
 
 import { createBotStateStore } from './bot-state-store.lib.mjs';
+import { parseBotStateVersion } from './bot-state-migrations.lib.mjs';
 import { DEFAULT_STATE_HEARTBEAT_MS, DEFAULT_STATE_PUBLISH_INTERVAL_MS } from './bot-instance-state.lib.mjs';
 import { currentLockOwner, processIsAlive } from './state-lock.lib.mjs';
 
@@ -38,6 +40,7 @@ export function describeInstanceState(state, { now = Date.now(), self = currentL
   let reason = 'heartbeat is fresh';
   if (!instance.startedAt) [alive, reason] = [false, 'no instance has published state yet'];
   else if (instance.stoppedAt) [alive, reason] = [false, `stopped at ${instance.stoppedAt}`];
+  else if (!Number.isFinite(heartbeatAge)) [alive, reason] = [false, 'no valid heartbeat'];
   else if (heartbeatAge > heartbeatMs * 3) [alive, reason] = [false, `no heartbeat for ${Math.round(heartbeatAge / 1000)}s`];
   else if (instance.hostname === self.hostname && (instance.pidNamespace ?? '') === (self.pidNamespace ?? '') && instance.pid && !isAlive(Number(instance.pid))) [alive, reason] = [false, `process ${instance.pid} is gone`];
   const tasks = Object.entries(state.tasks || {}).map(([id, task]) => ({ id, ...task }));
@@ -47,10 +50,10 @@ export function describeInstanceState(state, { now = Date.now(), self = currentL
     else if (STARTING_STATUSES.has(task.status)) counts.starting++;
     else if (QUEUED_STATUSES.has(task.status)) counts.queued++;
     else counts.other++;
-    if (task.isolation && task.isolation !== 'none' && (RUNNING_STATUSES.has(task.status) || STARTING_STATUSES.has(task.status))) counts.isolated++;
+    if (task.isolation && task.isolation !== 'none' && RUNNING_STATUSES.has(task.status)) counts.isolated++;
   }
   const intake = state.intake || { state: 'accepting' };
-  const drainAcknowledged = intake.state === 'draining' && Boolean(intake.acknowledgedAt) && new Date(intake.acknowledgedAt) >= new Date(intake.requestedAt || 0);
+  const drainAcknowledged = intake.state === 'draining' && Boolean(instance.id && intake.acknowledgedAt) && intake.acknowledgedBy === instance.id && new Date(intake.acknowledgedAt) >= new Date(intake.requestedAt || 0);
   const busy = counts.running + counts.starting + counts.launching;
   return {
     instance: { ...instance, alive, reason, heartbeatAgeSeconds: Number.isFinite(heartbeatAge) ? Math.round(heartbeatAge / 1000) : null },
@@ -68,7 +71,7 @@ const taskLine = task => {
   const where = task.isolation && task.isolation !== 'none' ? ` [${task.isolation}]` : '';
   const since = task.startedAt || task.createdAt;
   const waits = task.waitsFor?.length ? ` after ${task.waitsFor.map(target => target.label || target.url || target.itemId).join(', ')}` : '';
-  return `  ${task.status.padEnd(9)} ${what || task.id}${where}${task.sessionName ? ` (${task.sessionName})` : ''}${waits}${since ? ` since ${since}` : ''}`;
+  return `  ${(task.status || 'unknown').padEnd(9)} ${what || task.id}${where}${task.sessionName ? ` (${task.sessionName})` : ''}${waits}${since ? ` since ${since}` : ''}`;
 };
 
 /** Human readable status. */
@@ -90,13 +93,29 @@ export function formatStatusText(description, { paths } = {}) {
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 /**
- * Run --status / --drain / --resume-intake / --wait-for-idle.
+ * Run --status / --drain / --resume-intake / --wait-for-idle / --state-migrate.
  * @returns {Promise<number>} process exit code
  */
 export async function runInstanceStateCommand(config, { store, env = process.env, now = () => Date.now(), out = text => console.log(text), err = text => console.error(text), pollMs = Number(env.HIVE_MIND_STATE_PUBLISH_INTERVAL_MS) || DEFAULT_STATE_PUBLISH_INTERVAL_MS, sleepImpl = sleep, describe = describeInstanceState } = {}) {
   const stateStore = store ?? createBotStateStore({ env, verbose: config.verbose === true, log: text => err(`[bot-state] ${text}`) });
   const print = (description, extra = {}) => out(config.json ? JSON.stringify({ ...description, ...extra, paths: stateStore.paths }, null, 2) : formatStatusText(description, { paths: stateStore.paths }));
   const requestedBy = `${currentLockOwner().hostname}:${process.pid}`;
+
+  if (config.stateMigrate !== undefined) {
+    const targetVersion = parseBotStateVersion(config.stateMigrate);
+    const result = await stateStore.update(
+      (_, current) => {
+        if (describe(current.state, { now: now() }).instance.alive) throw new Error('Stop the bot before manually migrating its state');
+        return false;
+      },
+      { targetVersion }
+    );
+    const complete = !result.written || result.binaryWritten || result.binaryStore === 'unavailable';
+    if (!complete) err('Bot state migration could not update the binary mirror. Run the same migration again to repair it.');
+    if (config.json) out(JSON.stringify({ schemaVersion: result.schemaVersion, written: result.written, binaryWritten: result.binaryWritten ?? false, complete }, null, 2));
+    else out(result.exists ? `Bot state schema ${result.schemaVersion}.` : 'No bot state to migrate.');
+    return complete ? 0 : 1;
+  }
 
   if (config.drain || config.resumeIntake) {
     const result = await stateStore.update(draft => {
@@ -124,24 +143,29 @@ export async function runInstanceStateCommand(config, { store, env = process.env
     const deadline = config.waitTimeout > 0 ? now() + config.waitTimeout * 1000 : Infinity;
     let last = '';
     for (;;) {
-      const { state } = await stateStore.read();
+      const { state, consistent, errors, exists } = await stateStore.read({ lock: false, retries: 0 });
       const description = describe(state, { now: now() });
-      if (!description.instance.alive) {
-        err(`⚠️ No running instance (${description.instance.reason}); nothing to wait for.`);
-        print(description, { waited: 'not-running' });
-        return 0;
+      const verified = exists && consistent !== false && !errors?.length;
+      if ((!exists && !errors?.length) || (verified && !description.instance.alive)) {
+        if (verified && description.instance.stoppedAt && description.idle) {
+          print(description, { waited: 'stopped' });
+          return 0;
+        }
+        err(`Cannot confirm idle from the last snapshot (${description.instance.reason}).`);
+        print(description, { waited: 'unverified' });
+        return 1;
       }
-      if (state.intake.state !== 'draining') {
+      if (verified && state.intake.state !== 'draining') {
         err('Intake is not draining; run with --drain to stop new tasks first.');
         print(description, { waited: 'not-draining' });
         return 1;
       }
-      if (description.drained) {
+      if (verified && description.drained) {
         if (!config.json) out('Idle: the drain is acknowledged and no task is running or starting.');
         print(description, { waited: 'idle' });
         return 0;
       }
-      const progress = description.intake.acknowledged ? `${description.busy} task(s) still running or starting` : 'waiting for the instance to acknowledge the drain';
+      const progress = verified ? (description.intake.acknowledged ? `${description.busy} task(s) still running or starting` : 'waiting for the instance to acknowledge the drain') : 'waiting for a verified state snapshot';
       if (progress !== last && !config.json) err(progress);
       last = progress;
       if (now() >= deadline) {
@@ -156,8 +180,9 @@ export async function runInstanceStateCommand(config, { store, env = process.env
   const result = await stateStore.read();
   const description = describe(result.state, { now: now() });
   if (!result.exists && !config.json) out(`No bot state in ${stateStore.paths.dir} yet.`);
-  print(description, { source: result.source, consistent: result.consistent, binaryStore: result.binaryStore });
-  return 0;
+  if (result.errors?.length && !config.json) err(result.errors.join('\n'));
+  print(description, { source: result.source, schemaVersion: result.schemaVersion, consistent: result.consistent, binaryStore: result.binaryStore, errors: result.errors });
+  return !result.exists && result.errors?.length ? 1 : 0;
 }
 
 export default { describeInstanceState, formatStatusText, runInstanceStateCommand };

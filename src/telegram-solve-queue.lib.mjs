@@ -835,6 +835,10 @@ export class SolveQueue {
         // while process/session discovery is awaiting I/O.
         const reservation = await this.reserveStartSlot({ tool, locale: candidate.locale, url: candidate.url });
         if (!reservation.startReserved) continue;
+        if (this.isIntakePausedFn?.() || !this.isRunning || toolQueue[0] !== candidate) {
+          reservation.releaseStartReservation();
+          continue;
+        }
         // Remove the first item from this tool's queue
         const item = toolQueue.shift();
         if (!item) {

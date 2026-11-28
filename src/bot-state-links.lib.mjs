@@ -31,7 +31,7 @@
  */
 
 import { execFile } from 'node:child_process';
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -77,7 +77,7 @@ function createEncoder(rootKey) {
   };
   const list = refs => refs.reduceRight((rest, ref) => link(ref, rest), { text: END, depth: 0 });
   const value = item => {
-    if (Array.isArray(item)) return link({ text: ARR, depth: 0 }, list(item.map(leaf)));
+    if (Array.isArray(item)) return link({ text: ARR, depth: 0 }, list(item.map(value)));
     if (isPlainObject(item)) return link({ text: OBJ, depth: 0 }, list(Object.entries(item).map(([key, child]) => link(leaf(key), value(child)))));
     return leaf(item);
   };
@@ -122,8 +122,10 @@ export function decodeDoublets(text, rootKey = LINO_STATE_ROOT) {
   };
   const list = ref => {
     const items = [];
+    const visited = new Set();
     while (ref !== END) {
-      if (items.length > 1000000) throw new Error('Cyclic list');
+      if (visited.has(ref)) throw new Error('Cyclic list');
+      visited.add(ref);
       const [head, rest] = get(ref);
       items.push(head);
       ref = rest;
@@ -136,19 +138,18 @@ export function decodeDoublets(text, rootKey = LINO_STATE_ROOT) {
     if (seen.has(ref)) throw new Error(`Cycle at ${ref}`);
     seen.add(ref);
     try {
-      if (kind === ARR) return list(body).map(leaf);
+      if (kind === ARR) return list(body).map(value);
       if (kind === OBJ) {
-        const result = {};
-        for (const entry of list(body)) {
-          if (isPoint(entry)) {
-            const name = leaf(entry);
-            result[name] = name;
-          } else {
+        return Object.fromEntries(
+          list(body).map(entry => {
+            if (isPoint(entry)) {
+              const name = leaf(entry);
+              return [name, name];
+            }
             const [key, child] = get(entry);
-            result[leaf(key)] = value(child);
-          }
-        }
-        return result;
+            return [leaf(key), value(child)];
+          })
+        );
       }
       throw new Error(`Unknown container ${kind}`);
     } finally {
@@ -156,7 +157,8 @@ export function decodeDoublets(text, rootKey = LINO_STATE_ROOT) {
     }
   };
   const tree = value(root[1]);
-  return isPlainObject(tree) ? tree : {};
+  if (!isPlainObject(tree)) throw new Error('The binary state root must be an object');
+  return tree;
 }
 
 /** Live link count of the tree, used to decide when to rebuild the store. */
@@ -191,10 +193,12 @@ export function resolveClinkCommand(env = process.env) {
  */
 export const DEFAULT_LINKS_LOG_MAX_BYTES = 64 * 1024;
 
-export function createLinksStore({ dbPath, command = resolveClinkCommand(), retention = process.env.HIVE_MIND_STATE_LINKS_RETENTION || 'sized:64', logMaxBytes = Number(process.env.HIVE_MIND_STATE_LINKS_LOG_MAX_BYTES) || DEFAULT_LINKS_LOG_MAX_BYTES, timeoutMs = Number(process.env.HIVE_MIND_STATE_LINKS_TIMEOUT_MS) || 30000, indexedLookups = !/^(off|false|0|no)$/i.test(process.env.HIVE_MIND_STATE_LINKS_INDEXED_LOOKUPS?.trim() || ''), rootKey = LINO_STATE_ROOT, fsImpl = fs, run = runFile, log = () => {} } = {}) {
+export function createLinksStore({ dbPath, env = process.env, command = resolveClinkCommand(env), retention = env.HIVE_MIND_STATE_LINKS_RETENTION || 'sized:64', logMaxBytes = Number(env.HIVE_MIND_STATE_LINKS_LOG_MAX_BYTES) || DEFAULT_LINKS_LOG_MAX_BYTES, timeoutMs = Number(env.HIVE_MIND_STATE_LINKS_TIMEOUT_MS) || 30000, indexedLookups = !/^(off|false|0|no)$/i.test(env.HIVE_MIND_STATE_LINKS_INDEXED_LOOKUPS?.trim() || ''), rootKey = LINO_STATE_ROOT, fsImpl = fs, run = runFile, log = () => {} } = {}) {
   const fsp = fsImpl.promises;
   let availability = command ? null : false;
-  const tmpPath = suffix => `${dbPath}.${process.pid}.${suffix}.lino`;
+  let version = [];
+  const tmpPath = suffix => `${dbPath}.${randomUUID()}.${suffix}.lino`;
+  const atLeast = (minor, patch = 0) => version[0] > 3 || (version[0] === 3 && (version[1] > minor || (version[1] === minor && version[2] >= patch)));
   const transactionArgs = ['--transactions', ...(retention ? ['--retention', retention] : [])];
   // Every leaf of the state is a named link, and link-cli resolves names by
   // scanning the whole names store unless `--indexed-lookups` (link-cli 1.0.9+)
@@ -214,7 +218,12 @@ export function createLinksStore({ dbPath, command = resolveClinkCommand(), rete
   async function available() {
     if (availability !== null) return availability;
     try {
-      await run(command, ['--version'], { timeoutMs });
+      const result = await run(command, ['--version'], { timeoutMs });
+      version =
+        String(result?.stdout ?? '')
+          .match(/\b(\d+)\.(\d+)\.(\d+)\b/)
+          ?.slice(1)
+          .map(Number) ?? [];
       availability = true;
     } catch (error) {
       availability = false;
@@ -235,8 +244,8 @@ export function createLinksStore({ dbPath, command = resolveClinkCommand(), rete
 
   async function importTree(tree, { db = dbPath, args = transactionArgs } = {}) {
     const input = tmpPath('in');
-    await fsp.writeFile(input, encodeDoublets(tree, rootKey));
     try {
+      await fsp.writeFile(input, encodeDoublets(tree, rootKey), { mode: 0o600 });
       await clink(['--db', db, '--in', input, ...lookupArgs, ...args], '--in', db);
     } finally {
       await fsp.rm(input, { force: true }).catch(() => {});
@@ -264,12 +273,9 @@ export function createLinksStore({ dbPath, command = resolveClinkCommand(), rete
   }
 
   /**
-   * Issue #4143: link-cli 3.2.1 commits one transaction per created link with
-   * `--transactions` (link-cli#199), about 1 s per task on disk, so a full
-   * import can outlast the timeout and a crash leaves it half applied. A first
-   * write and a rebuild therefore import into a fresh store without
-   * `--transactions` and rename it over the old one: the old store stays
-   * readable until the new one is complete.
+   * Build compactions and repairs away from the live mirror. Link-cli 3.3.1+
+   * batches the import in one transaction (link-cli#199). Older binaries
+   * import without transactions here to avoid one disk commit per link.
    */
   async function replaceWithFresh(tree) {
     const freshBase = `${base}.${process.pid}.fresh`;
@@ -281,12 +287,15 @@ export function createLinksStore({ dbPath, command = resolveClinkCommand(), rete
     };
     await cleanup();
     try {
-      await importTree(tree, { db: freshData[0], args: [] });
-      // The journal describes the store being replaced.
+      await importTree(tree, { db: freshData[0], args: atLeast(3, 1) ? transactionArgs : [] });
+      // The data, names and journal are a set. The bot state lock serializes
+      // replacement against bot writes. A reader verifies the snapshot against
+      // .lino, which also repairs the binary set if replacement is interrupted.
       for (const file of [`${base}.transitions.log`, ...logFiles()]) await fsp.rm(file, { force: true });
       // Names first: `read()` treats a missing data file as "no state yet".
       const targets = dataFiles();
       for (const index of [1, 0]) await fsp.rename(freshData[index], targets[index]).catch(ignoreMissing);
+      await fsp.rename(`${freshBase}.transitions.log`, `${base}.transitions.log`).catch(ignoreMissing);
     } finally {
       await cleanup();
     }
@@ -314,19 +323,20 @@ export function createLinksStore({ dbPath, command = resolveClinkCommand(), rete
       return decodeDoublets(await exportText(), rootKey);
     },
     /** Write the tree and rebuild the store when garbage outgrows it. */
-    async write(tree) {
+    async write(tree, { repair = false } = {}) {
       if (!(await available())) return false;
       await fsp.mkdir(path.dirname(dbPath), { recursive: true });
       const exists = await fsp.access(dbPath).then(
         () => true,
         () => false
       );
-      if (!exists) {
+      if (repair || (!exists && !atLeast(3, 1))) {
         await replaceWithFresh(tree);
         return true;
       }
-      await rotateLogIfLarge();
+      if (!atLeast(2)) await rotateLogIfLarge();
       await importTree(tree);
+      if (!exists) return true;
       const total = parseDoubletsExport(await exportText()).size;
       const live = countLiveLinks(tree) + 8;
       if (total > Math.max(256, live * 4)) {

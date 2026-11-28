@@ -113,6 +113,7 @@ await asyncTest('--wait-for-idle: waits for running tasks, times out, and ignore
     polls++;
     await store.update(draft => {
       draft.intake.acknowledgedAt = draft.intake.acknowledgedAt || at();
+      draft.intake.acknowledgedBy = draft.instance.id;
       if (polls >= 2) draft.tasks = {};
       draft.instance.heartbeatAt = draft.instance.updatedAt = at();
     });
@@ -132,7 +133,11 @@ await asyncTest('--wait-for-idle: waits for running tasks, times out, and ignore
     draft.instance.stoppedAt = at();
   });
   const gone = await runInstanceStateCommand({ waitForIdle: true }, { store, now, out: quiet, err: quiet, sleepImpl: async () => {} });
-  assert(gone === 0, 'a stopped instance has nothing to wait for');
+  assert(gone === 1, 'a stopped instance with active tasks does not prove the redeploy is safe');
+  await store.update(draft => {
+    draft.tasks = {};
+  });
+  assert((await runInstanceStateCommand({ waitForIdle: true }, { store, now, out: quiet, err: quiet })) === 0, 'a cleanly stopped and idle instance has nothing to wait for');
 });
 
 await asyncTest('status text and liveness', async () => {
@@ -168,7 +173,12 @@ await asyncTest('restart: subscribers and queued tasks come back, starting ones 
     d: { source: 'queue', status: 'queued', url: 'https://github.com/o/r/issues/4', args: ['x'], createdAt: '2026-11-25T09:02:00.000Z' },
     s: { source: 'session', status: 'running', url: 'https://github.com/o/r/issues/5' },
   };
-  const result = await restoreQueuedTasks({ tasks, queue, telegram: fakeTelegram, isUrlActive: async url => url.endsWith('/4'), log: quiet });
+  const store = newStore();
+  await store.update(state => {
+    state.tasks = tasks;
+  });
+  const persisted = (await store.read()).state.tasks;
+  const result = await restoreQueuedTasks({ tasks: persisted, queue, telegram: fakeTelegram, isUrlActive: async url => ({ isActive: url.endsWith('/4') }), log: quiet });
   assert(result.restored.length === 2, 'queued and waiting tasks restored');
   assert(
     result.skipped
@@ -182,6 +192,8 @@ await asyncTest('restart: subscribers and queued tasks come back, starting ones 
   assert(restoredA.messageInfo.messageId === 70 && restoredA.ctx.telegram === fakeTelegram && restoredA.requesterUserId === 5, 'Telegram message can still be edited');
   const restoredB = queue.findByUrl('https://github.com/o/r/issues/2');
   assert(restoredB.status === 'waiting' && queue.dependencies.entries[0].targets[0].item === restoredA, 'waiting task waits for the restored item again');
+  await queue.updateItemMessage(restoredA, 'restored status');
+  assert(fakeTelegram.edits.at(-1)?.slice(0, 2).join() === '-100,70', 'the restored queue actually edits the original Telegram message');
   queue.stop();
 });
 

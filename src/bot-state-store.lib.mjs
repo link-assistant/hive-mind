@@ -18,22 +18,24 @@
  * @see https://github.com/link-assistant/hive-mind/issues/4143
  */
 
+import { randomUUID } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 
 import { LINO_STATE_ROOT, formatVerifiedLinoTree, normalizeStringTree, parseLinoTree, stringTreesEqual } from './bot-state-lino.lib.mjs';
 import { createLinksStore } from './bot-state-links.lib.mjs';
+import { BOT_STATE_VERSION, getBotStateVersion, migrateBotState, parseBotStateVersion } from './bot-state-migrations.lib.mjs';
 import { resolveBotStateDir } from './session-store.lib.mjs';
 import { withStateLock } from './state-lock.lib.mjs';
 
-export const BOT_STATE_VERSION = 1;
+export { BOT_STATE_VERSION };
 export const BOT_STATE_BASENAME = 'hive-mind-state';
 export const BOT_STATE_LOCK_NAME = 'hive-mind-state';
 export const INTAKE_STATES = Object.freeze(['accepting', 'draining']);
 
 // Fields decoded back to numbers or booleans; everything else stays a string.
-const NUMBER_FIELDS = new Set(['version', 'pid', 'number', 'launching', 'chatId', 'messageId', 'messageThreadId', 'replyToMessageId', 'requesterUserId', 'sourceChatId', 'userId', 'position']);
-const BOOLEAN_FIELDS = new Set(['showLimits']);
+const NUMBER_FIELDS = new Set(['version', 'pid', 'number', 'launching', 'chatId', 'messageId', 'messageThreadId', 'replyToMessageId', 'requesterUserId', 'sourceChatId', 'userId', 'position', 'percentage', 'httpStatus']);
+const BOOLEAN_FIELDS = new Set(['showLimits', 'success']);
 
 const isPlainObject = value => value !== null && typeof value === 'object' && !Array.isArray(value);
 
@@ -43,12 +45,11 @@ export function stateToStringTree(value) {
   if (value instanceof Date) return value.toISOString();
   if (Array.isArray(value)) return value.map(item => stateToStringTree(item)).filter(item => item !== undefined);
   if (isPlainObject(value)) {
-    const result = {};
-    for (const [key, child] of Object.entries(value)) {
-      const converted = stateToStringTree(child);
-      if (converted !== undefined) result[key] = converted;
-    }
-    return result;
+    return Object.fromEntries(
+      Object.entries(value)
+        .map(([key, child]) => [key, stateToStringTree(child)])
+        .filter(([, child]) => child !== undefined)
+    );
   }
   return String(value);
 }
@@ -68,7 +69,6 @@ export function normalizeBotState(state = {}) {
   const intake = isPlainObject(state.intake) ? state.intake : {};
   return {
     ...state,
-    version: BOT_STATE_VERSION,
     instance: isPlainObject(state.instance) ? state.instance : {},
     intake: { ...intake, state: INTAKE_STATES.includes(intake.state) ? intake.state : 'accepting' },
     tasks: isPlainObject(state.tasks) ? state.tasks : {},
@@ -91,11 +91,11 @@ const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
  * @param {object} [options.lockOptions] - Passed to `withStateLock` (`mode`, `timeoutMs`, ...).
  * @param {boolean} [options.verbose=false] - Trace reads, writes and mismatches.
  */
-export function createBotStateStore({ dir = resolveBotStateDir(), env = process.env, fsImpl = fs, linksStore, readRetries = 3, retryDelayMs = 150, lockOptions = {}, verbose = false, log = message => console.log(`[bot-state] ${message}`), parser } = {}) {
+export function createBotStateStore({ env = process.env, dir = resolveBotStateDir(env), fsImpl = fs, linksStore, readRetries = 3, retryDelayMs = 150, lockOptions = {}, verbose = false, log = message => console.log(`[bot-state] ${message}`), parser } = {}) {
   const fsp = fsImpl.promises;
   const linoPath = path.join(dir, `${BOT_STATE_BASENAME}.lino`);
   const trace = message => verbose && log(message);
-  const links = linksStore ?? createLinksStore({ dbPath: path.join(dir, `${BOT_STATE_BASENAME}.links`), log: trace });
+  const links = linksStore ?? createLinksStore({ env, fsImpl, dbPath: path.join(dir, `${BOT_STATE_BASENAME}.links`), log: trace });
   const lockPath = path.join(dir, `${BOT_STATE_LOCK_NAME}.lock`);
 
   async function readLino() {
@@ -108,6 +108,7 @@ export function createBotStateStore({ dir = resolveBotStateDir(), env = process.
     }
     const { rootKey, tree } = await parseLinoTree(text, { parser });
     if (rootKey !== LINO_STATE_ROOT) throw new Error(`${linoPath} has root "${rootKey}", expected "${LINO_STATE_ROOT}"`);
+    if (!isPlainObject(tree)) throw new Error(`${linoPath} state root must be an object`);
     return tree;
   }
 
@@ -132,7 +133,7 @@ export function createBotStateStore({ dir = resolveBotStateDir(), env = process.
     }
     const expected = linoTree && (normalizeStringTree(linoTree) ?? {});
     const actual = linksResult.tree && (normalizeStringTree(linksResult.tree) ?? {});
-    const agree = linksResult.available ? stringTreesEqual(expected ?? null, actual ?? null) : null;
+    const agree = linksResult.available ? !linoError && !linksResult.error && stringTreesEqual(expected ?? null, actual ?? null) : null;
     return { linoTree, linoError, linksTree: linksResult.tree, linksAvailable: linksResult.available, linksError: linksResult.error, agree };
   }
 
@@ -140,8 +141,10 @@ export function createBotStateStore({ dir = resolveBotStateDir(), env = process.
     const { linoTree, linksTree, linksAvailable, agree } = snapshot;
     const tree = agree && linksTree ? linksTree : (linoTree ?? linksTree);
     const source = agree && linksTree ? 'links' : linoTree ? 'lino' : linksTree ? 'links' : 'empty';
+    const state = tree ? stringTreeToState(tree) : {};
     return {
-      state: normalizeBotState(tree ? stringTreeToState(tree) : {}),
+      state: normalizeBotState(state),
+      schemaVersion: tree ? getBotStateVersion(state) : null,
       source,
       consistent: agree,
       binaryStore: linksAvailable ? 'available' : 'unavailable',
@@ -152,35 +155,39 @@ export function createBotStateStore({ dir = resolveBotStateDir(), env = process.
   }
 
   /** Read without the lock, retrying while the stores differ, then under the lock. */
-  async function read({ lock = true } = {}) {
+  async function read({ lock = true, retries = readRetries } = {}) {
     let snapshot;
     let attempts = 0;
-    for (; attempts <= readRetries; attempts++) {
+    for (; attempts <= retries; attempts++) {
       snapshot = await readOnce();
       if (snapshot.agree !== false) return toResult(snapshot, attempts + 1);
       trace(`Stores disagree on attempt ${attempts + 1}; retrying`);
-      if (attempts < readRetries) await sleep(retryDelayMs);
+      if (attempts < retries) await sleep(retryDelayMs);
     }
     if (lock) {
       snapshot = await withStateLock(BOT_STATE_LOCK_NAME, readOnce, { env, fsImpl, lockPath, log, trace, ...lockOptions });
       attempts++;
     }
-    if (snapshot.agree === false) log(`⚠️ ${linoPath} and ${links.dbPath} differ; using the .lino copy, the next write repairs link-cli`);
+    if (snapshot.agree === false) log(`⚠️ ${linoPath} and ${links.dbPath} differ; using the readable copy when available`);
     return toResult(snapshot, attempts);
   }
 
-  async function writeUnlocked(state) {
+  async function writeUnlocked(state, { repairBinary }) {
     const normalized = normalizeBotState(state);
     const tree = stateToStringTree(normalized);
     const text = await formatVerifiedLinoTree(tree, { parser });
     await fsp.mkdir(dir, { recursive: true });
-    const temporary = `${linoPath}.${process.pid}.tmp`;
-    await fsp.writeFile(temporary, text);
-    await fsp.rename(temporary, linoPath);
+    const temporary = `${linoPath}.${process.pid}.${randomUUID()}.tmp`;
+    try {
+      await fsp.writeFile(temporary, text, { mode: 0o600 });
+      await fsp.rename(temporary, linoPath);
+    } finally {
+      await fsp.rm(temporary, { force: true }).catch(() => {});
+    }
     trace(`Wrote ${linoPath} (${text.length} bytes)`);
     let binary = false;
     try {
-      binary = await links.write(tree);
+      binary = await links.write(tree, { repair: repairBinary });
       if (binary) trace(`Wrote ${links.dbPath}`);
     } catch (error) {
       log(`⚠️ Could not write ${links.dbPath}: ${error.stderr || error.message}`);
@@ -213,16 +220,23 @@ export function createBotStateStore({ dir = resolveBotStateDir(), env = process.
      * (or mutates in place and returns undefined). Returning `false` skips the
      * write when nothing changed, unless the stores disagreed.
      */
-    async update(mutate) {
+    async update(mutate, { targetVersion } = {}) {
+      const target = targetVersion === undefined ? undefined : parseBotStateVersion(targetVersion);
       return withStateLock(
         BOT_STATE_LOCK_NAME,
         async () => {
-          const current = toResult(await readOnce(), 1);
-          const draft = cloneState(current.state);
+          const snapshot = await readOnce();
+          const current = toResult(snapshot, 1);
+          if (!current.exists && current.errors.length) throw new Error(`No readable bot state copy: ${current.errors.join('; ')}`);
+          const version = target ?? current.schemaVersion ?? BOT_STATE_VERSION;
+          const changingVersion = current.exists && current.schemaVersion !== version;
+          const draft = migrateBotState(cloneState(current.state), version);
           const result = await mutate(draft, current);
-          if (result === false && current.consistent !== false) return { ...current, written: false };
-          const { state, binary } = await writeUnlocked(result && result !== true ? result : draft);
-          return { ...current, state, written: true, binaryWritten: binary };
+          if (result === false && !changingVersion && current.consistent !== false) return { ...current, written: false };
+          const next = result && result !== true ? result : draft;
+          if (getBotStateVersion(next) !== version) throw new Error('Change the bot state schema using a migration');
+          const { state, binary } = await writeUnlocked(next, { repairBinary: Boolean(snapshot.linksError) });
+          return { ...current, state, schemaVersion: version, written: true, binaryWritten: binary };
         },
         { env, fsImpl, lockPath, log, trace, ...lockOptions }
       );

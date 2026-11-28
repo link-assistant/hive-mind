@@ -16,7 +16,7 @@
  * PID, hostname and PID namespace of the holder. A lock whose holder died on
  * this host and namespace is released at once instead of after `staleMs`.
  * `HIVE_MIND_STATE_LOCK_MODE` (or the `mode` option) selects the strategy:
- * `pid` (default: owner liveness plus age), `age` (age only) or `none` (no
+ * `pid` (default: owner liveness, or age when the owner cannot be probed), `age` (age only) or `none` (no
  * lock, for single-process setups and filesystems without atomic mkdir).
  *
  * @see https://github.com/link-assistant/hive-mind/issues/2146
@@ -72,13 +72,17 @@ export const processIsAlive = pid => {
   }
 };
 
+const localOwnerPid = (owner, self) => {
+  const pid = Number(owner?.pid);
+  if (!Number.isInteger(pid) || pid <= 0) return null;
+  if (owner.hostname !== self.hostname || (owner.pidNamespace ?? '') !== (self.pidNamespace ?? '')) return null;
+  return pid;
+};
+
 /** Whether the recorded owner is provably dead (same host and namespace, no such PID). */
 export const isLockOwnerDead = (owner, { self = currentLockOwner(), isAlive = processIsAlive } = {}) => {
-  const pid = Number(owner?.pid);
-  if (!Number.isInteger(pid) || pid <= 0) return false;
-  if (owner.hostname !== self.hostname || (owner.pidNamespace ?? '') !== (self.pidNamespace ?? '')) return false;
-  if (pid === self.pid) return false;
-  return !isAlive(pid);
+  const pid = localOwnerPid(owner, self);
+  return pid !== null && pid !== self.pid && !isAlive(pid);
 };
 
 const readLockOwner = async (fsp, lockPath) => {
@@ -105,7 +109,7 @@ const lockAge = async (fsp, target, now) => {
  * that guard, so a lock taken after the first check is never removed. Returns
  * whether the caller should retry at once (the lock is gone or was broken).
  */
-const breakStaleLock = async ({ fsp, lockPath, staleMs, now, ownerDead = async () => false }) => {
+const breakStaleLock = async ({ fsp, lockPath, staleMs, now, staleReason }) => {
   const guard = `${lockPath}.break`;
   try {
     await fsp.mkdir(guard);
@@ -118,7 +122,7 @@ const breakStaleLock = async ({ fsp, lockPath, staleMs, now, ownerDead = async (
   try {
     const age = await lockAge(fsp, lockPath, now);
     if (age === null) return true;
-    if (age <= staleMs && !(await ownerDead())) return false;
+    if (!(await staleReason(age))) return false;
     await fsp.rm(lockPath, { recursive: true, force: true });
     return true;
   } finally {
@@ -140,7 +144,13 @@ export const withStateLock = async (name, fn, { env = process.env, fsImpl = fs, 
   const fsp = fsImpl.promises;
   await fsp.mkdir(path.dirname(lockPath), { recursive: true });
   const self = currentLockOwner(now);
-  const ownerDead = async () => lockMode === 'pid' && isLockOwnerDead(await readLockOwner(fsp, lockPath), { self, isAlive });
+  const staleReason = async age => {
+    if (lockMode === 'pid') {
+      const pid = localOwnerPid(await readLockOwner(fsp, lockPath), self);
+      if (pid !== null) return pid === self.pid || isAlive(pid) ? null : 'dead';
+    }
+    return age > staleMs && (lockMode === 'age' || (await lockAge(fsp, lockPath, now)) > staleMs) ? 'age' : null;
+  };
 
   const deadline = now() + timeoutMs;
   let waited = false;
@@ -156,10 +166,10 @@ export const withStateLock = async (name, fn, { env = process.env, fsImpl = fs, 
       // The holder released it between mkdir and stat; retry immediately.
       if (age === null) continue;
 
-      const dead = age <= staleMs && (await ownerDead());
-      if (age > staleMs || dead) {
-        if (log) await log(dead ? `⚠️ ${name} lock holder exited without releasing it; breaking it` : `⚠️ ${name} lock held for ${Math.round(age / 1000)}s with no owner; breaking it`);
-        if (await breakStaleLock({ fsp, lockPath, staleMs, now, ownerDead })) continue;
+      const stale = await staleReason(age);
+      if (stale) {
+        if (log) await log(stale === 'dead' ? `⚠️ ${name} lock holder exited without releasing it; breaking it` : `⚠️ ${name} lock held for ${Math.round(age / 1000)}s; breaking it`);
+        if (await breakStaleLock({ fsp, lockPath, staleMs, now, staleReason })) continue;
       }
 
       // Issue #4143: with --verbose, name the holder once so a stuck lock can be diagnosed.

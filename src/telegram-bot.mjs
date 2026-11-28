@@ -50,8 +50,16 @@ const { applyIssueClosingEnvironment } = await import('./post-merge-issue-closin
 const { startMergedPullRequestSweeper, sweepScope } = await import('./merged-pr-sweeper.lib.mjs');
 applyIssueClosingEnvironment(config);
 if (config.stateDir) process.env.HIVE_MIND_STATE_DIR = config.stateDir; // #4143
-// Issue #4143: --status/--drain/--resume-intake/--wait-for-idle only touch the state directory, so no token is needed.
-if (config.status || config.drain || config.resumeIntake || config.waitForIdle) process.exit(await (await import('./bot-instance-status.lib.mjs')).runInstanceStateCommand(config));
+// The operator commands only touch the state directory, so no token is needed.
+if (config.status || config.drain || config.resumeIntake || config.waitForIdle || config.stateMigrate !== undefined) {
+  const { runInstanceStateCommand } = await import('./bot-instance-status.lib.mjs');
+  const code = await runInstanceStateCommand(config).catch(error => {
+    console.error(`[bot-state] ${error.message}`);
+    return 1;
+  });
+  await new Promise(resolve => process.stdout.write('', resolve));
+  process.exit(code);
+}
 if (!BOT_TOKEN) {
   console.error('Error: TELEGRAM_BOT_TOKEN not set. Use --configuration-file or TELEGRAM_BOT_TOKEN env var.');
   process.exit(1);
@@ -325,7 +333,21 @@ async function validateGitHubUrl(args, options = {}) {
 }
 
 const recordLaunchFailure = failure => getSolveQueue({ verbose: VERBOSE }).recordLaunchFailure(failure);
-const executeAndUpdateMessage = buildExecuteAndUpdateMessage({ resolveIsolation, ISOLATION_BACKEND, isolationRunner, CONTAINER_RESOURCE_LIMITS, VERBOSE, executeStartScreen, trackSession, untrackSession, recordLaunchFailure, AUTO_WATCH_MESSAGE, startAutoTerminalWatchForSession, bot, formatExecutingWorkSessionMessage, formatStartingWorkSessionMessage });
+const executeWorkSession = buildExecuteAndUpdateMessage({ resolveIsolation, ISOLATION_BACKEND, isolationRunner, CONTAINER_RESOURCE_LIMITS, VERBOSE, executeStartScreen, trackSession, untrackSession, recordLaunchFailure, AUTO_WATCH_MESSAGE, startAutoTerminalWatchForSession, bot, formatExecutingWorkSessionMessage, formatStartingWorkSessionMessage });
+let otherDirectLaunches = 0;
+async function executeAndUpdateMessage(ctx, startingMessage, command, ...args) {
+  if (instanceState?.isIntakePaused()) {
+    await safeEditMessageText(ctx.telegram, startingMessage.chat.id, startingMessage.message_id, undefined, getStoppedChatRejectMessage(ctx.chat.id, `/${command}`));
+    return;
+  }
+  if (command === 'solve') return executeWorkSession(ctx, startingMessage, command, ...args); // counted by the URL claim
+  otherDirectLaunches++;
+  try {
+    return await executeWorkSession(ctx, startingMessage, command, ...args);
+  } finally {
+    otherDirectLaunches--;
+  }
+}
 bot.command('help', async ctx => {
   VERBOSE && console.log('[VERBOSE] /help command received');
 
@@ -774,6 +796,7 @@ async function launchSolveTarget(ctx, userArgs, { solveToolAlias, solveLocale, s
     // Issue #594: append "Limits at start" to infoBlock; thread snapshot via sessionInfo.
     let solveLimitsAtStart = null;
     if (solveShowLimits) ({ infoBlock, limitsAtStart: solveLimitsAtStart } = await captureStartSnapshotAndAppend({ infoBlock, tool: solveTool, verbose: VERBOSE, limitsLib, commandLabel: '/solve', locale: solveLocale }));
+    if (instanceState?.isIntakePaused()) return fail(getStoppedChatRejectMessage(ctx.chat.id, 'Solve'));
     if (waitTargets.length === 0 && check.canStart && check.startReserved) {
       const startingMessage = await safeReply(ctx, formatStartingWorkSessionMessage({ infoBlock, locale: solveLocale }), { reply_to_message_id: ctx.message.message_id });
       solveQueue.log(`Starting directly: ${normalizedUrl}`);
@@ -969,7 +992,7 @@ const { registerPauseResumeCommands } = await import('./telegram-pause-resume-co
 const { registerLogCommand } = await import('./telegram-log-command.lib.mjs');
 registerTopCommand(bot, sharedCommandOpts);
 const { handleStopCommand } = registerStartStopCommands(bot, { ...sharedCommandOpts, getSolveQueue, stopTrackedDockerSession, findRunningSessionByUrl: (url, verbose) => findStoppableSessionByUrl(url, verbose) });
-const taskControlHandlers = registerPauseResumeCommands(bot, { ...sharedCommandOpts, getSolveQueue, claimUrl: url => launchingUrls.claim(url.replace(/#.*$/, '').replace(/\/+$/, '').toLowerCase()) });
+const taskControlHandlers = registerPauseResumeCommands(bot, { ...sharedCommandOpts, getSolveQueue, isIntakePaused: instanceState?.isIntakePaused, claimUrl: url => launchingUrls.claim(url.replace(/#.*$/, '').replace(/\/+$/, '').toLowerCase()) });
 await registerLogCommand(bot, sharedCommandOpts);
 await registerTerminalWatchCommand(bot, sharedCommandOpts);
 // Issue #1745: hidden /tokens command for chat owners (private DMs only,
@@ -1205,7 +1228,7 @@ async function onBotLaunched() {
   const subscribersLib = await import('./telegram-subscribers.lib.mjs');
   const queue = getSolveQueue({ verbose: VERBOSE });
   const restore = tasks => stateLib.restoreQueuedTasks({ tasks, queue: ensureQueueExecuteCallback(queue), telegram: bot.telegram, isUrlActive: url => hasActiveSessionForUrlAsync(url, VERBOSE), log: message => console.log(`[bot-state] ${message}`) });
-  await instanceState?.start({ queue, getActiveSessions, getSubscribers: subscribersLib.getSubscribers, restoreSubscribers: subscribersLib.restoreSubscribers, onSubscribersChanged: subscribersLib.onSubscribersChanged, getLaunchingCount: () => launchingUrls.size, restore }).catch(error => console.error(`⚠️ Could not start the bot state: ${error.message}`));
+  await instanceState?.start({ queue, getActiveSessions, getSubscribers: subscribersLib.getSubscribers, restoreSubscribers: subscribersLib.restoreSubscribers, onSubscribersChanged: subscribersLib.onSubscribersChanged, getStoppedChats: chatStopModule.getStoppedChats, restoreStoppedChats: chatStopModule.restoreStoppedChats, onStoppedChatsChanged: chatStopModule.onStoppedChatsChanged, getLaunchingCount: () => launchingUrls.size + otherDirectLaunches, restore });
   startSessionMonitoringOnce();
   startFormalAiMaintenanceOnce();
   startRouterMaintenanceOnce();

@@ -23,6 +23,7 @@
 import { randomUUID } from 'node:crypto';
 
 import { cloneState, createBotStateStore } from './bot-state-store.lib.mjs';
+import { resolveBotStateMigrationTarget } from './bot-state-migrations.lib.mjs';
 import { createItemTarget, createSessionTarget } from './telegram-solve-dependencies.lib.mjs';
 import { currentLockOwner } from './state-lock.lib.mjs';
 
@@ -58,6 +59,7 @@ export function queueItemToTask(item, { dependency = null } = {}) {
     locale: item.locale || undefined,
     infoBlock: item.infoBlock || undefined,
     showLimits: item.showLimits === true ? true : undefined,
+    limitsAtStart: item.limitsAtStart || undefined,
     urlContext: item.urlContext || undefined,
     createdAt: toIso(item.createdAt),
     startedAt: toIso(item.startedAt),
@@ -108,10 +110,11 @@ export function snapshotSubscribers(list = []) {
   return subscribers;
 }
 
-const signatureOf = (tasks, subscribers, launching) =>
+const signatureOf = (tasks, subscribers, stoppedChats, launching) =>
   JSON.stringify({
     tasks: Object.fromEntries(Object.entries(tasks).map(([id, task]) => [id, Object.fromEntries(Object.entries(task).filter(([key, value]) => value !== undefined && !VOLATILE_TASK_FIELDS.includes(key)))])),
     subscribers,
+    stoppedChats,
     launching,
   });
 
@@ -136,12 +139,13 @@ export async function restoreQueuedTasks({ tasks = {}, queue, telegram, isUrlAct
       skipped.push({ id, reason: 'no url or args' });
       continue;
     }
-    if (queue.findByUrl?.(task.url) || (await isUrlActive(task.url))) {
+    const active = queue.findByUrl?.(task.url) || (await isUrlActive(task.url));
+    if (active && (typeof active.isActive !== 'boolean' || active.isActive)) {
       skipped.push({ id, reason: 'already queued or running' });
       continue;
     }
     const ctx = task.chatId === undefined ? null : { telegram, chat: { id: task.chatId }, from: { id: task.requesterUserId ?? null }, message: { message_id: task.messageId ?? null, message_thread_id: task.messageThreadId ?? null } };
-    const options = { id, createdAt: task.createdAt, url: task.url, args: task.args, ctx, requester: task.requester, infoBlock: task.infoBlock, commandAlias: task.commandAlias, tool: task.tool, perCommandIsolation: task.isolation, urlContext: task.urlContext, showLimits: task.showLimits === true, locale: task.locale };
+    const options = { id, createdAt: task.createdAt, url: task.url, args: task.args, ctx, requester: task.requester, infoBlock: task.infoBlock, commandAlias: task.commandAlias, tool: task.tool, perCommandIsolation: task.isolation, urlContext: task.urlContext, showLimits: task.showLimits === true, limitsAtStart: task.limitsAtStart, locale: task.locale };
     let item;
     if (Array.isArray(task.waitsFor) && task.waitsFor.length > 0) {
       const targets = task.waitsFor.map(target => (target.type === 'item' && byId.has(target.itemId) ? createItemTarget(byId.get(target.itemId), target.label) : createSessionTarget({ names: target.names || [], url: target.url || null, label: target.label || null })));
@@ -180,48 +184,67 @@ export function createBotInstanceState({ store, env = process.env, verbose = fal
   let running = null;
   let rerun = false;
   let stopped = false;
+  let restored = false;
+  let ready = false;
+  let mirrorNeedsRepair = false;
+  let stopListening;
+  const isIntakePaused = () => !ready || stopped || intake.state === 'draining';
 
   const collect = () => {
     const tasks = snapshotTasks({ queue: sources.queue, sessions: sources.getActiveSessions?.() || [] });
     const subscribers = snapshotSubscribers(sources.getSubscribers?.() || []);
+    const stoppedChats = Object.fromEntries(sources.getStoppedChats?.() || []);
     const launching = Number(sources.getLaunchingCount?.() || 0);
-    return { tasks, subscribers, launching, signature: signatureOf(tasks, subscribers, launching) };
+    return { tasks, subscribers, stoppedChats, launching, signature: signatureOf(tasks, subscribers, stoppedChats, launching) };
   };
 
   async function publish({ force = false, final = false } = {}) {
-    if (!sources) return null;
-    const snapshot = collect();
+    if (!restored) return null;
     const peeked = await stateStore.peek().catch(() => null);
     const intakeChanged = peeked && JSON.stringify(peeked.intake) !== JSON.stringify(intake);
     const due = now() - lastWriteAt >= heartbeatMs;
-    if (!force && !final && !due && !intakeChanged && snapshot.signature === lastSignature) return null;
+    if (!force && !final && !due && !intakeChanged && !mirrorNeedsRepair && collect().signature === lastSignature) return null;
+    let snapshot;
     const result = await stateStore.update(draft => {
       const at = new Date(now()).toISOString();
-      if (draft.intake.state === 'draining' && !draft.intake.acknowledgedAt) {
-        draft.intake.acknowledgedAt = at;
-        draft.intake.acknowledgedBy = instanceId;
-        log(`🚧 Draining: new tasks are rejected and queued tasks wait for the next instance (requested by ${draft.intake.requestedBy || 'unknown'}${draft.intake.reason ? `: ${draft.intake.reason}` : ''})`);
+      if (draft.intake.state === 'draining') {
+        // Close the in-process gate before taking the acknowledged snapshot.
+        // The files are visible to operators before the write promise settles.
+        intake = draft.intake;
+        if (draft.intake.acknowledgedBy !== instanceId) {
+          draft.intake.acknowledgedAt = at;
+          draft.intake.acknowledgedBy = instanceId;
+          log(`🚧 Draining: new tasks are rejected and queued tasks wait for the next instance (requested by ${draft.intake.requestedBy || 'unknown'}${draft.intake.reason ? `: ${draft.intake.reason}` : ''})`);
+        }
       }
+      snapshot = collect();
       draft.instance = { ...instance, heartbeatAt: at, updatedAt: at, launching: snapshot.launching || undefined, stoppedAt: final ? at : undefined };
       draft.tasks = snapshot.tasks;
       draft.subscribers = snapshot.subscribers;
+      draft.stoppedChats = snapshot.stoppedChats;
       return draft;
     });
     if (intake.state !== result.state.intake.state && result.state.intake.state === 'accepting') log('✅ Intake resumed: accepting new tasks');
     intake = result.state.intake;
+    mirrorNeedsRepair = result.binaryStore === 'available' && !result.binaryWritten;
     lastSignature = snapshot.signature;
     lastWriteAt = now();
-    trace(`Published ${Object.keys(snapshot.tasks).length} task(s), intake ${intake.state}${result.consistent === false ? ' (repaired the link-cli copy)' : ''}`);
+    trace(`Published ${Object.keys(snapshot.tasks).length} task(s), intake ${intake.state}${mirrorNeedsRepair ? ' (link-cli repair pending)' : result.consistent === false ? ' (repaired the link-cli copy)' : ''}`);
     return result;
   }
 
   /** Serialized publish; a request during a running publish runs once more afterwards. */
   async function tick(options) {
+    if (stopped) return null;
     if (running) {
       rerun = true;
       return running;
     }
     running = publish(options)
+      .then(result => {
+        if (result && !stopped) ready = true;
+        return result;
+      })
       .catch(error => log(`⚠️ Could not publish the instance state: ${error.message}`))
       .finally(() => {
         running = null;
@@ -244,6 +267,7 @@ export function createBotInstanceState({ store, env = process.env, verbose = fal
       return intake;
     },
     isDraining: () => intake.state === 'draining',
+    isIntakePaused,
     /**
      * Read the previous state, reset a drain that targeted an earlier
      * instance, restore subscribers and queued tasks, then publish on a timer.
@@ -256,32 +280,46 @@ export function createBotInstanceState({ store, env = process.env, verbose = fal
      */
     async start(params) {
       sources = params;
-      params.queue && (params.queue.isIntakePausedFn = () => intake.state === 'draining');
+      if (params.queue) params.queue.isIntakePausedFn = isIntakePaused;
       let previous = null;
-      const result = await stateStore.update(draft => {
-        previous = cloneState(draft);
-        if (draft.intake.state === 'draining' && draft.intake.instanceId !== instanceId) {
-          log(`Intake was draining for instance ${draft.intake.instanceId || 'unknown'}; this new instance accepts tasks`);
-          draft.intake = { state: 'accepting', resetAt: new Date(now()).toISOString(), previousRequest: draft.intake.requestedAt };
-        }
-        draft.instance = { ...instance, heartbeatAt: instance.startedAt, updatedAt: instance.startedAt };
-        return draft;
-      });
+      const targetVersion = resolveBotStateMigrationTarget(env);
+      const result = await stateStore.update(
+        draft => {
+          previous = cloneState(draft);
+          if (draft.intake.state === 'draining' && draft.intake.instanceId !== instanceId) {
+            log(`Intake was draining for instance ${draft.intake.instanceId || 'unknown'}; this new instance accepts tasks`);
+            draft.intake = { state: 'accepting', resetAt: new Date(now()).toISOString(), previousRequest: draft.intake.requestedAt };
+          }
+          draft.instance = { ...instance, heartbeatAt: instance.startedAt, updatedAt: instance.startedAt };
+          return draft;
+        },
+        { targetVersion }
+      );
       intake = result.state.intake;
       log(`State: ${stateStore.paths.lino} (link-cli: ${result.binaryStore}, ${result.consistent === false ? 'repaired' : 'consistent'})`);
       const savedSubscribers = Object.values(previous?.subscribers || {});
       if (savedSubscribers.length && params.restoreSubscribers) log(`Restored ${params.restoreSubscribers(savedSubscribers)} subscriber(s)`);
+      params.restoreStoppedChats?.(previous?.stoppedChats);
       if (params.restore) await params.restore(previous?.tasks || {});
-      params.onSubscribersChanged?.(() => tick({ force: true }));
-      await tick({ force: true });
+      if (stopped) return previous;
+      restored = true;
+      const publishChange = () => tick({ force: true });
+      const stopSubscribers = params.onSubscribersChanged?.(publishChange);
+      const stopChats = params.onStoppedChatsChanged?.(publishChange);
+      stopListening = () => {
+        stopSubscribers?.();
+        stopChats?.();
+      };
       timer = setInterval(() => tick(), intervalMs);
       timer.unref?.();
+      await tick({ force: true });
       return previous;
     },
     tick,
     /** Final write with `stoppedAt`; queued tasks stay for the next instance. */
     async stop() {
       stopped = true;
+      stopListening?.();
       if (timer) clearInterval(timer);
       timer = null;
       if (running) await running;
@@ -289,12 +327,11 @@ export function createBotInstanceState({ store, env = process.env, verbose = fal
     },
     /** Wrap the chat-stop checks so a draining instance rejects new tasks in every chat. */
     wrapChatStop({ isChatStopped, getChatStopInfo, getStoppedChatRejectMessage }) {
-      const draining = () => intake.state === 'draining';
-      const reason = () => `This bot instance is draining before a restart${intake.reason ? ` (${intake.reason})` : ''}: running tasks finish, new tasks are not accepted. Please send the command again after the restart.`;
+      const reason = () => (intake.state === 'draining' || stopped ? `This bot instance is draining before a restart${intake.reason ? ` (${intake.reason})` : ''}: running tasks finish, new tasks are not accepted. Please send the command again after the restart.` : 'The bot is loading its saved state. Please try again once it is ready.');
       return {
-        isChatStopped: chatId => draining() || isChatStopped(chatId),
-        getChatStopInfo: chatId => getChatStopInfo(chatId) || (draining() ? { reason: reason(), stoppedAt: intake.requestedAt } : null),
-        getStoppedChatRejectMessage: (chatId, commandName = 'Command') => (draining() && !isChatStopped(chatId) ? `❌ ${commandName} command rejected.\n\n🚧 ${reason()}` : getStoppedChatRejectMessage(chatId, commandName)),
+        isChatStopped: chatId => isIntakePaused() || isChatStopped(chatId),
+        getChatStopInfo: chatId => getChatStopInfo(chatId) || (isIntakePaused() ? { reason: reason(), stoppedAt: intake.requestedAt } : null),
+        getStoppedChatRejectMessage: (chatId, commandName = 'Command') => (isIntakePaused() && !isChatStopped(chatId) ? `❌ ${commandName} command rejected.\n\n🚧 ${reason()}` : getStoppedChatRejectMessage(chatId, commandName)),
       };
     },
   };

@@ -270,6 +270,19 @@ jobs:
         run: node scripts/npm-install-with-retry.mjs install
       - name: Pre-install use-m packages (issue #1724)
         run: node scripts/preinstall-use-m-packages.mjs
+      - name: Check bot state with the Docker image's Link CLI version
+        env:
+          CARGO_BUILD_JOBS: '2'
+          CARGO_PROFILE_RELEASE_OPT_LEVEL: '1'
+          HIVE_MIND_REQUIRE_CLINK: '1'
+        run: |
+          version=$(sed -n 's/^ARG LINK_CLI_VERSION=//p' Dockerfile)
+          cargo install link-cli --version "=$version" --locked --root "$RUNNER_TEMP/link-cli"
+          export HIVE_MIND_CLINK="$RUNNER_TEMP/link-cli/bin/clink"
+          node --test --test-concurrency=1 --experimental-test-coverage \
+            --test-coverage-include='src/bot-instance-*.lib.mjs' \
+            --test-coverage-include='src/bot-state-*.lib.mjs' \
+            --test-coverage-include='src/state-lock.lib.mjs' tests/test-issue-4143-*.test.mjs
       - name: Run selected source test suite
         id: test-profile
         run: node scripts/source-test-profile.mjs

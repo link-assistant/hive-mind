@@ -36,6 +36,7 @@
 
 export const LINO_STATE_ROOT = 'hive_mind_state';
 export const B64_PREFIX = '~b64_';
+const COMPOUND_LIST = '~lino_items';
 
 const RAW_WORD = /^[^\s"'`():]+$/;
 const UNSAFE_CHARS = /[\u0000-\u0008\u000b-\u001f\u007f\r]/; // eslint-disable-line no-control-regex
@@ -68,13 +69,16 @@ function isEmptyTree(value) {
 /** Drop empty containers and nullish values, stringify scalars. */
 export function normalizeStringTree(value) {
   if (isEmptyTree(value)) return undefined;
-  if (Array.isArray(value)) return value.filter(item => item !== undefined && item !== null).map(String);
+  if (Array.isArray(value)) {
+    const items = value.map(normalizeStringTree).filter(item => item !== undefined);
+    return items.length ? items : undefined;
+  }
   if (isPlainObject(value)) {
-    const result = {};
-    for (const [key, child] of Object.entries(value)) {
-      const normalized = normalizeStringTree(child);
-      if (normalized !== undefined) result[key] = normalized;
-    }
+    const result = Object.fromEntries(
+      Object.entries(value)
+        .map(([key, child]) => [key, normalizeStringTree(child)])
+        .filter(([, child]) => child !== undefined)
+    );
     return Object.keys(result).length ? result : undefined;
   }
   return String(value);
@@ -82,10 +86,15 @@ export function normalizeStringTree(value) {
 
 function formatNode(lines, key, value, depth) {
   const indent = '  '.repeat(depth);
-  const quotedKey = quoteLinoScalar(key);
+  const quotedKey = key === COMPOUND_LIST ? encodeB64(key) : quoteLinoScalar(key);
   if (Array.isArray(value)) {
     lines.push(`${indent}${quotedKey}:`);
-    for (const item of value) lines.push(`${indent}  ${quoteLinoScalar(item)}`);
+    if (value.every(item => typeof item === 'string')) {
+      for (const item of value) lines.push(`${indent}  ${quoteLinoScalar(item)}`);
+    } else {
+      lines.push(`${indent}  ${COMPOUND_LIST}:`);
+      value.forEach((item, index) => formatNode(lines, String(index), item, depth + 2));
+    }
   } else if (isPlainObject(value)) {
     lines.push(`${indent}${quotedKey}:`);
     for (const [childKey, child] of Object.entries(value)) formatNode(lines, childKey, child, depth + 1);
@@ -127,18 +136,23 @@ const leafText = link => decodeB64(String(link.id ?? ''));
 function linkToTree(link) {
   const children = link.values || [];
   if (children.every(isLeaf)) return children.map(leafText);
-  const result = {};
+  if (children.length === 1 && children[0].id === COMPOUND_LIST) {
+    const entries = Object.entries(linkToTree(children[0]));
+    if (!entries.length || entries.some(([key], index) => key !== String(index))) throw new Error('Invalid LiNo list item index');
+    return entries.map(([, value]) => value);
+  }
+  const result = new Map();
   for (const child of children) {
     if (child.id === null || child.id === undefined) {
       if (child.values?.length !== 2 || !child.values.every(isLeaf)) throw new Error(`Unexpected LiNo pair with ${child.values?.length ?? 0} values`);
-      result[leafText(child.values[0])] = leafText(child.values[1]);
+      result.set(leafText(child.values[0]), leafText(child.values[1]));
     } else if (isLeaf(child)) {
       throw new Error(`Unexpected bare value ${JSON.stringify(child.id)} next to keyed values`);
     } else {
-      result[leafText({ id: child.id })] = linkToTree(child);
+      result.set(leafText({ id: child.id }), linkToTree(child));
     }
   }
-  return result;
+  return Object.fromEntries(result);
 }
 
 /**
@@ -159,7 +173,7 @@ export async function parseLinoTree(text, { parser } = {}) {
 /** Deep equality for string trees (key order is not significant). */
 export function stringTreesEqual(a, b) {
   if (a === b) return true;
-  if (Array.isArray(a) || Array.isArray(b)) return Array.isArray(a) && Array.isArray(b) && a.length === b.length && a.every((item, index) => item === b[index]);
+  if (Array.isArray(a) || Array.isArray(b)) return Array.isArray(a) && Array.isArray(b) && a.length === b.length && a.every((item, index) => stringTreesEqual(item, b[index]));
   if (!isPlainObject(a) || !isPlainObject(b)) return false;
   const keys = Object.keys(a);
   return keys.length === Object.keys(b).length && keys.every(key => Object.hasOwn(b, key) && stringTreesEqual(a[key], b[key]));

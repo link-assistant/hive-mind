@@ -6,6 +6,10 @@
   "rustToolchain": "1.99.1",
   "profile": "release",
   "maxBinaryBytes": 402653184,
+  "executables": {
+    "codex": "codex-cli",
+    "codex-code-mode-host": "codex-code-mode-host"
+  },
   "steps": ["adapter", "coordination", "cached_reads", "session_index", "maintenance", "message_history", "refresh_intent", "request_auth", "tui_message_history", "identity_publication", "rollout_paths", "migration_journals", "sqlite_authority", "limits_generation", "sqlite_vfs", "sqlite_startup"],
   "inputs": {
     "apply_adapter.py": "26c6bd319b5b54301d6a890e4131286b927823c15b27c1d2857fac9b40bb6f14",
@@ -52,22 +56,12 @@
     "linux-x64": {
       "runner": "ubuntu-24.04",
       "target": "x86_64-unknown-linux-gnu",
-      "elfMachine": 62,
-      "codeModeHost": {
-        "target": "x86_64-unknown-linux-musl",
-        "bytes": 76997904,
-        "sha256": "8ee4f472e92ac226a189e98998633b2d07f989f208515750764db660369f2926"
-      }
+      "elfMachine": 62
     },
     "linux-arm64": {
       "runner": "ubuntu-24.04-arm",
       "target": "aarch64-unknown-linux-gnu",
-      "elfMachine": 183,
-      "codeModeHost": {
-        "target": "aarch64-unknown-linux-musl",
-        "bytes": 70117728,
-        "sha256": "7d28b996b825b13ea058af67655b619a26a125d61d4fb2985694a9c4e77d2e21"
-      }
+      "elfMachine": 183
     }
   },
   "cargoEnvironment": {

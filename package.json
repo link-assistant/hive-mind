@@ -1,6 +1,6 @@
 {
   "name": "@link-assistant/hive-mind",
-  "version": "2.50.0",
+  "version": "2.50.1",
   "description": "AI-powered issue solver and hive mind for collaborative problem solving",
   "main": "src/hive.mjs",
   "type": "module",
@@ -77,7 +77,7 @@
     "*.md"
   ],
   "devDependencies": {
-    "@changesets/cli": "^3.0.3",
+    "@changesets/cli": "^3.1.0",
     "@eslint/js": "^10.0.1",
     "command-stream": "3.0.0",
     "eslint": "^10.16.0",
@@ -87,7 +87,7 @@
     "eslint-plugin-promise": "^7.3.0",
     "husky": "^9.1.7",
     "jscpd": "^5.4.3",
-    "lint-staged": "^17.6.2",
+    "lint-staged": "^17.6.3",
     "prettier": "^3.10.1",
     "test-anywhere": "^0.9.1"
   },

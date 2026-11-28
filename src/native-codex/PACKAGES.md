@@ -6,16 +6,16 @@ refused both with `E413 413 Payload Too Large`. Neither
 version was published, so no Docker image was built and the Formal AI draft
 workflow could not pull one.
 
-Each executable is now its own npm package. This follows the approach used by
+Each platform has its own npm package. This follows the approach used by
 `@openai/codex`, which keeps its 165,142,849-byte linux-x64 build separate.
 
 ## Layout
 
-| What                   | npm identity                                             | Contents                                            |
-| ---------------------- | -------------------------------------------------------- | --------------------------------------------------- |
-| Main package           | `@link-assistant/hive-mind@<v>`                          | Everything except `src/native-codex/runtime`        |
-| linux-x64 executable   | `@link-assistant/hive-mind@<v>-native-codex-linux-x64`   | `runtime/linux-x64/**`, `os: linux`, `cpu: x64`     |
-| linux-arm64 executable | `@link-assistant/hive-mind@<v>-native-codex-linux-arm64` | `runtime/linux-arm64/**`, `os: linux`, `cpu: arm64` |
+| What                | npm identity                                             | Contents                                            |
+| ------------------- | -------------------------------------------------------- | --------------------------------------------------- |
+| Main package        | `@link-assistant/hive-mind@<v>`                          | Everything except `src/native-codex/runtime`        |
+| linux-x64 runtime   | `@link-assistant/hive-mind@<v>-native-codex-linux-x64`   | `runtime/linux-x64/**`, `os: linux`, `cpu: x64`     |
+| linux-arm64 runtime | `@link-assistant/hive-mind@<v>-native-codex-linux-arm64` | `runtime/linux-arm64/**`, `os: linux`, `cpu: arm64` |
 
 - **Same package name.** Each variant is a version of
   `@link-assistant/hive-mind`, so OIDC trusted publishing covers it. A new name
@@ -40,16 +40,12 @@ Each executable is now its own npm package. This follows the approach used by
 - **The runtime refuses a mismatched variant.**
   `src/native-codex-runtime.lib.mjs` resolves the alias from the main package.
   It admits the variant only if its `name` matches the main package and its
-  `version` is `<main version>-native-codex-<platform>`. It then applies the
-  same byte, manifest and license checks as before.
-- **The Code Mode host comes from the pinned OpenAI platform package.** Both
-  Docker images already install `@openai/codex@0.164.0` with its optional
-  platform package. Activation locates `codex-code-mode-host` in that package,
-  checks the platform and executable digest against the recipe, and copies it
-  beside the Hive Mind CLI in the same verified generation. The variant tarball
-  size and offline installation stay the same. Both executables are required
-  at runtime admission. Reactivating a managed CLI-only installation publishes a
-  new generation and switches its command link after verification.
+  `version` is `<main version>-native-codex-<platform>`. The manifest records
+  the size and SHA-256 of `codex` and `codex-code-mode-host`, built together
+  from the pinned recipe on both supported platforms. Installation verifies
+  the binaries and publishes them as siblings in one generation. To reactivate
+  a package-manager command that still selects a generation without the host,
+  restore the stock launcher link before running `install-native-codex.mjs`.
 
 ## Size budget
 
@@ -108,13 +104,10 @@ reported once with an annotation and stops the run before the main package
 ## Troubleshooting
 
 - **`installation and execution were refused`** / **`Native Codex installation
-failed`**: the Hive Mind variant or the pinned OpenAI platform package for this
-  machine is missing or does not match. Install both without
+failed`**: the variant for this machine is missing or does not match. Install without
   `--omit=optional` / `--no-optional`. Confirm that
   `node_modules/@link-assistant/hive-mind-native-codex-linux-<arch>/package.json`
   has the main package's version followed by `-native-codex-linux-<arch>`.
-  Confirm the matching `@openai/codex-linux-<arch>` alias is installed for
-  `@openai/codex@0.164.0`, then rerun `install-native-codex.mjs`.
 - **`HIVE_MIND_NATIVE_CODEX_DEBUG=1`** (off by default) prints the refused
   phase and error code to stderr, for example
   `[native-codex] Refused during packaged artifact admission (MODULE_NOT_FOUND).`
@@ -123,3 +116,17 @@ failed`**: the Hive Mind variant or the pinned OpenAI platform package for this
   the `npm view` probe that decides whether a variant is already published.
 - **`HIVE_MIND_NPM_TARBALL_BUDGET_BYTES=<n>`** overrides the budget. It exists
   for tests; do not raise it to get a release through.
+
+## Refreshing the stock-skills manifest
+
+When upgrading the native Codex recipe, run the probe below with the built
+executable. It starts the app-server in a disposable home, checks that skill
+discovery matches the files it materializes, and prints their SHA-256 hashes.
+
+```bash
+node experiments/issue-4169/probe-stock-codex.mjs VERSION /absolute/path/to/codex
+```
+
+Use the generated JSON for the versioned stock-skills manifest. Update its
+import in `src/codex-stock-skills.lib.mjs` and its packaging check in
+`scripts/install-image-package.sh` alongside the recipe change.

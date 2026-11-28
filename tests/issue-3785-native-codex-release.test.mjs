@@ -29,6 +29,7 @@ test('native build and request inputs invalidate image evidence', { timeout: 100
     'experiments/issue-3785/native_process_group.py',
     'experiments/issue-3785/native_network_fixture.py',
     'experiments/issue-3785/native-request-proxy.mjs',
+    'experiments/issue-4159/probe-native-code-mode.mjs',
   ])
     assert.equal(isNativeCodexBuildInput(name), true, name);
   for (const name of ['docs/case-studies/issue-3785/README.md', 'experiments/unrelated.py', 'experiments/issue-3785/PRODUCTION_PLAN.md']) assert.equal(isNativeCodexBuildInput(name), false, name);
@@ -75,6 +76,7 @@ test('the reusable build has one PR caller and preserves both native installed c
   assert.ok(workflow.includes('  workflow_call:'));
   assert.ok(workflow.includes('native-codex-release-build-${{ github.workflow }}-${{ github.ref }}'));
   assert.ok(workflow.includes('probe-packaged-native-codex.mjs'));
+  assert.ok(job(workflow, 'installed-runtime').includes('probe-native-code-mode.mjs'));
   assert.ok(workflow.includes('runner: ubuntu-24.04-arm'));
   const flags = workflow.indexOf('probe-codex-native-platform-flags.py');
   const build = workflow.indexOf('python3 scripts/build-native-codex.py build');

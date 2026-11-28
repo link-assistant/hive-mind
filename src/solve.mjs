@@ -72,6 +72,7 @@ const { autoAcceptInviteForRepo } = await import('./solve.accept-invite.lib.mjs'
 const { handleAutoForkOption, handleMaintainerForkAccess } = await import('./solve.fork-detection.lib.mjs');
 const { resolveUncommittedChangesTool } = await import('./solve.tool-uncommitted.lib.mjs');
 const { classifySessionResult } = await import('./session-result.lib.mjs'); // Issue #2316
+const { isPrepareOnly } = await import('./formal-ai.lib.mjs');
 await initializeLogFile(null);
 await (await import('./solve.log-dir.lib.mjs')).moveLogFileToLogDir(resolveStartupLogDirectory(earlyArgs), { getLogFile, setLogFile, log });
 const versionInfo = await getVersionInfo();
@@ -94,6 +95,7 @@ try {
   await log('Use /help to see available options', { level: 'error' });
   await safeExit(1, 'Invalid command-line arguments');
 }
+const prepareOnly = isPrepareOnly(argv);
 global.verboseMode = argv.verbose;
 argv._solveResumeExtraArgs = (await import('./solve.forwarded-args.lib.mjs')).getManualResumeSolveCliArgs(); // Issue #3190: printed resume commands keep every original option
 await (await import('./solve.log-dir.lib.mjs')).moveLogFileToLogDir(argv.logDir, { getLogFile, setLogFile, log }); // Issue #2625: --log-dir was parsed but never applied
@@ -105,7 +107,7 @@ configureGitHubRateLimitLogging({
 });
 await recordResourceSnapshot({ phase: RESOURCE_PHASE_SOLVE_START, log, diskPath: '/', label: 'solve start', logExecutionContext: true }); // #2001: detect+report container context
 let { checkForUncommittedChanges, agentCommanderLib } = await resolveUncommittedChangesTool({ argv, claudeLib });
-const shouldAttachLogs = argv.attachLogs || argv['attach-logs'];
+const shouldAttachLogs = !prepareOnly && (argv.attachLogs || argv['attach-logs']);
 await showAttachLogsWarning(shouldAttachLogs);
 const absoluteLogPath = path.resolve(getLogFile());
 // Initialize Sentry integration (unless disabled)
@@ -133,9 +135,9 @@ const cleanupWrapper = async () => {
     await cleanupTempDirectory(cleanupContext.tempDir, cleanupContext.argv, cleanupContext.limitReached);
   }
 };
-const interruptWrapper = createInterruptWrapper({ cleanupContext, checkForUncommittedChanges, shouldAttachLogs, attachLogToGitHub, getLogFile, sanitizeLogContent, $, log });
+const interruptWrapper = prepareOnly ? null : createInterruptWrapper({ cleanupContext, checkForUncommittedChanges, shouldAttachLogs, attachLogToGitHub, getLogFile, sanitizeLogContent, $, log });
 initializeExitHandler(getAbsoluteLogPath, log, cleanupWrapper, interruptWrapper, ({ code, reason, failureActionSection }) => notifyIssueAboutPrePullRequestFailure({ code, reason, failureActionSection, argv, globalState: global, $, log, getLogFile, shouldAttachLogs, attachLogToGitHub, sanitizeLogContent, rawCommand }));
-exitHandler.setRunEndHook(async ({ reason }) => (await import('./pr-draft-state.lib.mjs')).restoreDeliberateDraftsAtRunEnd({ $, log, formatAligned, reason: `run end (${reason})`, reportError })); // #2312: never leave a PR in draft at run end
+if (!prepareOnly) exitHandler.setRunEndHook(async ({ reason }) => (await import('./pr-draft-state.lib.mjs')).restoreDeliberateDraftsAtRunEnd({ $, log, formatAligned, reason: `run end (${reason})`, reportError })); // #2312: never leave a PR in draft at run end
 installGlobalExitHandlers({ handleProcessErrors: false }); // #2117: solve's richer process-error handlers below must not race a duplicate pair.
 // Issue #1823: Configure the working-session guard. When the experimental --do-not-shutdown-in-the-middle-of-working-session flag is set (hive passes it to every worker), an interrupt received during an AI working session is deferred: solve lets the AI finish, auto-commits, then shuts down gracefully instead of aborting the AI tool mid-run.
 configureWorkingSession({ enabled: argv['do-not-shutdown-in-the-middle-of-working-session'] === true, log });
@@ -164,7 +166,7 @@ if (!issueUrl) {
   const { resolveRepositoryModeTarget } = await import('./solve.repository-mode.run.lib.mjs');
   const { repositoryModeSelectionFromArgv } = await import('./solve.repository-mode.lib.mjs');
   // Issue #3176: bot-maintained status pages and skip-labeled issues are not work.
-  const repositoryMode = await resolveRepositoryModeTarget({ url: issueUrl, log, selection: repositoryModeSelectionFromArgv(argv), verbose: argv.verbose, resumeId: argv.resume || null });
+  const repositoryMode = await resolveRepositoryModeTarget({ url: issueUrl, log, selection: repositoryModeSelectionFromArgv(argv), dryRun: prepareOnly, verbose: argv.verbose, resumeId: argv.resume || null });
   if (repositoryMode.handled) {
     // Issue #2266: an empty repository is a normal, successful terminal state.
     // Exit 0 so callers do not turn "nothing to do" into a task failure.
@@ -175,6 +177,7 @@ if (!issueUrl) {
       await log(`Error: ${repositoryMode.error}`, { level: 'error' });
       await safeExit(1, 'Repository mode failed');
     }
+    if (repositoryMode.dryRun) await safeExit(0, 'Dry run: combined issue plan prepared');
     issueUrl = repositoryMode.issueUrl;
     argv['issue-url'] = repositoryMode.issueUrl;
     // Repository mode always asks for deep analysis and always double checks
@@ -259,7 +262,6 @@ if (argv.planModel) {
 }
 if (argv.subAgentModel) await validateAndExitOnInvalidClaudeSubAgentModel(argv.subAgentModel, tool, safeExit);
 // Perform all system checks (skip tool connection check in dry-run or when --skip-tool-connection-check; model validation always runs)
-const prepareOnly = argv.dryRun || argv.onlyPrepareCommand;
 const skipToolConnectionCheck = prepareOnly || argv.skipToolConnectionCheck || argv.toolConnectionCheck === false;
 // Enforce the audited global surfaces before any native CLI connection probe.
 // Disabling repair does not permit execution with known contamination.
@@ -294,12 +296,12 @@ if (!(await performSystemChecks(argv.minDiskSpace || 10240, skipToolConnectionCh
   await safeExit(1, 'System checks failed');
 }
 // Playwright MCP preflight is local/free and stays independent from paid tool connection checks.
-if (!argv.dryRun && argv.playwrightMcp !== false) {
+if (!prepareOnly && argv.playwrightMcp !== false) {
   const playwrightMcpPreflight = await ensureSolvePlaywrightMcpReady({ argv, log });
   if (!playwrightMcpPreflight.ok) {
     await safeExit(1, 'Playwright MCP preflight failed');
   }
-} else if (argv.dryRun && argv.playwrightMcp !== false) {
+} else if (prepareOnly && argv.playwrightMcp !== false) {
   await log('⏩ Skipping Playwright MCP preflight (dry-run mode)', { verbose: true });
 }
 // URL validation debug logging
@@ -311,24 +313,22 @@ if (argv.verbose) {
 }
 const claudePath = argv.executeToolWithBun ? 'bunx claude' : process.env.CLAUDE_PATH || 'claude';
 // Note: owner, repo, and urlNumber are extracted from validateGitHubUrl() above Accept pending invitation BEFORE any access checks (auto-fork, permissions, entity validation)
-if (argv.autoAcceptInvite) {
+const autoAcceptInvite = !prepareOnly && argv.autoAcceptInvite;
+if (autoAcceptInvite) {
   await autoAcceptInviteForRepo(owner, repo, log, argv.verbose);
 }
 // Handle --auto-fork option: automatically fork public repositories without write access
-await handleAutoForkOption({ owner, repo, argv, safeExit });
+if (!prepareOnly) await handleAutoForkOption({ owner, repo, argv, safeExit });
 // Permission check BEFORE entity validation (#1552): avoids false 404 on private repos without access
 const { checkRepositoryWritePermission } = githubLib;
-const hasWriteAccess = await checkRepositoryWritePermission(owner, repo, {
-  useFork: argv.fork,
-  issueUrl: issueUrl,
-});
-if (!hasWriteAccess) {
+const hasWriteAccess = !prepareOnly && (await checkRepositoryWritePermission(owner, repo, { useFork: argv.fork, issueUrl }));
+if (!prepareOnly && !hasWriteAccess) {
   await log('');
   await log('❌ Cannot proceed without repository write access or --fork option', { level: 'error' });
   await safeExit(1, 'Permission check failed');
 }
 // Issue #1552: Validate entity existence AFTER permissions (cascade: user/org → repo → issue/PR)
-const entityCheck = await (await import('./github-entity-validation.lib.mjs')).validateGitHubEntityExistence({ owner, repo, number: urlNumber, type: isIssueUrl ? 'issue' : isPrUrl ? 'pull' : undefined, baseBranch: argv.baseBranch, verbose: argv.verbose, autoAcceptInvite: !!argv.autoAcceptInvite });
+const entityCheck = await (await import('./github-entity-validation.lib.mjs')).validateGitHubEntityExistence({ owner, repo, number: urlNumber, type: isIssueUrl ? 'issue' : isPrUrl ? 'pull' : undefined, baseBranch: argv.baseBranch, verbose: argv.verbose, autoAcceptInvite: !!autoAcceptInvite });
 if (!entityCheck.valid) {
   await log(`\n❌ ${entityCheck.error}\n`, { level: 'error' });
   await safeExit(1, `GitHub entity not found (${entityCheck.level})`);
@@ -374,7 +374,7 @@ let sessionId = null;
 let branchName = null;
 const finalizeDevelopmentLog = createDevelopmentLogFinalizer({
   collect: collectAndCommitDevelopmentLogArtifacts,
-  getParams: () => ({ enabled: isDevelopmentLogEnabled(argv), repositoryPath: tempDir, logFile: getLogFile(), issueNumber, prNumber, tool: argv.tool || 'claude', sessionId, branchName, rawCommand, $, log }), // prettier-ignore
+  getParams: () => ({ enabled: !prepareOnly && isDevelopmentLogEnabled(argv), repositoryPath: tempDir, logFile: getLogFile(), issueNumber, prNumber, tool: argv.tool || 'claude', sessionId, branchName, rawCommand, $, log }), // prettier-ignore
 });
 let phase = 'repository setup';
 try {
@@ -427,7 +427,7 @@ try {
   phase = 'work session';
   // Auto-merge default branch to pull request branch if enabled
   let autoMergeFeedbackLines = [];
-  if (isContinueMode && argv['auto-merge-default-branch-to-pull-request-branch']) {
+  if (!prepareOnly && isContinueMode && argv['auto-merge-default-branch-to-pull-request-branch']) {
     await log(`\n${formatAligned('🔀', 'Auto-merging:', `Merging ${defaultBranch} into ${branchName}`)}`);
     try {
       const mergeResult = await $({ cwd: tempDir })`git merge ${defaultBranch} --no-edit`;
@@ -475,7 +475,7 @@ try {
     prUrl = githubLib.buildGitHubPullRequestUrlOrNull({ owner, repo, number: prNumber });
     if (!prUrl) {
       await log(formatAligned('ℹ️', 'Continue mode:', 'Resuming an existing branch that has no pull request yet'));
-      await log(formatAligned('', 'Pull request:', 'Will be created before the tool session starts', 2));
+      if (!prepareOnly) await log(formatAligned('', 'Pull request:', 'Will be created before the tool session starts', 2));
     }
   }
   // Handle auto PR creation using the new module
@@ -509,28 +509,21 @@ try {
   }
   if (prNumber) cleanupContext.prNumber = prNumber;
   // CRITICAL: Validate that we have a PR number when required This prevents continuing without a PR when one was supposed to be created
-  if ((isContinueMode || argv.autoPullRequestCreation) && !prNumber) {
+  if (!prepareOnly && (isContinueMode || argv.autoPullRequestCreation) && !prNumber) {
     await handleNoPrAvailableError({ isContinueMode, tempDir, issueNumber, issueUrl, owner, repo, log, formatAligned });
   }
   const enforceRequestedBaseBranch = () => ensurePullRequestBaseBranch({ owner, repo, prNumber, argv, log, formatAligned, $ });
-  await enforceRequestedBaseBranch();
-  if (isContinueMode) {
+  if (!prepareOnly) await enforceRequestedBaseBranch();
+  if (isContinueMode && prNumber) {
     await log(`\n${formatAligned('🔄', 'Continue mode:', 'ACTIVE')}`);
     await log(formatAligned('', 'Using existing PR:', `#${prNumber}`, 2));
     await log(formatAligned('', 'PR URL:', prUrl, 2));
-  } else if (!argv.autoPullRequestCreation) {
+  } else if (!prepareOnly && !argv.autoPullRequestCreation) {
     await log(`\n${formatAligned('⏭️', 'Auto PR creation:', 'DISABLED')}`);
     await log(formatAligned('', 'Workflow:', 'AI will create the PR', 2));
   }
-  // Start work session using the new module Determine session type based on command line flags See: https://github.com/link-assistant/hive-mind/issues/1152
-  let sessionType = SESSION_TYPES.NEW;
-  if (argv.sessionType) {
-    // Session type was explicitly set (e.g., by auto-resume/auto-restart spawning a new process)
-    sessionType = argv.sessionType;
-  } else if (isContinueMode) {
-    // Continue mode is a manual resume via PR URL
-    sessionType = SESSION_TYPES.RESUME;
-  }
+  // Without an explicit restart/resume type, continuing an existing branch is a manual resume.
+  const sessionType = argv.sessionType || (isContinueMode ? SESSION_TYPES.RESUME : SESSION_TYPES.NEW);
   const workStartTime = await startWorkSession({
     isContinueMode,
     prNumber,
@@ -577,9 +570,11 @@ try {
   });
   // Execute tool command with all prompts and settings
   let toolResult;
-  await (await import('./session-changes.lib.mjs')).captureSessionChangeBaseline({ tempDir, $, log, logFile: getLogFile(), owner, repo, issueNumber, prNumber, model: argv.model }); // #3211: success requires progress by this run
-  beginWorkingSession(); // Issue #1823: Mark the start of the AI working session. While this is active and the --do-not-shutdown-in-the-middle-of-working-session flag is set, an interrupt (CTRL+C/SIGTERM) is deferred until the AI tool finishes its turn (see exit-handler.lib.mjs + working-session.lib.mjs).
-  (await import('./solve-progress.lib.mjs')).emitSolveProgress({ phase: 'executing', since: new Date().toISOString() }); // Issue #4091: later phases (log upload, watch) replace "⏳ Executing..." in Telegram
+  if (!prepareOnly) {
+    await (await import('./session-changes.lib.mjs')).captureSessionChangeBaseline({ tempDir, $, log, logFile: getLogFile(), owner, repo, issueNumber, prNumber, model: argv.model }); // #3211
+    beginWorkingSession(); // Issue #1823: defer a shutdown interrupt until the AI tool finishes its turn.
+    (await import('./solve-progress.lib.mjs')).emitSolveProgress({ phase: 'executing', since: new Date().toISOString() }); // Issue #4091
+  }
   // If --use-agent-commander is enabled, use agent-commander for all tools
   if (argv.useAgentCommander) {
     // Ensure agent-commander is available
@@ -681,6 +676,8 @@ try {
     });
     toolResult = claudeResult;
   }
+  if (toolResult.preparedOnly) await safeExit(0, 'Command prepared', { skipPreExit: true });
+  if (prepareOnly) await safeExit(1, formatToolExecutionFailure({ tool, toolResult }), { skipPreExit: true });
   toolResult = await classifySessionResult({ toolResult, argv, owner, repo, prNumber, $, log, tempDir });
   // Issue #2190: the router auth guard killed the CLI (the task used a credential other than its router token).
   // Not a tool failure to retry — a security stop, with its own exit code so the supervisor can tell it apart.
@@ -709,7 +706,6 @@ try {
     // Graceful shutdown is NOT a failure: skip the pre-exit failure notifier so no spurious "solver failed" comment is posted (issue #1823: no errors on graceful shutdown).
     await safeExit(shutdownExitCode, 'Graceful shutdown after AI working session', { skipPreExit: true });
   }
-  if (toolResult.preparedOnly) await safeExit(0, 'Command prepared', { skipPreExit: true });
   const { success } = toolResult;
   sessionId = toolResult.sessionId;
   let anthropicTotalCostUSD = toolResult.anthropicTotalCostUSD;
@@ -1315,8 +1311,7 @@ try {
   // Issue #2182: a failed session is still a finished session. Restore every pull request
   // this process put into draft, otherwise the failure leaves it permanently unmergeable.
   try {
-    const { restorePullRequestsLeftInDraft } = await import('./pr-draft-state.lib.mjs');
-    await restorePullRequestsLeftInDraft({ $, log, formatAligned, reason: 'working session failed', reportError });
+    if (!prepareOnly) await (await import('./pr-draft-state.lib.mjs')).restorePullRequestsLeftInDraft({ $, log, formatAligned, reason: 'working session failed', reportError });
   } catch (restoreError) {
     await log(`Warning: Could not restore pull request draft state: ${restoreError.message}`, { level: 'warning' });
   }

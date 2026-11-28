@@ -52,7 +52,7 @@ async function readBoundedConfig(handle) {
  * Never include parser errors or input bytes in diagnostics. Directory scans
  * are bounded; config reads use O_NOFOLLOW and descriptor identity checks.
  */
-export async function validateAgentConfigAuditInputs({ tool = 'all', homeDir, env = {}, systemRoots, fsImpl = fs, previous = null }) {
+export async function validateAgentConfigAuditInputs({ tool = 'all', homeDir, env = {}, systemRoots, fsImpl = fs, previous = null, readStockManifest }) {
   const io = fsImpl.promises;
   const snapshot = new Map();
   const scopes = agentConfigAuditScopes({ tool, homeDir, env });
@@ -134,7 +134,13 @@ export async function validateAgentConfigAuditInputs({ tool = 'all', homeDir, en
         }
       }
       if (name === 'codex') {
-        const stock = await validateCodexStockSkills({ directory: path.join(configDir, 'skills', '.system'), fsImpl });
+        const directory = path.join(configDir, 'skills', '.system');
+        const stock = await validateCodexStockSkills({ directory, fsImpl }).catch(async error => {
+          if (!(error instanceof CodexStockBaselineError) || !readStockManifest) throw error;
+          const manifest = await readStockManifest();
+          if (!manifest) throw error;
+          return validateCodexStockSkills({ directory, fsImpl, manifest });
+        });
         for (const [target, version] of stock) snapshot.set(target, version);
       }
     }

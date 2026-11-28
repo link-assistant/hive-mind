@@ -72,10 +72,6 @@ assert.deepEqual(await fs.readFile(stock), stockBytes);
 assert.equal(await fs.realpath(command), selected.entrypoint);
 console.log('PASS: the actual npm-installed stock command selects the checked native generation idempotently while preserving the upstream launcher.');
 
-const codeModeProbe = fileURLToPath(new URL('../issue-4173/probe-code-mode-host.mjs', import.meta.url));
-const codeModeResult = await execute(process.execPath, [codeModeProbe, selected.entrypoint], { maxBuffer: 262144 });
-process.stdout.write(codeModeResult.stdout);
-
 for (const selection of ['configuration', 'cli', 'logs']) {
   const file = fileURLToPath(new URL('probe-codex-native-sqlite-authority.py', import.meta.url));
   await verifyNativeCodexCommand({ command });

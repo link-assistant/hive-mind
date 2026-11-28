@@ -49,6 +49,7 @@ const NON_FATAL_CODEX_ITEM_ERRORS = [
 ];
 
 const findNonFatalCodexItemError = message => NON_FATAL_CODEX_ITEM_ERRORS.find(entry => entry.pattern.test(message || '')) || null;
+const codeModeFailedClosed = message => /^Code Mode is unavailable\b[\s\S]*\bcode mode will fail closed\b/i.test(message);
 
 export const getCodexErrorEventSummary = codexJsonState => {
   const events = [];
@@ -70,8 +71,8 @@ export const getCodexErrorEventSummary = codexJsonState => {
   //      fails an otherwise-successful run. This was the exact false positive in
   //      issue #1955 (codex finished, working tree clean, CI passed, yet the run
   //      was reported failed).
-  // `turn.failed` is the authoritative failure signal, so it is NEVER suppressed
-  // here; only non-`turn` error events are gated on turn completion.
+  // A required Code Mode host failing closed is also fatal even if the model
+  // finishes the turn by describing why it could not use its tools.
   const turnCompleted = (codexJsonState?.eventCounts?.['turn.completed'] || 0) > 0;
   const turnFailed = (codexJsonState?.turnFailures?.length || 0) > 0;
   const sessionSucceeded = turnCompleted && !turnFailed;
@@ -89,7 +90,7 @@ export const getCodexErrorEventSummary = codexJsonState => {
         ignoredEvents.push({ ...event, reason: nonFatal.reason });
         continue;
       }
-      if (type !== 'turn' && sessionSucceeded) {
+      if (type !== 'turn' && sessionSucceeded && !(type === 'item' && codeModeFailedClosed(message))) {
         ignoredEvents.push({
           ...event,
           reason: 'Codex turn completed successfully with no turn.failed; stray non-turn error event is non-fatal (Issue #1955)',

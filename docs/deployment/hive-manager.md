@@ -65,6 +65,8 @@ hive-manager deploy logs --follow --tail 60
 
 Choose `--variant dind` for an instance with its own Docker daemon. It uses a privileged container and a dedicated `<name>-dind-data` Docker volume for nested Docker state. Plain deployments default to Screen isolation. To use the host Docker daemon, select `--docker-socket /var/run/docker.sock` instead. A host socket gives the instance control of the host daemon. The DinD variant can also use that option for host image passthrough while keeping its own nested daemon. See [Docker deployment options](../DOCKER.md) for isolation and storage details.
 
+The manager persists Git identity in `git/config` under the deployment state directory. If you are moving from a manual host-socket deployment with a saved `gitconfig` file in the same state directory, the manager uses it to seed `git/config` when it initializes the `git` directory. Later deployments keep the managed config.
+
 Use `--image IMAGE` to select a tag, digest or compatible custom image. `--no-pull` uses an already present image. To run a service other than the Telegram bot, pass its startup command as `apply -- COMMAND ARG...`. Prepare an image without interrupting a running deployment with `deploy prepare`.
 
 DinD and host-socket instances run Docker isolation tasks with a task image. The manager passes its full reference as `HIVE_MIND_DOCKER_ISOLATION_IMAGE`. By default, tasks reuse the deployment image, so the dind image is stored once. When the deployment uses a mutable tag such as `latest`, the manager pins tasks to the image's baked release tag, for example `konard/hive-mind-dind:2.49.0`. It pins only when that tag refers to the same image. `deploy prepare` and `apply` pull the release tag if it is missing. Select a different task image with `--task-image IMAGE`, the profile key `task-image=`, or `HIVE_MIND_DOCKER_ISOLATION_IMAGE` in the environment file. `HIVE_MIND_DOCKER_ISOLATION_IMAGE_TAG` in the environment file must be a tag such as `2.49.0`. It is combined with the deployment image's repository. A DinD instance with a host socket allows only the task image through the host image passthrough. Containers show the selected image in the `io.github.link-assistant.hive-manager.task-image` label.
@@ -105,6 +107,28 @@ HIVE_MANAGER_PACKAGE_VERSION="$release" HIVE_MANAGER_PACKAGE_DIAGNOSTICS=1 \
 ```
 
 Select the deployment image independently with `image=` in the profile or `--image`. Use a release tag or digest. Published release images ship the manager wrapper and install the corresponding Hive Mind package. Commands that run inside the container, such as `deploy tasks report`, use its installed tools. The host pin applies to maintenance on the host. Inspect the deployed package separately with `hive-manager --host hive-production deploy exec -- hive-manager --version`.
+
+### Verifying manually installed Claude Code and stock Codex
+
+The runtime verifier accepts Claude Code releases that report a valid Claude
+Code version label. To verify an operator-installed `@openai/codex` package,
+set `HIVE_MIND_ALLOW_STOCK_CODEX=1` in the environment of the verifier and any
+Hive Mind processes that use the stock installation.
+
+```bash
+HIVE_MIND_ALLOW_STOCK_CODEX=1 node src/verify-agent-runtime.mjs
+```
+
+Run this from a Hive Mind checkout or the installed package directory. Codex
+must resolve to the package-manager entry point. Use stock mode with standard
+Codex storage. Deployments that select Hive Mind's native Codex storage paths
+require the packaged adapter. Config audits accept the verified packaged
+stock tree or the tree produced by the selected stock package. If a prior
+installation left an incompatible tree, stop Codex processes, then move
+`skills/.system` out of the affected Codex home so Codex can recreate it. Keep
+`auth.json` and the rest of the Codex home in place.
+
+Set `HIVE_MIND_AGENT_RUNTIME_DEBUG=1` to see which verification phase failed.
 
 ## Headless sign-in
 

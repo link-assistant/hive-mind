@@ -13,8 +13,10 @@ import { QUIET_PROBE } from './quiet-probe.lib.mjs'; // issue #2130: keep read-o
 // preemptively, before the first git network call.
 import { ensureAuthenticatedGitTransport } from './git-auth-transport.lib.mjs';
 import { handleUncommittedChangesAfterClone } from './clone-status.lib.mjs'; // issue #4063
+import { isPrepareOnly } from './formal-ai.lib.mjs';
 
 export async function setupRepositoryAndClone({ argv, owner, repo, forkOwner, forkRepoName, tempDir, isContinueMode, issueUrl, log, $, needsClone = true }) {
+  const prepareOnly = isPrepareOnly(argv);
   // Issue #2192: authenticate git *before* the first clone/fetch. Doing this
   // afterwards (as setupGitCredentialHelper does) is too late — the clone is the
   // call GitHub rejected with "temporarily limiting some unauthenticated downloads".
@@ -37,7 +39,7 @@ export async function setupRepositoryAndClone({ argv, owner, repo, forkOwner, fo
   }
 
   // Set up pr-fork remote if we're continuing someone else's fork PR with --fork flag
-  const prForkRemote = await setupPrForkRemote(tempDir, argv, prForkOwner, repo, isContinueMode, owner);
+  const prForkRemote = prepareOnly ? null : await setupPrForkRemote(tempDir, argv, prForkOwner, repo, isContinueMode, owner);
 
   // Set up git authentication using gh
   await setupGitCredentialHelper({ tempDir, log, $ });
@@ -164,6 +166,7 @@ export async function verifyDefaultBranchAndStatus({ tempDir, log, formatAligned
   const isEmptyRepo = await detectEmptyRepository(tempDir, $);
 
   if (isEmptyRepo) {
+    if (isPrepareOnly(argv)) throw new Error('Command preparation needs a repository with at least one commit.');
     if (argv && argv.autoInitRepository && owner && repo) {
       await log('');
       await log(`${formatAligned('⚠️', 'EMPTY REPOSITORY', 'detected')}`, { level: 'warn' });

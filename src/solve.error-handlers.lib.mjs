@@ -14,6 +14,7 @@ import { handleErrorWithIssueCreation } from './github-error-reporter.lib.mjs';
 import { sanitizeForPublication } from './token-sanitization.lib.mjs';
 import { EXIT_CODE_ROUTER_AUTH_VIOLATION, formatRouterAuthViolation } from './router-auth-guard.lib.mjs';
 import { emptyRepositoryFailure } from './task-failure-signature.lib.mjs';
+import { isPrepareOnly } from './formal-ai.lib.mjs';
 
 export const isErrorIssueAutoCreationDisabled = argv => !!(argv?.disableReportIssue || argv?.disableIssueAutoCreationOnError);
 
@@ -30,6 +31,7 @@ export const exitOnRouterAuthViolation = async (error, { log, safeExit: exit = s
  */
 export const handleFailure = async options => {
   const { error, errorType, shouldAttachLogs, argv, global, owner, repo, log, getLogFile, attachLogToGitHub, cleanErrorMessage, sanitizeLogContent, cleanupContext, $ } = options;
+  if (isPrepareOnly(argv)) return;
   const disableIssueCreation = isErrorIssueAutoCreationDisabled(argv);
 
   // Issue #2263: exceptions and unhandled rejections are terminal solution

@@ -22,7 +22,7 @@ hive-manager deploy logs --follow --tail 60
 
 在普通镜像中运行 `hive-telegram-bot --isolation docker` 时，请在宿主机启动 Docker，并为机器人容器添加 `-v /var/run/docker.sock:/var/run/docker.sock`。运行机器人的用户须有权访问该套接字。请以该用户的身份在容器内运行 `docker version`，确认输出中有 Server 部分。若要使用嵌套 daemon，请使用 `konard/hive-mind-dind` 镜像的默认入口点，并将 `hive-telegram-bot --isolation docker` 作为容器命令传入。
 
-隔离任务也需要 Git 身份。在持久化的 Git 配置中设置 `user.name` 和 `user.email`，并让机器人能够在 `/home/box/.gitconfig` 读取它（例如使用 `-v /path/to/gitconfig:/home/box/.gitconfig:ro`）。将机器人的凭据和工具存储放在宿主机绑定挂载或 Docker 卷上，使 daemon 能将同一份数据挂载到任务容器中。
+隔离任务也需要 Git 身份。手动部署并使用宿主机 Docker 套接字时，请在 Docker 宿主机上的普通文件中设置 `user.name` 和 `user.email`，并确保 `box` 用户可读取该文件。创建或重新创建机器人容器时，添加 `--mount type=bind,source=/root/.hive-mind/gitconfig,target=/home/box/.gitconfig,readonly`。重新部署时请复用已保存的文件，并将容器内的符号链接替换为绑定挂载。如果机器人需要更新 Git 配置，请像 `hive-manager` 一样绑定挂载配置文件的父目录，并将 `GIT_CONFIG_GLOBAL` 指向该目录中的文件。将机器人的凭据和工具存储放在宿主机绑定挂载或 Docker 卷上，使 Docker 守护进程能将同一份数据挂载到任务容器中。
 
 ### 选项 2：本地构建
 

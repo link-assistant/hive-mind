@@ -8,15 +8,29 @@ import { startDetachedDockerPull } from './docker-pull-detached.lib.mjs';
 import { TASK_IMAGE_PULL_TIMEOUT_MS } from './task-image-refresh.lib.mjs';
 
 const execute = promisify(execFile);
+const validPath = value => typeof value === 'string' && path.posix.isAbsolute(value) && path.posix.normalize(value) === value && !/[\0\r\n,:]/u.test(value);
+
 export class DockerMountBackingError extends Error {
-  constructor() {
-    super('Docker mount backing could not be verified. Persist the source in a root-container bind or volume visible to the selected local daemon before launching a task.');
+  constructor(source) {
+    // Only report a requested launcher path, with bounded, single-line text safe for a Telegram code block.
+    let label = '';
+    if (validPath(source)) {
+      const preview = source.length > 512 ? `${source.slice(0, 512)}…` : source;
+      const escaped = JSON.stringify(preview).replace(/[`\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/gu, character => `\\u{${character.codePointAt(0).toString(16)}}`);
+      label = ` for source ${escaped}`;
+    }
+    super(`Docker mount backing could not be verified${label}. Persist the source in a root-container bind or volume visible to the selected local daemon before launching a task.`);
   }
 }
-const refused = () => new DockerMountBackingError();
-const validPath = value => typeof value === 'string' && path.posix.isAbsolute(value) && path.posix.normalize(value) === value && !/[\0\r\n,:]/u.test(value);
+const refused = source => new DockerMountBackingError(source);
 const identity = info => `${info.dev}:${info.ino}:${info.isDirectory() ? 'directory' : 'file'}`;
 const pullMissingImage = ({ image, env }) => startDetachedDockerPull(['pull', image], { timeoutMs: TASK_IMAGE_PULL_TIMEOUT_MS, spawnImpl: (binary, args, options) => spawn(binary, args, { ...options, env }) });
+
+function verifyIdentities(actual, expected, mounts) {
+  if (!Array.isArray(actual) || actual.length !== expected.length) throw refused();
+  const mismatch = expected.findIndex((value, index) => value !== actual[index]);
+  if (mismatch !== -1) throw refused(mounts[mismatch].source);
+}
 
 export function mapDockerMountSources(mounts, parentMounts) {
   if (!Array.isArray(parentMounts)) throw refused();
@@ -24,9 +38,9 @@ export function mapDockerMountSources(mounts, parentMounts) {
     if (!validPath(mount.source) || !validPath(mount.target)) throw refused();
     const candidates = parentMounts.filter(parent => validPath(parent?.Destination) && (mount.source === parent.Destination || mount.source.startsWith(`${parent.Destination === '/' ? '' : parent.Destination}/`)));
     candidates.sort((left, right) => right.Destination.length - left.Destination.length);
-    if (!candidates.length || (candidates[1] && candidates[0].Destination === candidates[1].Destination)) throw refused();
+    if (!candidates.length || (candidates[1] && candidates[0].Destination === candidates[1].Destination)) throw refused(mount.source);
     const parent = candidates[0];
-    if (!['bind', 'volume'].includes(parent.Type) || !validPath(parent.Source)) throw refused();
+    if (!['bind', 'volume'].includes(parent.Type) || !validPath(parent.Source)) throw refused(mount.source);
     return { ...mount, source: path.posix.join(parent.Source, path.posix.relative(parent.Destination, mount.source)) };
   });
 }
@@ -67,8 +81,10 @@ export async function resolveDockerIsolationMountSources({ mounts, image, env = 
     const result = [];
     for (const mount of mounts) {
       if (!validPath(mount.source) || !validPath(mount.target)) throw refused();
-      const info = await io.lstat(mount.source, { bigint: true });
-      if (info.isSymbolicLink() || (!info.isFile() && !info.isDirectory())) throw refused();
+      const info = await io.lstat(mount.source, { bigint: true }).catch(() => {
+        throw refused(mount.source);
+      });
+      if (info.isSymbolicLink() || (!info.isFile() && !info.isDirectory())) throw refused(mount.source);
       result.push(identity(info));
     }
     return result;
@@ -94,7 +110,7 @@ export async function resolveDockerIsolationMountSources({ mounts, image, env = 
       args.push(image, '--max-old-space-size=64', '-e', 'const fs=require("node:fs");console.log(JSON.stringify(Array.from({length:Number(process.argv[1])},(_,index)=>{const s=fs.statSync("/__hive_mount_probe/"+index,{bigint:true});return `${s.dev}:${s.ino}:${s.isDirectory()?"directory":"file"}`;})));', String(candidates.length));
       try {
         const { stdout } = await docker(args);
-        if (JSON.stringify(JSON.parse(stdout)) !== JSON.stringify(expected)) throw refused();
+        verifyIdentities(JSON.parse(stdout), expected, mounts);
       } finally {
         // Reap even when the client aborts or a filesystem operation stalls.
         await docker(['rm', '-f', name]).catch(() => {});
@@ -112,12 +128,12 @@ export async function resolveDockerIsolationMountSources({ mounts, image, env = 
       trace('probing mapped sources');
       await verify(resolved);
     }
-    if (JSON.stringify(await snapshot()) !== JSON.stringify(expected)) throw refused();
+    verifyIdentities(await snapshot(), expected, mounts);
     trace('verified');
     return resolved;
-  } catch {
+  } catch (error) {
     trace('rejected');
     // Docker errors can contain operator paths and registry diagnostics.
-    throw refused();
+    throw error instanceof DockerMountBackingError ? error : refused();
   }
 }

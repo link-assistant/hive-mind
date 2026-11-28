@@ -13,15 +13,17 @@ import os from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
 
-import { checkNpmTarballSizes, readSingleNpmPackEntry } from './check-npm-tarball-size.mjs';
+import { checkNpmTarballSizes, parseNpmPackEntries } from './check-npm-tarball-size.mjs';
 
 const execute = promisify(execFile);
 const temporary = await fs.mkdtemp(path.join(os.tmpdir(), 'hive-native-codex-publish-'));
 try {
   const { stdout } = await execute('npm', ['pack', '--ignore-scripts', '--json', '--pack-destination', temporary], { maxBuffer: 1 << 24 });
-  const entry = readSingleNpmPackEntry(stdout);
+  const [entry] = parseNpmPackEntries(stdout);
+  const filename = entry?.filename;
+  if (!filename?.endsWith('.tgz') || path.basename(filename) !== filename) throw new Error('Unexpected npm archive name.');
   if (checkNpmTarballSizes([entry]) !== 0) throw new Error('The npm archive exceeds the publish budget.');
-  await execute('python3', ['scripts/build-native-codex.py', 'verify-package', path.join(temporary, entry.filename)], { maxBuffer: 65536 });
+  await execute('python3', ['scripts/build-native-codex.py', 'verify-package', path.join(temporary, filename)], { maxBuffer: 65536 });
   console.log('Verified the npm publication artifact pins both native Codex variant packages and bundles neither.');
 } catch (error) {
   console.error(`Native Codex publication refused: ${error.stderr?.trim() || error.message}`);

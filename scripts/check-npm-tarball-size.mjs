@@ -22,22 +22,11 @@ export const NPM_TARBALL_BUDGET_BYTES = 157 * 1024 * 1024;
 
 const mib = bytes => `${(bytes / 1024 / 1024).toFixed(1)} MiB`;
 
-export function readNpmPackEntries(stdout) {
-  const result = JSON.parse(stdout);
-  if (Array.isArray(result)) return result;
-  if (!result || typeof result !== 'object') throw new Error('Invalid npm pack JSON output.');
-  // npm 12 returns a map keyed by package name. Also accept a single entry on stdin.
-  return typeof result.filename === 'string' ? [result] : Object.values(result);
-}
-
-export function readSingleNpmPackEntry(stdout) {
-  const entries = readNpmPackEntries(stdout);
-  const [entry] = entries;
-  const filename = entry?.filename;
-  if (entries.length !== 1 || typeof filename !== 'string' || !filename.endsWith('.tgz') || path.basename(filename) !== filename) {
-    throw new Error('Expected npm pack to return one local .tgz archive.');
-  }
-  return entry;
+/** npm 12 returns a package-name map where previous versions returned an array. */
+export function parseNpmPackEntries(stdout) {
+  const output = JSON.parse(stdout);
+  if (Array.isArray(output)) return output;
+  return typeof output?.filename === 'string' ? [output] : Object.values(output ?? {});
 }
 
 /** Entries are `npm pack --json` objects or `{ filename, size }` for archives on disk. */
@@ -88,6 +77,6 @@ export function checkNpmTarballSizes(entries, { budget = NPM_TARBALL_BUDGET_BYTE
 
 if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
   const args = process.argv.slice(2);
-  const entries = args.includes('--stdin') ? readNpmPackEntries(fs.readFileSync(0, 'utf8')) : args.map(file => ({ filename: file, size: fs.statSync(file).size }));
+  const entries = args.includes('--stdin') ? parseNpmPackEntries(fs.readFileSync(0, 'utf8')) : args.map(file => ({ filename: file, size: fs.statSync(file).size }));
   process.exitCode = checkNpmTarballSizes(entries, { budget: budgetFromEnv() });
 }

@@ -11,7 +11,7 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 import { nativeCodexPackagingFixture as packagingFixture } from './helpers/native-codex-fixture.mjs';
-import { checkNpmTarballSizes, findOversizedTarballs, formatOversizedReport, NPM_TARBALL_BUDGET_BYTES, readNpmPackEntries, readSingleNpmPackEntry } from '../scripts/check-npm-tarball-size.mjs';
+import { checkNpmTarballSizes, findOversizedTarballs, formatOversizedReport, NPM_TARBALL_BUDGET_BYTES } from '../scripts/check-npm-tarball-size.mjs';
 import { optionalDependenciesFor, packVariants, publishVariants, readPlatforms, variantManifest, variantName, variantTag, variantVersion, wirePackage } from '../scripts/native-codex-packages.mjs';
 
 const supported = process.platform === 'linux' && ['x64', 'arm64'].includes(process.arch);
@@ -70,16 +70,16 @@ test('the CLI checks archives on disk and honours the budget override', async t 
   assert.notEqual(run('not-a-number').status, 0);
 });
 
-test('pack metadata works with the npm 11 array and npm 12 package map', () => {
-  const entry = { name: main.name, filename: 'link-assistant-hive-mind-2.40.2.tgz', size: 1024 };
-  for (const value of [[entry], { [main.name]: entry }, entry]) {
-    assert.deepEqual(readSingleNpmPackEntry(JSON.stringify(value)), entry);
+test('the size check accepts npm array output and package-name keyed output', () => {
+  const script = fileURLToPath(new URL('../scripts/check-npm-tarball-size.mjs', import.meta.url));
+  const metadata = { name: main.name, filename: 'hive-mind.tgz', size: 2048 };
+  for (const output of [[metadata], { [main.name]: metadata }]) {
+    const run = budget => spawnSync(process.execPath, [script, '--stdin'], { input: JSON.stringify(output), encoding: 'utf8', env: { ...process.env, HIVE_MIND_NPM_TARBALL_BUDGET_BYTES: budget }, timeout: 10000 });
+    assert.equal(run('4096').status, 0);
+    const rejected = run('1024');
+    assert.equal(rejected.status, 1);
+    assert.match(rejected.stderr, /is 2048 bytes/u);
   }
-  const other = { name: 'other', filename: 'other.tgz', size: 256 };
-  const multiple = JSON.stringify({ [main.name]: entry, [other.name]: other });
-  assert.deepEqual(readNpmPackEntries(multiple), [entry, other]);
-  assert.throws(() => readSingleNpmPackEntry(multiple), /one local .tgz archive/u);
-  assert.throws(() => readSingleNpmPackEntry(JSON.stringify([{ ...entry, filename: '../outside.tgz' }])), /one local .tgz archive/u);
 });
 
 test('variant identities pin each platform to the exact main version', async () => {

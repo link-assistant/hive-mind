@@ -1,4 +1,5 @@
 import { getTrackedToolCommentIds, isFailureAlreadyReportedOnTarget, postTrackedComment, SOLUTION_DRAFT_FAILED_MARKER } from './tool-comments.lib.mjs';
+import { isPrepareOnly } from './formal-ai.lib.mjs';
 import { extractForkReplacementBlockedDetails, isForkReplacementBlockedReason, GITHUB_FORK_SUPPORT_URL } from './solve.repository-recovery-message.lib.mjs';
 import { FORK_DIVERGENCE_RESOLUTION_OPTION, buildForkDivergenceFailureActionSection, buildGitHubServerPushFailureActionSection } from './solve.branch-divergence.lib.mjs';
 import { emptyRepositoryFailure } from './task-failure-signature.lib.mjs';
@@ -212,6 +213,7 @@ const markNotificationPosted = ({ globalState, targetType }) => {
 
 export async function notifyIssueAboutPrePullRequestFailure(options) {
   const { code, reason, failureActionSection = null, argv = {}, globalState = globalThis, $, log = async () => {}, getLogFile, shouldAttachLogs = false, attachLogToGitHub, sanitizeLogContent, rawCommand = null, postComment = postTrackedComment } = options;
+  if (isPrepareOnly(argv)) return { notified: false, skipped: true };
 
   const target = resolvePreExitFailureNotificationTarget({ code, globalState });
   if (!target) {

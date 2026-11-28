@@ -1,3 +1,5 @@
+import { isPrepareOnly } from './formal-ai.lib.mjs';
+
 /**
  * Resolve which mode solve.mjs is running in and collect the pull request /
  * issue facts that mode implies.
@@ -27,6 +29,7 @@
  * @returns {Promise<{issueNumber: number|undefined, prNumber: number|undefined, prBranch: string|undefined, mergeStateStatus: string|undefined, prState: string|undefined, forkOwner: string|null, forkRepoName: string|null, isContinueMode: boolean}>}
  */
 export async function resolveSolveMode({ argv, owner, repo, urlNumber, issueUrl, isIssueUrl, isPrUrl, skipForkForPrivateUpstream, shouldAttachLogs, log, safeExit, githubLib, processAutoContinueForIssue, handleMaintainerForkAccess, reportError, cleanErrorMessage }) {
+  const prepareOnly = isPrepareOnly(argv);
   let issueNumber;
   let prNumber;
   let prBranch;
@@ -82,7 +85,7 @@ export async function resolveSolveMode({ argv, owner, repo, urlNumber, issueUrl,
               }
             }
             // Check if maintainer can push to the fork when --allow-to-push-to-contributors-pull-requests-as-maintainer is enabled
-            if (forkOwner && argv.allowToPushToContributorsPullRequestsAsMaintainer && argv.autoFork) {
+            if (!prepareOnly && forkOwner && argv.allowToPushToContributorsPullRequestsAsMaintainer && argv.autoFork) {
               await handleMaintainerForkAccess({ owner, repo, prNumber });
             }
           }
@@ -94,9 +97,9 @@ export async function resolveSolveMode({ argv, owner, repo, urlNumber, issueUrl,
       }
     } else {
       // We have a branch but no PR - we'll use the existing branch and create a PR later
-      await log(`🔄 Using existing branch: ${prBranch} (no PR yet - will create one)`);
+      await log(`🔄 Using existing branch: ${prBranch} (no pull request yet)`);
       await log('   This branch was created by an earlier run; this run is reusing it rather than creating a fresh branch.');
-      if (argv.verbose) {
+      if (!prepareOnly && argv.verbose) {
         await log('   Branch will be checked out and PR will be created during auto-PR creation phase', {
           verbose: true,
         });
@@ -156,7 +159,7 @@ export async function resolveSolveMode({ argv, owner, repo, urlNumber, issueUrl,
           }
         }
         // Check if maintainer can push to the fork when --allow-to-push-to-contributors-pull-requests-as-maintainer is enabled
-        if (forkOwner && argv.allowToPushToContributorsPullRequestsAsMaintainer && argv.autoFork) {
+        if (!prepareOnly && forkOwner && argv.allowToPushToContributorsPullRequestsAsMaintainer && argv.autoFork) {
           await handleMaintainerForkAccess({ owner, repo, prNumber });
         }
       }

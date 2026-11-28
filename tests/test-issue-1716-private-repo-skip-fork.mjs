@@ -115,11 +115,9 @@ runTest('bypass leaves forkOwner null', () => {
   }
 });
 
-// Test 9: maintainer-modify check is gated by forkOwner being set
-runTest('maintainer-modify check requires forkOwner', () => {
-  // After the fix, the `if (argv.allowToPushToContributorsPullRequestsAsMaintainer && argv.autoFork)`
-  // block must require forkOwner so it doesn't run when bypass triggered
-  const occurrences = modeContent.split('if (forkOwner && argv.allowToPushToContributorsPullRequestsAsMaintainer && argv.autoFork)').length - 1;
+// Test 9: maintainer-modify check requires a fork and a normal work session
+runTest('maintainer-modify check requires forkOwner and skips command preparation', () => {
+  const occurrences = modeContent.split('if (!prepareOnly && forkOwner && argv.allowToPushToContributorsPullRequestsAsMaintainer && argv.autoFork)').length - 1;
   if (occurrences < 2) {
     throw new Error('maintainer-modify branch does not require forkOwner in both fork-detection paths');
   }

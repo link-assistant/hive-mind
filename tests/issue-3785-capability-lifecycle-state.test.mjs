@@ -88,7 +88,8 @@ test('canonical comparison catches rewrites, replacement and removal but allows 
   await write('replaced.json.tmp', 'same');
   await fs.rename(path.join(root, 'replaced.json.tmp'), path.join(root, 'replaced.json'));
   await fs.rm(path.join(root, 'gone.json'));
-  await fs.rm(path.join(root, 'restored.jsonl'));
+  // Keep the previous file alive so the filesystem cannot reuse its inode.
+  await fs.rename(path.join(root, 'restored.jsonl'), path.join(root, 'restored.jsonl.before'));
   await write('restored.jsonl', 'r\n');
   const after = await captureCanonicalState(root, relatives);
   assert.deepEqual(compareCanonicalState(before, after, { appendOnly: ['history.jsonl'], contentOnly: ['restored.jsonl'] }), ['replaced.json', 'gone.json']);

@@ -159,10 +159,8 @@ const readIfPresent = async target => {
 const pinException = (source, index) => source.split('\n')[lineNumberAt(source, index) - 1]?.match(/https:\/\/github\.com\/([\w.-]+\/[\w.-]+)\/issues\/(\d+)/)?.[0];
 
 const ARG_SOURCES = {
-  // The images run `cargo install formal-ai --version`, so a release is only
-  // adoptable once crates.io has it. Its GitHub tag can exist for hours (or
-  // indefinitely, when the publish job fails) before that: v0.353.0 was tagged
-  // on 2026-10-12 and never reached crates.io (issue #2801, cf. #2395).
+  // The embedded binary and the sidecar image share a version. The resolver
+  // requires the crate and image to be published before either pin moves.
   FORMAL_AI_VERSION: { kind: 'crate', name: 'formal-ai' },
   HIVE_MIND_BUN_VERSION: { kind: 'github', name: 'oven-sh/bun', tagPrefix: 'bun-v' },
   HIVE_MIND_COREPACK_VERSION: { kind: 'npm', name: 'corepack' }, // Issue #4082: Node >= 25 ships without corepack
@@ -388,7 +386,12 @@ export const resolveGitHubLatest = async (repository, record = {}, options = {})
 
 export const resolveCrateLatest = async (name, options = {}) => {
   const metadata = await fetchJson(`https://crates.io/api/v1/crates/${encodeURIComponent(name)}`, options);
-  return metadata.crate.max_stable_version;
+  if (name !== 'formal-ai') return metadata.crate.max_stable_version;
+
+  // A release can publish its crate and then fail before publishing the
+  // cold-start sidecar (formal-ai#1203). Keep the last usable shared pin.
+  const allowedTags = new Set(metadata.versions.filter(({ num, yanked }) => !yanked && /^\d+\.\d+\.\d+$/.test(num)).map(({ num }) => num));
+  return resolveContainerLatest('ghcr.io/link-assistant/formal-ai', { current: metadata.crate.max_stable_version }, { ...options, allowedTags });
 };
 
 /** NVM needs published checksums; a GitHub tag or index entry can precede them. */
@@ -435,7 +438,7 @@ const containerTagSuffix = current => String(current ?? '').replace(/^v?\d+(?:\.
  * many version components as the pin, so a date tag such as `20260621` is not
  * read as major version twenty million.
  */
-export const resolveContainerLatest = async (name, record = {}, { fetchImpl = globalThis.fetch, maxPages = 50 } = {}) => {
+export const resolveContainerLatest = async (name, record = {}, { fetchImpl = globalThis.fetch, maxPages = 50, allowedTags } = {}) => {
   const parts = name.split('/');
   const custom = parts[0].includes('.') || parts[0].includes(':');
   const registry = custom ? parts.shift() : 'registry-1.docker.io';
@@ -475,10 +478,11 @@ export const resolveContainerLatest = async (name, record = {}, { fetchImpl = gl
       .split('.').length ?? 3;
   const tagPattern = new RegExp(`^v?(\\d+${'(?:\\.\\d+)'.repeat(components - 1)})${suffix}$`);
   const candidates = tags
+    .filter(tag => !allowedTags || allowedTags.has(tag))
     .map(tag => ({ tag, version: parseVersion(tag.match(tagPattern)?.[1]) }))
     .filter(candidate => candidate.version)
     .sort((a, b) => compareParsedVersions(b.version, a.version));
-  if (!candidates.length) throw new Error(`No stable container tags found for ${name}`);
+  if (!candidates.length) throw new Error(`No stable container tags found for ${name}${allowedTags ? ' matching a published crate version' : ''}`);
   return candidates[0].tag;
 };
 

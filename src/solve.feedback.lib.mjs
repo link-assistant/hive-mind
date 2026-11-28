@@ -317,7 +317,7 @@ export const detectAndCountFeedback = async params => {
               const repoData = JSON.parse(defaultBranchResult.stdout.toString());
               const defaultBranch = repoData.default_branch;
 
-              const commitsResult = await quietProbe($)`gh api repos/${owner}/${repo}/commits --paginate --field sha=${defaultBranch} --field since=${lastCommitTime.toISOString()}`;
+              const commitsResult = await quietProbe($)`gh api repos/${owner}/${repo}/commits --method GET --paginate --field sha=${defaultBranch} --field since=${lastCommitTime.toISOString()}`;
               if (commitsResult.code === 0) {
                 const commits = JSON.parse(commitsResult.stdout.toString());
                 if (commits.length > 0) {

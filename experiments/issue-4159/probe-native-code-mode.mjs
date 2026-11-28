@@ -11,7 +11,9 @@ import { promisify } from 'node:util';
 
 const execute = promisify(execFile);
 const command = path.resolve(process.argv[2]);
+const model = process.argv[3] ?? 'gpt-5.5';
 const home = await fs.mkdtemp(path.join(os.tmpdir(), 'native-code-mode-'));
+const runCodex = args => execute('prlimit', ['--data=1610612736', '--stack=16777216', '--core=0', '--', command, ...args], { cwd: home, env: { PATH: `${path.dirname(process.execPath)}:/usr/bin:/bin`, HOME: home, CODEX_HOME: home }, maxBuffer: 2 * 1024 * 1024, timeout: 30000 });
 const marker = `codex-host-ok-${randomUUID()}`;
 const requests = [];
 const call = {
@@ -40,6 +42,11 @@ const server = http.createServer(async (request, response) => {
 });
 
 try {
+  const catalogue = runCodex(['debug', 'models']);
+  catalogue.child.stdin.end();
+  const { stdout: models } = await catalogue;
+  assert.ok(JSON.parse(models).models.some(({ slug }) => slug === model), `${model} is missing from the installed Codex catalogue`);
+
   await new Promise((resolve, reject) => {
     server.once('error', reject);
     server.listen(0, '127.0.0.1', resolve);
@@ -49,12 +56,13 @@ try {
     `model_provider = "fixture"
 web_search = "disabled"
 [features]
-code_mode_host = true
+code_mode = true
 code_mode_only = true
 remote_plugin = false
 plugins = false
 apps = false
-[code_mode]
+[features.code_mode_host]
+enabled = true
 disable_in_process_fallback = true
 [model_providers.fixture]
 name = "Loopback Responses fixture"
@@ -64,23 +72,21 @@ request_max_retries = 0
 stream_max_retries = 0
 `
   );
-  const running = execute('prlimit', ['--data=1610612736', '--stack=16777216', '--core=0', '--', command, 'exec', '--model', 'gpt-5.5', '--json', '--skip-git-repo-check', '--ephemeral', '--sandbox', 'danger-full-access', 'Run the requested local smoke test.'], { cwd: home, env: { PATH: '/usr/bin:/bin', HOME: home, CODEX_HOME: home }, maxBuffer: 262144, timeout: 30000 });
+  const running = runCodex(['exec', '--model', model, '--json', '--skip-git-repo-check', '--ephemeral', '--sandbox', 'danger-full-access', 'Run the requested local smoke test.']);
   running.child.stdin.end();
   const { stdout, stderr } = await running;
   assert.equal(requests.length, 2, stdout);
-  assert.ok(
-    requests[0].tools.some(tool => tool.type === 'custom' && tool.name === 'exec'),
-    'Codex did not expose the Code Mode tool'
-  );
+  assert.deepEqual(requests.map(body => body.model), [model, model]);
   const output = requests[1].input.find(item => item.type === 'custom_tool_call_output' && item.call_id === call.call_id)?.output;
   const text = Array.isArray(output) ? output.map(item => item.text).join('\n') : output;
   assert.ok(text?.includes(marker), `Code Mode did not return the command output: ${text}\n${stderr}`);
-  assert.doesNotMatch(stdout, /Code Mode is unavailable/u);
+  assert.doesNotMatch(stdout, /Code Mode is unavailable|disable_in_process_fallback.*is ignored/u);
+  assert.doesNotMatch(`${stdout}\n${stderr}`, /model metadata[^\n]*not found|fallback metadata/iu);
   assert.ok(
     stdout.split('\n').some(line => line.includes('"type":"turn.completed"')),
     stdout
   );
-  process.stdout.write('PASS: installed Codex ran a shell command through its external Code Mode host.\n');
+  process.stdout.write(`PASS: installed Codex advertised ${model} and ran a shell command through its external Code Mode host.\n`);
 } finally {
   server.closeAllConnections();
   await new Promise(resolve => server.close(resolve));

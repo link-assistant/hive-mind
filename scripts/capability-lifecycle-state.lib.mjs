@@ -165,7 +165,7 @@ export const cliLabelVersion = label => /(\d+\.\d+\.\d+(?:[-+][\w.-]+)?)\s*$/u.e
  * lifecycle gate may accept that refusal only while a Codex *other than* the
  * pinned release has run in the home, e.g. the previous release it stages or
  * the npm `latest` the idle updater installs (0.167.0 on 2026-11-06 changed the
- * stock skills, while the images pin 0.164.0 and exclude Codex from updates).
+ * stock skills, while the images keep the bundled Codex version pinned).
  */
 export function codexStockRefusalExpected(codexVersion, pinnedCliVersion) {
   const actual = cliLabelVersion(codexVersion);

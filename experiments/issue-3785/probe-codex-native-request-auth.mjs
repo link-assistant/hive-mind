@@ -15,6 +15,7 @@ import { URL } from 'node:url';
 import { refuseNativeProxyTunnel } from './native-request-proxy.mjs';
 
 const binary = process.argv[2];
+const version = process.env.CODEX_PROBE_VERSION ?? '0.164.0';
 const uncoordinated = process.argv.includes('--expect-uncoordinated');
 const unauthenticatedLogout = process.argv.includes('--expect-unauthenticated-logout');
 const providerOverrides = process.argv.includes('--provider-overrides');
@@ -164,7 +165,7 @@ async function startClient({ home, config, canonical, selectCanonical = true, pr
   };
   clients.push(client);
   const initialized = await request('initialize', { clientInfo: { name: 'hive-3785-native-request-probe', version: '0.0.0' }, capabilities: { experimentalApi: true } });
-  assert.match(initialized.userAgent, /0\.164\.0/u);
+  assert.ok(initialized.userAgent.includes(version), 'The app server reports the expected Codex release.');
   child.stdin.write(`${JSON.stringify({ method: 'initialized' })}\n`);
   const result = await request('thread/start', { cwd: root, model: 'synthetic-model', modelProvider: 'offline', approvalPolicy: 'never', sandbox: 'read-only', config: { features: { remote_plugin: false, apps: false }, model_providers: { offline: { name: 'Offline', base_url: `${endpoint}/v1`, model_catalog_url: `${endpoint}/v1/models`, wire_api: 'responses', requires_openai_auth: true, request_max_retries: 0, stream_max_retries: 0, ...provider } } } });
   client.threadId = result.thread.id;
@@ -203,7 +204,7 @@ try {
         { name: 'provider-env-header', provider: { env_http_headers: { 'X-Api-Key': 'HIVE_SYNTHETIC_PROVIDER_KEY' } }, providerEnv: { HIVE_SYNTHETIC_PROVIDER_KEY: 'sk-SYNTHETIC-G2' }, observed: 'G2-extra' },
         { name: 'provider-organization', provider: { env_http_headers: { 'OpenAI-Organization': 'OPENAI_ORGANIZATION' } }, providerEnv: { OPENAI_ORGANIZATION: 'synthetic-organization' }, observed: 'G2-organization' },
         { name: 'provider-project', provider: { env_http_headers: { 'OpenAI-Project': 'OPENAI_PROJECT' } }, providerEnv: { OPENAI_PROJECT: 'synthetic-project' }, observed: 'G2-project' },
-        { name: 'stock-version-header', provider: { http_headers: { version: '0.164.0' } }, allowed: true },
+        { name: 'stock-version-header', provider: { http_headers: { version } }, allowed: true },
         { name: 'stock-unset-identity-headers', provider: { env_http_headers: { 'OpenAI-Organization': 'OPENAI_ORGANIZATION', 'OpenAI-Project': 'OPENAI_PROJECT' } }, allowed: true },
       ];
       for (const route of routes) {

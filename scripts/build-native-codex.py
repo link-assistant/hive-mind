@@ -140,12 +140,6 @@ def prepare(root, state):
     for step in recipe["steps"]:
         subprocess.run(["python3", str(ADAPTERS / ("apply_" + step + ".py")),
                         str(root)], env=env, check=True)
-    # apply_adapter also supplies a separate experimental executable. Omit
-    # that unused driver from prepared release source.
-    driver = root / "codex-rs/login/src/bin/hive-canonical-auth-probe.rs"
-    if sha256(driver) != recipe["inputs"]["native_lifecycle_probe.rs"]:
-        raise ValueError("Unexpected native driver bytes during source preparation.")
-    driver.unlink()
     inventory = source_inventory(root)
     if source_digest(inventory) != recipe["sourceInventorySha256"]:
         raise ValueError("Native preparation differs from the pinned complete source inventory.")

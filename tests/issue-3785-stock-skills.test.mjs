@@ -143,7 +143,7 @@ for (const missing of [false, true]) {
     const code = `#!${process.execPath}
 import fs from 'node:fs';
 import readline from 'node:readline';
-if (process.argv.includes('--version')) { console.log('codex-cli 0.164.0'); process.exit(0); }
+if (process.argv.includes('--version')) { console.log('codex-cli 0.172.0'); process.exit(0); }
 readline.createInterface({input: process.stdin}).on('line', line => {
   const message = JSON.parse(line);
   if (message.method === 'skills/list') {

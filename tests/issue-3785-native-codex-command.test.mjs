@@ -17,10 +17,10 @@ async function fixture(t) {
   const bin = path.join(root, 'bin');
   await fs.mkdir(path.join(source, 'bin'), { recursive: true });
   await fs.mkdir(bin);
-  await fs.writeFile(path.join(source, 'package.json'), '{"name":"@openai/codex","version":"0.164.0"}\n');
+  await fs.writeFile(path.join(source, 'package.json'), '{"name":"@openai/codex","version":"0.172.0"}\n');
   const ran = path.join(root, 'unexpected-execution');
   const entrypoint = path.join(source, 'bin/codex.js');
-  await fs.writeFile(entrypoint, `#!/bin/sh\ntouch '${ran}'\necho 'codex-cli 0.164.0'\n`, { mode: 0o700 });
+  await fs.writeFile(entrypoint, `#!/bin/sh\ntouch '${ran}'\necho 'codex-cli 0.172.0'\n`, { mode: 0o700 });
   const command = path.join(bin, 'codex');
   await fs.symlink(entrypoint, command);
   return { root, source, command, entrypoint, ran, searchPath: bin };
@@ -102,7 +102,7 @@ test('wrong stock metadata refuses before native generation or command publicati
 test('activation from the stock link can coexist with an earlier runtime of the same Codex version', { timeout: 10000, skip: !supported }, async t => {
   const f = await fixture(t);
   const packaged = await nativeCodexPackagingFixture(t);
-  const previous = path.join(path.dirname(f.source), 'codex-hive-0.164.0');
+  const previous = path.join(path.dirname(f.source), 'codex-hive-0.172.0');
   await fs.symlink('previous-generation', previous, 'dir');
   const ready = await packaged.commandApi.installNativeCodexCommand(f);
   assert.equal(await fs.readlink(previous), 'previous-generation');

@@ -1,0 +1,1054 @@
+diff --git a/codex-rs/app-server/src/lib.rs b/codex-rs/app-server/src/lib.rs
+index ba0ad9915900c4920785bbee70377280c0909481..6ee7cc12fced7f494f72f8909ebe4e34a3b15583 100644
+--- a/codex-rs/app-server/src/lib.rs
++++ b/codex-rs/app-server/src/lib.rs
+@@ -560,6 +560,10 @@ pub async fn run_main_with_transport_options(
+         )
+     })?;
+     let codex_home = find_codex_home()?;
++    // Selected canonical history must not recover from admission errors by
++    // silently loading defaults and opening another configuration's databases.
++    let strict_config = strict_config
++        || (cfg!(target_os = "linux") && std::env::var_os("CODEX_ROLLOUT_HOME").is_some());
+     let startup_cwd = std::env::current_dir().ok();
+     let local_runtime_paths = ExecServerRuntimeOptions::from_optional_paths(
+         arg0_paths.codex_self_exe.clone(),
+diff --git a/codex-rs/app-server/src/request_processors/account_processor.rs b/codex-rs/app-server/src/request_processors/account_processor.rs
+index ca98e7e1ab04535a1c9f653ca4d34b7211c3f855..d7eaf3dcbdaa668223cb1f437e297cfd26c37195 100644
+--- a/codex-rs/app-server/src/request_processors/account_processor.rs
++++ b/codex-rs/app-server/src/request_processors/account_processor.rs
+@@ -1206,8 +1206,10 @@ impl AccountRequestProcessor {
+         &self,
+         params: GetAccountRateLimitsParams,
+     ) -> Result<GetAccountRateLimitsResponse, JSONRPCErrorError> {
+-        let Some((auth, http_client_factory)) =
+-            self.auth_manager.auth_with_http_client_factory().await
++        let Some((auth, http_client_factory, auth_change_state)) = self
++            .auth_manager
++            .auth_with_http_client_factory_and_change_state()
++            .await
+         else {
+             return Err(invalid_request(
+                 "codex account authentication required to read rate limits",
+@@ -1220,6 +1222,19 @@ impl AccountRequestProcessor {
+             ));
+         }
+ 
++        let admit_generation = || {
++            if cfg!(target_os = "linux")
++                && std::env::var_os("CODEX_AUTH_HOME").is_some()
++                && (self.auth_manager.auth_cached().is_none()
++                    || self.auth_manager.auth_change_state_for(&auth) != Some(auth_change_state))
++            {
++                return Err(invalid_request(
++                    "canonical authentication changed while reading account usage",
++                ));
++            }
++            Ok(())
++        };
++        admit_generation()?;
+         let client = self.backend_client(&auth, http_client_factory).await?;
+ 
+         let usage_request = async {
+@@ -1239,6 +1254,7 @@ impl AccountRequestProcessor {
+                 Self::detailed_rate_limit_reset_credits(&client).await
+             }
+         },);
++        admit_generation()?;
+         let response = response
+             .map_err(|err| internal_error(format!("failed to fetch codex rate limits: {err}")))?;
+         if response.rate_limits.is_empty() {
+@@ -1290,6 +1306,7 @@ impl AccountRequestProcessor {
+             .rate_limit_upsell
+             .filter(|_| matches_active_account);
+ 
++        admit_generation()?;
+         Ok(GetAccountRateLimitsResponse {
+             ordinary_usage_allowed: response
+                 .ordinary_usage_allowed
+diff --git a/codex-rs/login/src/auth/account_grant.rs b/codex-rs/login/src/auth/account_grant.rs
+index 0ef95caf0abbef3cc0fc8b15957fc5a634398ac2..1e632f520016fd337e71d77218885dcdc692e935 100644
+--- a/codex-rs/login/src/auth/account_grant.rs
++++ b/codex-rs/login/src/auth/account_grant.rs
+@@ -53,10 +53,11 @@ impl fmt::Debug for AccountOAuthGrantRevision {
+ }
+ 
+ /// Keeps ordinary refresh from rotating the account token during an IdP exchange.
+-/// Login and logout remain available and invalidate the grant independently of this lease.
++/// Canonical login/logout wait for this exchange; legacy stores retain their native behavior.
+ pub struct AccountOAuthGrantLease {
+     pub(super) grant: AccountOAuthGrant,
+     pub(super) permit: OwnedSemaphorePermit,
++    pub(super) canonical: super::canonical_transaction::Transaction,
+ }
+ 
+ impl fmt::Debug for AccountOAuthGrant {
+@@ -80,6 +81,7 @@ impl AccountOAuthGrantLease {
+     /// Release refresh exclusion before contacting a resource authorization server.
+     pub fn release(self) -> AccountOAuthGrant {
+         drop(self.permit);
++        drop(self.canonical);
+         self.grant
+     }
+ }
+diff --git a/codex-rs/login/src/auth/manager.rs b/codex-rs/login/src/auth/manager.rs
+index 4e8f825ab243034c0c10a572399fb88a929c074c..8ec6256c593a2341b864733882f8b996dc4b22f0 100644
+--- a/codex-rs/login/src/auth/manager.rs
++++ b/codex-rs/login/src/auth/manager.rs
+@@ -1020,6 +1020,7 @@ fn persist_agent_identity_record(
+     storage: &Arc<dyn AuthStorageBackend>,
+     record: AgentIdentityAuthRecord,
+ ) -> std::io::Result<()> {
++    let _canonical = canonical_transaction::Transaction::acquire()?;
+     let _commit = storage.lock_for_write()?;
+     let mut guard = auth_dot_json
+         .lock()
+@@ -1035,6 +1036,23 @@ fn persist_agent_identity_record(
+             "Account changed during agent identity registration.",
+         ));
+     }
++    if canonical_transaction::selected() {
++        // Older native credentials have no login_owner_id. They still must
++        // match the account/user and remain an OAuth login before a pending
++        // bootstrap can publish its private identity key into canonical state.
++        let expected = guard.as_ref().and_then(|auth| auth.tokens.as_ref());
++        let current = stored
++            .as_ref()
++            .filter(|auth| auth.resolved_mode() == AuthMode::Chatgpt)
++            .and_then(|auth| auth.tokens.as_ref());
++        if !matches!((expected, current), (Some(expected), Some(current))
++            if same_login_for_persistence(expected, current))
++        {
++            return Err(std::io::Error::other(
++                "Canonical login changed during identity registration.",
++            ));
++        }
++    }
+     let mut auth = stored.ok_or_else(|| std::io::Error::other("auth data is not available"))?;
+     auth.agent_identity = Some(AgentIdentityStorage::Record(record));
+     storage.save(&auth)?;
+@@ -1046,6 +1064,9 @@ fn persist_agent_identity_record(
+     Ok(())
+ }
+ 
++#[path = "canonical_transaction.rs"]
++mod canonical_transaction;
++
+ pub const OPENAI_API_KEY_ENV_VAR: &str = "OPENAI_API_KEY";
+ pub const CODEX_API_KEY_ENV_VAR: &str = "CODEX_API_KEY";
+ pub const CODEX_ACCESS_TOKEN_ENV_VAR: &str = "CODEX_ACCESS_TOKEN";
+@@ -1079,7 +1100,23 @@ pub fn logout(
+     auth_credentials_store_mode: AuthCredentialsStoreMode,
+     keyring_backend_kind: AuthKeyringBackendKind,
+ ) -> std::io::Result<bool> {
+-    if auth_credentials_store_mode == AuthCredentialsStoreMode::File && !codex_home.try_exists()? {
++    let _canonical = canonical_transaction::Transaction::acquire()?;
++    logout_unlocked(
++        codex_home,
++        auth_credentials_store_mode,
++        keyring_backend_kind,
++    )
++}
++
++fn logout_unlocked(
++    codex_home: &Path,
++    auth_credentials_store_mode: AuthCredentialsStoreMode,
++    keyring_backend_kind: AuthKeyringBackendKind,
++) -> std::io::Result<bool> {
++    if !canonical_transaction::selected()
++        && auth_credentials_store_mode == AuthCredentialsStoreMode::File
++        && !codex_home.try_exists()?
++    {
+         return Ok(false);
+     }
+     let storage = create_auth_storage(
+@@ -1097,6 +1134,7 @@ pub async fn logout_with_revoke(
+     keyring_backend_kind: AuthKeyringBackendKind,
+     auth_route_config: &AuthRouteConfig,
+ ) -> std::io::Result<bool> {
++    let canonical = canonical_transaction::Transaction::acquire_async().await?;
+     let auth_dot_json = match load_auth_dot_json(
+         codex_home,
+         auth_credentials_store_mode,
+@@ -1104,6 +1142,9 @@ pub async fn logout_with_revoke(
+     ) {
+         Ok(auth_dot_json) => auth_dot_json,
+         Err(err) => {
++            if canonical_transaction::selected() {
++                return Err(err);
++            }
+             tracing::warn!("failed to load stored auth during logout: {err}");
+             None
+         }
+@@ -1111,7 +1152,8 @@ pub async fn logout_with_revoke(
+     if let Err(err) = revoke_auth_tokens(auth_dot_json.as_ref(), auth_route_config).await {
+         tracing::warn!("failed to revoke auth tokens during logout: {err}");
+     }
+-    logout_all_stores(
++    canonical.assert_current()?;
++    logout_all_stores_unlocked(
+         codex_home,
+         auth_credentials_store_mode,
+         keyring_backend_kind,
+@@ -1253,6 +1295,7 @@ pub fn save_auth(
+     auth_credentials_store_mode: AuthCredentialsStoreMode,
+     keyring_backend_kind: AuthKeyringBackendKind,
+ ) -> std::io::Result<()> {
++    let _canonical = canonical_transaction::Transaction::acquire()?;
+     let storage = create_auth_storage(
+         codex_home.to_path_buf(),
+         auth_credentials_store_mode,
+@@ -1581,20 +1624,33 @@ fn logout_all_stores(
+     codex_home: &Path,
+     auth_credentials_store_mode: AuthCredentialsStoreMode,
+     keyring_backend_kind: AuthKeyringBackendKind,
++) -> std::io::Result<bool> {
++    let _canonical = canonical_transaction::Transaction::acquire()?;
++    logout_all_stores_unlocked(
++        codex_home,
++        auth_credentials_store_mode,
++        keyring_backend_kind,
++    )
++}
++
++fn logout_all_stores_unlocked(
++    codex_home: &Path,
++    auth_credentials_store_mode: AuthCredentialsStoreMode,
++    keyring_backend_kind: AuthKeyringBackendKind,
+ ) -> std::io::Result<bool> {
+     if auth_credentials_store_mode == AuthCredentialsStoreMode::Ephemeral {
+-        return logout(
++        return logout_unlocked(
+             codex_home,
+             AuthCredentialsStoreMode::Ephemeral,
+             AuthKeyringBackendKind::default(),
+         );
+     }
+-    let removed_ephemeral = logout(
++    let removed_ephemeral = logout_unlocked(
+         codex_home,
+         AuthCredentialsStoreMode::Ephemeral,
+         AuthKeyringBackendKind::default(),
+     )?;
+-    let removed_managed = logout(
++    let removed_managed = logout_unlocked(
+         codex_home,
+         auth_credentials_store_mode,
+         keyring_backend_kind,
+@@ -1617,6 +1673,19 @@ async fn load_auth(
+     allowed_auth_modes: Option<&[AuthMode]>,
+ ) -> std::io::Result<Option<CodexAuth>> {
+     let mode_allowed = |mode| allowed_auth_modes.is_none_or(|modes| modes.contains(&mode));
++    if canonical_transaction::selected()
++        && [
++            OPENAI_API_KEY_ENV_VAR,
++            CODEX_API_KEY_ENV_VAR,
++            CODEX_ACCESS_TOKEN_ENV_VAR,
++        ]
++        .iter()
++        .any(|key| std::env::var_os(key).is_some())
++    {
++        return Err(std::io::Error::other(
++            "Environment credentials conflict with canonical authentication.",
++        ));
++    }
+     // API key via env var takes precedence over any other auth method.
+     if enable_codex_api_key_env
+         && mode_allowed(AuthMode::ApiKey)
+@@ -1764,6 +1833,26 @@ pub(super) fn persist_tokens(
+     id_token: Option<String>,
+     access_token: Option<String>,
+     refresh_token: Option<String>,
++) -> std::io::Result<AuthDotJson> {
++    let canonical = canonical_transaction::Transaction::acquire()?;
++    canonical.assert_current()?;
++    persist_tokens_unlocked(
++        storage,
++        expected,
++        provenance,
++        id_token,
++        access_token,
++        refresh_token,
++    )
++}
++
++fn persist_tokens_unlocked(
++    storage: &Arc<dyn AuthStorageBackend>,
++    expected: &TokenData,
++    provenance: Option<AccountOAuthProvenance>,
++    id_token: Option<String>,
++    access_token: Option<String>,
++    refresh_token: Option<String>,
+ ) -> std::io::Result<AuthDotJson> {
+     let _commit = storage.lock_for_write()?;
+     let stored = storage.load()?;
+@@ -1783,6 +1872,16 @@ pub(super) fn persist_tokens(
+             "Account credentials changed during refresh.",
+         ));
+     }
++    if canonical_transaction::selected()
++        && auth_dot_json
++            .tokens
++            .as_ref()
++            .is_none_or(|tokens| tokens.refresh_token != expected.refresh_token)
++    {
++        return Err(std::io::Error::other(
++            "Canonical credential generation changed during refresh.",
++        ));
++    }
+     let tokens = auth_dot_json
+         .tokens
+         .as_mut()
+@@ -2628,8 +2727,30 @@ impl AuthManager {
+         })
+     }
+ 
+-    /// Current cached auth (clone) without attempting a refresh.
++    /// Current auth without refresh or network I/O. Canonical mode reads the
++    /// selected file on every call, including synchronous request-header paths.
+     pub fn auth_cached(&self) -> Option<CodexAuth> {
++        if canonical_transaction::selected() {
++            for _ in 0..2 {
++                let generation = self.auth_change_state_tx.borrow().generation;
++                let auth = self.load_canonical_auth();
++                if self
++                    .publish_reloaded_auth(generation, auth.clone())
++                    .is_some()
++                {
++                    return auth;
++                }
++            }
++            // Concurrent in-process changes must not resurrect an older snapshot.
++            return None;
++        }
++        self.auth_cached_unchecked()
++    }
++
++    // Refresh compares the generation loaded before acquiring the cross-process
++    // guard with the one read under it. A public read here would overwrite the
++    // predecessor and make a waiter consume the already-rotated token again.
++    fn auth_cached_unchecked(&self) -> Option<CodexAuth> {
+         self.inner
+             .read()
+             .ok()
+@@ -2701,6 +2822,9 @@ impl AuthManager {
+     /// a guarded reload and then refreshes only if the on-disk auth is unchanged.
+     #[instrument(level = "trace", skip_all)]
+     pub async fn auth(&self) -> Option<CodexAuth> {
++        if canonical_transaction::selected() {
++            self.reload().await;
++        }
+         if self.has_external_auth() {
+             self.reload_inner().await.ok()?;
+             return self.auth_cached();
+@@ -2711,7 +2835,11 @@ impl AuthManager {
+             && let Err(err) = self.refresh_token_with_reason(reason, Some(&auth)).await
+         {
+             tracing::error!("Failed to refresh token: {}", err);
+-            return Some(auth);
++            return if canonical_transaction::selected() {
++                None
++            } else {
++                Some(auth)
++            };
+         }
+         self.auth_cached()
+     }
+@@ -2724,6 +2852,19 @@ impl AuthManager {
+         Some((cached.auth.clone()?, self.http_client_factory()))
+     }
+ 
++    /// Capture account credentials, their client and generation under the same lock.
++    pub async fn auth_with_http_client_factory_and_change_state(
++        &self,
++    ) -> Option<(CodexAuth, HttpClientFactory, AuthChangeState)> {
++        self.auth().await?;
++        let cached = self.inner.read().ok()?;
++        Some((
++            cached.auth.clone()?,
++            self.http_client_factory(),
++            *self.auth_change_state_tx.borrow(),
++        ))
++    }
++
+     pub async fn agent_identity_auth(
+         &self,
+         policy: AgentIdentityAuthPolicy,
+@@ -2796,10 +2937,18 @@ impl AuthManager {
+             .acquire_owned()
+             .await
+             .map_err(|_| std::io::Error::other("Account refresh coordination is unavailable."))?;
++        let canonical = canonical_transaction::Transaction::acquire_async().await?;
++        if canonical_transaction::selected() {
++            self.reload().await;
++        }
+         Ok(self
+             .account_oauth_grant()
+             .await?
+-            .map(|grant| AccountOAuthGrantLease { grant, permit }))
++            .map(|grant| AccountOAuthGrantLease {
++                grant,
++                permit,
++                canonical,
++            }))
+     }
+ 
+     /// Reads an owner-checked grant without waiting for or excluding account refresh.
+@@ -3074,10 +3223,81 @@ impl AuthManager {
+         }
+     }
+ 
++    // API-key and managed ChatGPT file credentials require no async work to
++    // reconstruct. Other auth modes are explicitly unsupported by this adapter,
++    // rather than permitting a request-path fallback or nested Tokio runtime.
++    fn load_canonical_auth(&self) -> Option<CodexAuth> {
++        canonical_transaction::Transaction::assert_refresh_readable().ok()?;
++        if self.has_external_auth()
++            || [
++                OPENAI_API_KEY_ENV_VAR,
++                CODEX_API_KEY_ENV_VAR,
++                CODEX_ACCESS_TOKEN_ENV_VAR,
++            ]
++            .iter()
++            .any(|key| std::env::var_os(key).is_some())
++        {
++            return None;
++        }
++        let stored = load_auth_dot_json(
++            &self.codex_home,
++            self.auth_credentials_store_mode,
++            self.keyring_backend_kind,
++        )
++        .ok()??;
++        let mode = stored.resolved_mode();
++        if self
++            .allowed_auth_modes
++            .read()
++            .ok()?
++            .as_ref()
++            .is_some_and(|modes| !modes.contains(&mode))
++        {
++            return None;
++        }
++        let auth = match mode {
++            AuthMode::ApiKey => CodexAuth::from_api_key(stored.openai_api_key.as_deref()?),
++            AuthMode::Chatgpt => {
++                let provenance = stored
++                    .tokens
++                    .as_ref()
++                    .and_then(|tokens| tokens.oauth_provenance.as_ref());
++                let client = create_default_auth_client(
++                    &refresh_token_endpoint(provenance),
++                    &self.auth_route_config,
++                )
++                .ok()?;
++                let storage = create_auth_storage(
++                    self.codex_home.clone(),
++                    self.auth_credentials_store_mode,
++                    self.keyring_backend_kind,
++                );
++                CodexAuth::Chatgpt(ChatgptAuth {
++                    state: ChatgptAuthState {
++                        auth_dot_json: Arc::new(Mutex::new(Some(stored))),
++                        client,
++                    },
++                    storage,
++                })
++            }
++            _ => return None,
++        };
++        validate_auth_restrictions(
++            Some(&self.allowed_login_methods()),
++            self.effective_chatgpt_workspaces().as_deref(),
++            &auth,
++        )
++        .ok()?;
++        Some(auth)
++    }
++
+     async fn load_auth(
+         &self,
+         cached_auth: Option<&CodexAuth>,
+     ) -> Result<Option<CodexAuth>, RefreshTokenError> {
++        if canonical_transaction::selected() {
++            return Ok(self.load_canonical_auth());
++        }
+         if let Some(external_auth) = self.external_auth_provider() {
+             let cached_auth = self.auth_cached();
+             if cached_auth
+@@ -3240,6 +3460,11 @@ impl AuthManager {
+         &self,
+         external_auth: Arc<dyn ExternalAuth>,
+     ) -> Result<(), RefreshTokenError> {
++        if canonical_transaction::selected() {
++            return Err(RefreshTokenError::from(std::io::Error::other(
++                "External auth conflicts with canonical authentication.",
++            )));
++        }
+         let auth = self.resolve_external_auth(external_auth.as_ref()).await?;
+         let mut external_auth_slot = self.external_auth.write().map_err(|_| {
+             RefreshTokenError::Transient(std::io::Error::other("external auth lock is poisoned"))
+@@ -3483,14 +3708,42 @@ impl AuthManager {
+                 REFRESH_TOKEN_UNKNOWN_MESSAGE.to_string(),
+             ))
+         })?;
+-        let auth_before_reload = self.auth_cached();
++        let canonical = canonical_transaction::Transaction::acquire_async()
++            .await
++            .map_err(RefreshTokenError::from)?;
++        let auth_before_reload = self.auth_cached_unchecked();
+         if let Some(expected_auth) = expected_auth
+             && !Self::auths_equal_for_refresh(auth_before_reload.as_ref(), Some(expected_auth))
+         {
+             return Ok(());
+         }
++        if canonical_transaction::selected() {
++            if self.has_external_auth() {
++                return Err(RefreshTokenError::from(std::io::Error::other(
++                    "External auth conflicts with canonical authentication.",
++                )));
++            }
++            self.reload().await;
++            canonical
++                .assert_current()
++                .map_err(RefreshTokenError::from)?;
++            let current = self.auth_cached();
++            if current.is_none() {
++                return Err(RefreshTokenError::from(std::io::Error::other(
++                    "Canonical authentication is unavailable.",
++                )));
++            }
++            if !Self::auths_equal_for_refresh(auth_before_reload.as_ref(), current.as_ref()) {
++                return Ok(());
++            }
++            return self
++                .refresh_token_from_authority_impl(reason, &canonical)
++                .await;
++        }
+         if self.has_external_auth() {
+-            return self.refresh_token_from_authority_impl(reason).await;
++            return self
++                .refresh_token_from_authority_impl(reason, &canonical)
++                .await;
+         }
+         if auth_before_reload
+             .as_ref()
+@@ -3510,7 +3763,10 @@ impl AuthManager {
+                 tracing::info!("Skipping token refresh because auth changed after guarded reload.");
+                 Ok(())
+             }
+-            ReloadOutcome::ReloadedNoChange => self.refresh_token_from_authority_impl(reason).await,
++            ReloadOutcome::ReloadedNoChange => {
++                self.refresh_token_from_authority_impl(reason, &canonical)
++                    .await
++            }
+             ReloadOutcome::Skipped => {
+                 Err(RefreshTokenError::Permanent(RefreshTokenFailedError::new(
+                     RefreshTokenFailedReason::Other,
+@@ -3532,18 +3788,26 @@ impl AuthManager {
+         &self,
+         reason: RefreshReason,
+     ) -> Result<(), RefreshTokenError> {
++        if canonical_transaction::selected() {
++            return self.refresh_token_with_reason(reason, None).await;
++        }
+         let _refresh_guard = self.refresh_lock.acquire().await.map_err(|_| {
+             RefreshTokenError::Permanent(RefreshTokenFailedError::new(
+                 RefreshTokenFailedReason::Other,
+                 REFRESH_TOKEN_UNKNOWN_MESSAGE.to_string(),
+             ))
+         })?;
+-        self.refresh_token_from_authority_impl(reason).await
++        let canonical = canonical_transaction::Transaction::acquire_async()
++            .await
++            .map_err(RefreshTokenError::from)?;
++        self.refresh_token_from_authority_impl(reason, &canonical)
++            .await
+     }
+ 
+     async fn refresh_token_from_authority_impl(
+         &self,
+         reason: RefreshReason,
++        canonical: &canonical_transaction::Transaction,
+     ) -> Result<(), RefreshTokenError> {
+         tracing::info!("Refreshing token");
+ 
+@@ -3570,6 +3834,7 @@ impl AuthManager {
+                         chatgpt_auth,
+                         token_data,
+                         reason,
++                        canonical,
+                     ))
+                     .await
+                 }
+@@ -3599,7 +3864,9 @@ impl AuthManager {
+     /// callers immediately observe the unauthenticated state.
+     pub async fn logout(&self) -> std::io::Result<bool> {
+         self.ensure_logout_allowed()?;
+-        let removed = logout_all_stores(
++        let canonical = canonical_transaction::Transaction::acquire_async().await?;
++        canonical.assert_current()?;
++        let removed = logout_all_stores_unlocked(
+             &self.codex_home,
+             self.auth_credentials_store_mode,
+             self.keyring_backend_kind,
+@@ -3613,14 +3880,23 @@ impl AuthManager {
+ 
+     pub async fn logout_with_revoke(&self) -> std::io::Result<bool> {
+         self.ensure_logout_allowed()?;
+-        let auth_dot_json = self
+-            .auth_cached()
+-            .and_then(|auth| auth.get_current_auth_json());
++        let canonical = canonical_transaction::Transaction::acquire_async().await?;
++        let auth_dot_json = if canonical_transaction::selected() {
++            load_auth_dot_json(
++                &self.codex_home,
++                self.auth_credentials_store_mode,
++                self.keyring_backend_kind,
++            )?
++        } else {
++            self.auth_cached()
++                .and_then(|auth| auth.get_current_auth_json())
++        };
+         if let Err(err) = revoke_auth_tokens(auth_dot_json.as_ref(), &self.auth_route_config).await
+         {
+             tracing::warn!("failed to revoke auth tokens during logout: {err}");
+         }
+-        let result = logout_all_stores(
++        canonical.assert_current()?;
++        let result = logout_all_stores_unlocked(
+             &self.codex_home,
+             self.auth_credentials_store_mode,
+             self.keyring_backend_kind,
+@@ -3746,6 +4022,7 @@ impl AuthManager {
+         auth: &ChatgptAuth,
+         tokens: TokenData,
+         reason: RefreshReason,
++        canonical: &canonical_transaction::Transaction,
+     ) -> Result<(), RefreshTokenError> {
+         let endpoint = refresh_token_endpoint(tokens.oauth_provenance.as_ref());
+         let client_id = tokens
+@@ -3759,14 +4036,34 @@ impl AuthManager {
+             .map_err(|_| std::io::Error::other("Refresh progress is unavailable."))?
+             .replace(tokens.clone());
+         let result: Result<(), RefreshTokenError> = async {
+-            let refresh_response = request_chatgpt_token_refresh(
++            canonical
++                .assert_current()
++                .map_err(RefreshTokenError::from)?;
++            canonical
++                .begin_refresh_exchange(&tokens.refresh_token)
++                .map_err(RefreshTokenError::from)?;
++            let exchange = request_chatgpt_token_refresh(
+                 tokens.refresh_token.clone(),
+                 &endpoint,
+                 &client_id,
+                 auth.client(),
+                 reason,
+-            )
+-            .await?;
++            );
++            let refresh_response = if canonical_transaction::selected() {
++                tokio::time::timeout(std::time::Duration::from_secs(45), exchange)
++                    .await
++                    .map_err(|_| {
++                        RefreshTokenError::from(std::io::Error::new(
++                            std::io::ErrorKind::TimedOut,
++                            "Canonical token exchange expired.",
++                        ))
++                    })??
++            } else {
++                exchange.await?
++            };
++            canonical
++                .assert_current()
++                .map_err(RefreshTokenError::from)?;
+ 
+             // An explicit override may send refresh to another authority. Retain provenance
+             // only when the endpoint used by this request matches the recorded issuer.
+@@ -3774,6 +4071,21 @@ impl AuthManager {
+                 endpoint == format!("{}/oauth/token", provenance.issuer.trim_end_matches('/'))
+             });
+ 
++            if canonical_transaction::selected() {
++                persist_tokens_unlocked(
++                    auth.storage(),
++                    &tokens,
++                    provenance,
++                    refresh_response.id_token,
++                    refresh_response.access_token,
++                    refresh_response.refresh_token,
++                )
++                .map_err(RefreshTokenError::from)?;
++                canonical
++                    .finish_refresh_exchange(&tokens.refresh_token)
++                    .map_err(RefreshTokenError::from)?;
++                return Ok(());
++            }
+             let storage = Arc::clone(auth.storage());
+             let originator = codex_otel::auth_storage::AuthStorageOriginator::current();
+             tokio::task::spawn_blocking(move || {
+diff --git a/codex-rs/login/src/auth/storage.rs b/codex-rs/login/src/auth/storage.rs
+index 5c1a8fc61e6acc2ce7391e152de1518f9dff9669..76db1bacc5e4e47b0dda3a6449346566cbbe1c9b 100644
+--- a/codex-rs/login/src/auth/storage.rs
++++ b/codex-rs/login/src/auth/storage.rs
+@@ -18,6 +18,10 @@ use std::sync::Arc;
+ use std::sync::Mutex;
+ use tracing::warn;
+ 
++#[cfg(target_os = "linux")]
++#[path = "canonical_auth.rs"]
++pub(super) mod canonical_auth;
++
+ #[path = "storage_error.rs"]
+ mod storage_error;
+ 
+@@ -169,6 +173,10 @@ pub(super) fn get_auth_file(codex_home: &Path) -> PathBuf {
+ }
+ 
+ pub(super) fn delete_file_if_exists(codex_home: &Path) -> std::io::Result<bool> {
++    #[cfg(target_os = "linux")]
++    if let Some(shared) = canonical_auth::CanonicalAuth::configured()? {
++        return shared.delete();
++    }
+     let auth_file = get_auth_file(codex_home);
+     match std::fs::remove_file(&auth_file) {
+         Ok(()) => Ok(true),
+@@ -245,6 +253,14 @@ impl FileAuthStorage {
+     /// Attempt to read and parse the `auth.json` file in the given `CODEX_HOME` directory.
+     /// Returns the full AuthDotJson structure.
+     pub(super) fn try_read_auth_json(&self, auth_file: &Path) -> std::io::Result<AuthDotJson> {
++        #[cfg(target_os = "linux")]
++        if let Some(shared) = canonical_auth::CanonicalAuth::configured()? {
++            let bytes = shared
++                .read()?
++                .ok_or_else(|| std::io::Error::from(std::io::ErrorKind::NotFound))?;
++            return serde_json::from_slice(&bytes)
++                .map_err(|_| std::io::Error::other("Canonical authentication is malformed."));
++        }
+         let mut file = File::open(auth_file)?;
+         let mut contents = String::new();
+         file.read_to_string(&mut contents)?;
+@@ -258,6 +274,9 @@ impl FileAuthStorage {
+ 
+ impl AuthStorageBackend for FileAuthStorage {
+     fn persistent_home(&self) -> Option<&Path> {
++        if cfg!(target_os = "linux") && std::env::var_os("CODEX_AUTH_HOME").is_some() {
++            return None;
++        }
+         Some(&self.codex_home)
+     }
+ 
+@@ -272,6 +291,11 @@ impl AuthStorageBackend for FileAuthStorage {
+     }
+ 
+     fn save(&self, auth_dot_json: &AuthDotJson) -> std::io::Result<()> {
++        #[cfg(target_os = "linux")]
++        if let Some(shared) = canonical_auth::CanonicalAuth::configured()? {
++            let bytes = serde_json::to_vec_pretty(auth_dot_json)?;
++            return shared.write(&bytes);
++        }
+         let auth_file = storage_file::resolve_auth_file(get_auth_file(&self.codex_home))?;
+         let parent = auth_file
+             .parent()
+@@ -712,6 +736,30 @@ fn create_auth_storage_with_store(
+     keyring_store: Arc<dyn KeyringStore>,
+     keyring_backend_kind: AuthKeyringBackendKind,
+ ) -> Arc<dyn AuthStorageBackend> {
++    #[cfg(target_os = "linux")]
++    match canonical_auth::CanonicalAuth::configured() {
++        Ok(Some(shared)) if shared.conflicts_with(&codex_home) => {
++            return Arc::new(RejectedCanonicalStorage { empty: false });
++        }
++        // Internal ephemeral cleanup must remain a no-op, but an explicitly
++        // selected canonical file authority cannot load/save another backend.
++        Ok(Some(_)) if mode == AuthCredentialsStoreMode::Ephemeral => {
++            return Arc::new(RejectedCanonicalStorage { empty: true });
++        }
++        Ok(Some(_)) => {
++            if mode != AuthCredentialsStoreMode::File {
++                return Arc::new(RejectedCanonicalStorage { empty: false });
++            }
++            // The descriptor-bound canonical transaction coordinates writers.
++            return storage_telemetry::observe(
++                Arc::new(FileAuthStorage::new(codex_home)),
++                mode,
++                keyring_backend_kind,
++            );
++        }
++        Err(_) => return Arc::new(RejectedCanonicalStorage { empty: false }),
++        _ => {}
++    }
+     let commit_home = codex_home.clone();
+     let storage: Arc<dyn AuthStorageBackend> = match mode {
+         AuthCredentialsStoreMode::File => Arc::new(FileAuthStorage::new(codex_home)),
+@@ -755,3 +803,36 @@ fn create_keyring_auth_storage(
+ #[cfg(test)]
+ #[path = "storage_tests.rs"]
+ mod tests;
++
++#[cfg(target_os = "linux")]
++#[derive(Debug)]
++struct RejectedCanonicalStorage {
++    empty: bool,
++}
++
++#[cfg(target_os = "linux")]
++impl AuthStorageBackend for RejectedCanonicalStorage {
++    fn load(&self) -> std::io::Result<Option<AuthDotJson>> {
++        if self.empty {
++            Ok(None)
++        } else {
++            Err(std::io::Error::other(
++                "Canonical file authentication is required.",
++            ))
++        }
++    }
++    fn save(&self, _: &AuthDotJson) -> std::io::Result<()> {
++        Err(std::io::Error::other(
++            "Canonical file authentication is required.",
++        ))
++    }
++    fn delete(&self) -> std::io::Result<bool> {
++        if self.empty {
++            Ok(false)
++        } else {
++            Err(std::io::Error::other(
++                "Canonical file authentication is required.",
++            ))
++        }
++    }
++}
+diff --git a/codex-rs/model-provider/src/auth.rs b/codex-rs/model-provider/src/auth.rs
+index 78c24979070c3e4a118ba1345cf2540d367efff5..b38292a402f0fc989a191086a7f4d808ab34134b 100644
+--- a/codex-rs/model-provider/src/auth.rs
++++ b/codex-rs/model-provider/src/auth.rs
+@@ -340,10 +340,69 @@ pub(crate) fn auth_manager_for_provider(
+     }
+ }
+ 
++// Canonical mode deliberately supports file-backed API keys and managed
++// ChatGPT only. Provider credentials and custom headers need a separate,
++// validated authority contract; do not silently route around the file manager.
++pub(crate) fn validate_canonical_provider_authority(
++    provider: &ModelProviderInfo,
++) -> codex_protocol::error::Result<()> {
++    if std::env::var_os("CODEX_AUTH_HOME").is_none() {
++        return Ok(());
++    }
++    let custom_headers = provider.http_headers.as_ref().is_some_and(|headers| {
++        headers.iter().any(|(name, value)| {
++            !name.eq_ignore_ascii_case("version") || value.as_str() != env!("CARGO_PKG_VERSION")
++        })
++    });
++    // The stock provider declares these optional mappings even when unset.
++    // An environment-selected organization/project is an independent identity.
++    let custom_env_headers = provider.env_http_headers.as_ref().is_some_and(|headers| {
++        headers.iter().any(|(name, variable)| {
++            !((name.eq_ignore_ascii_case("OpenAI-Organization")
++                && variable == "OPENAI_ORGANIZATION")
++                || (name.eq_ignore_ascii_case("OpenAI-Project") && variable == "OPENAI_PROJECT"))
++                || std::env::var_os(variable).is_some()
++        })
++    });
++    if !provider.requires_openai_auth
++        || provider.is_amazon_bedrock()
++        || provider.env_key.is_some()
++        || provider.experimental_bearer_token.is_some()
++        || provider.auth.is_some()
++        || provider.gateway_oauth.is_some()
++        || provider.aws.is_some()
++        || custom_headers
++        || custom_env_headers
++    {
++        return Err(CodexErr::InvalidRequest(
++            "Provider authority overrides are unsupported with canonical authentication."
++                .to_string(),
++        ));
++    }
++    Ok(())
++}
++
++fn validate_canonical_request_auth(
++    auth: Option<&CodexAuth>,
++    provider: &ModelProviderInfo,
++) -> codex_protocol::error::Result<()> {
++    validate_canonical_provider_authority(provider)?;
++    if std::env::var_os("CODEX_AUTH_HOME").is_none() {
++        return Ok(());
++    }
++    if !matches!(auth, Some(CodexAuth::ApiKey(_) | CodexAuth::Chatgpt(_))) {
++        return Err(CodexErr::InvalidRequest(
++            "Canonical authentication is unavailable; authenticate before execution.".to_string(),
++        ));
++    }
++    Ok(())
++}
++
+ pub(crate) fn resolve_provider_auth(
+     auth: Option<&CodexAuth>,
+     provider: &ModelProviderInfo,
+ ) -> codex_protocol::error::Result<SharedAuthProvider> {
++    validate_canonical_request_auth(auth, provider)?;
+     if let Some(auth) = bearer_auth_for_provider(provider)? {
+         return Ok(Arc::new(auth));
+     }
+@@ -373,6 +432,7 @@ pub(crate) async fn resolve_provider_auth_for_scope(
+     provider: &ModelProviderInfo,
+     scope: ProviderAuthScope,
+ ) -> codex_protocol::error::Result<ResolvedProviderAuth> {
++    validate_canonical_request_auth(auth, provider)?;
+     let ProviderAuthScope {
+         agent_identity_policy,
+         session_source,
+diff --git a/codex-rs/model-provider/src/provider.rs b/codex-rs/model-provider/src/provider.rs
+index daf061505e776c07ead59adcc89aa3338ad5e73a..0926246a035773e5303f91932d68508eac6951d8 100644
+--- a/codex-rs/model-provider/src/provider.rs
++++ b/codex-rs/model-provider/src/provider.rs
+@@ -455,6 +455,11 @@ pub async fn create_model_provider_from_local_config(
+     provider_info: ModelProviderInfo,
+     config: &impl AuthManagerConfig,
+ ) -> Result<SharedModelProvider, AuthManagerInitializationError> {
++    if crate::auth::validate_canonical_provider_authority(&provider_info).is_err() {
++        return Ok(Arc::new(RejectedCanonicalModelProvider {
++            info: provider_info,
++        }));
++    }
+     let credentials =
+         AuthManager::shared_from_config(config, /*enable_codex_api_key_env*/ false).await?;
+     Ok(create_model_provider(provider_info, Some(credentials)))
+@@ -465,6 +470,13 @@ pub(crate) fn create_model_provider_with_runtime(
+     auth_manager: Option<Arc<AuthManager>>,
+     runtime_auth: Option<(Arc<RuntimeAuthManager>, RuntimeAuthMode)>,
+ ) -> SharedModelProvider {
++    // Refuse before alternate constructors can create credential managers,
++    // exporters, recovery helpers or remote model catalogs.
++    if crate::auth::validate_canonical_provider_authority(&provider_info).is_err() {
++        return Arc::new(RejectedCanonicalModelProvider {
++            info: provider_info,
++        });
++    }
+     if provider_info.is_amazon_bedrock() {
+         return Arc::new(AmazonBedrockModelProvider::new(provider_info, auth_manager));
+     }
+@@ -478,6 +490,76 @@ pub(crate) fn create_model_provider_with_runtime(
+     ))
+ }
+ 
++// Inserted into the pinned native provider module by apply_request_auth.py.
++// No alternate credential owner or remote catalog is constructed in this state.
++#[derive(Debug)]
++struct RejectedCanonicalModelProvider {
++    info: ModelProviderInfo,
++}
++
++impl RejectedCanonicalModelProvider {
++    fn refusal<T>() -> codex_protocol::error::Result<T> {
++        Err(CodexErr::InvalidRequest(
++            "Provider authority overrides are unsupported with canonical authentication."
++                .to_string(),
++        ))
++    }
++}
++
++impl ModelProvider for RejectedCanonicalModelProvider {
++    fn info(&self) -> &ModelProviderInfo {
++        &self.info
++    }
++
++    fn auth_manager(&self) -> Option<Arc<AuthManager>> {
++        None
++    }
++
++    fn auth(&self) -> ModelProviderFuture<'_, Option<CodexAuth>> {
++        Box::pin(async { None })
++    }
++
++    fn account_state(&self) -> ProviderAccountResult {
++        Ok(ProviderAccountState {
++            account: None,
++            requires_openai_auth: true,
++        })
++    }
++
++    fn api_provider(&self) -> ModelProviderFuture<'_, codex_protocol::error::Result<Provider>> {
++        Box::pin(async { Self::refusal() })
++    }
++
++    fn runtime_base_url(
++        &self,
++    ) -> ModelProviderFuture<'_, codex_protocol::error::Result<Option<String>>> {
++        Box::pin(async { Self::refusal() })
++    }
++
++    fn api_auth(
++        &self,
++    ) -> ModelProviderFuture<'_, codex_protocol::error::Result<SharedAuthProvider>> {
++        Box::pin(async { Self::refusal() })
++    }
++
++    fn api_auth_for_scope(
++        &self,
++        _scope: ProviderAuthScope,
++    ) -> ModelProviderFuture<'_, codex_protocol::error::Result<ResolvedProviderAuth>> {
++        Box::pin(async { Self::refusal() })
++    }
++
++    fn models_manager(
++        &self,
++        _codex_home: PathBuf,
++        config_model_catalog: Option<ModelsResponse>,
++    ) -> SharedModelsManager {
++        // The trait's default uses only an in-memory static catalog and None
++        // auth. Both cached entry points therefore remain free of providers.
++        self.models_manager_without_cache(config_model_catalog)
++    }
++}
++
+ /// Runtime model provider that orchestrates primary and gateway credentials.
+ #[derive(Clone, Debug)]
+ struct ConfiguredModelProvider {
+--- a/codex-rs/login/src/auth/canonical_auth.rs
++++ b/codex-rs/login/src/auth/canonical_auth.rs
+@@ -259,3 +259,6 @@
+         Ok(())
+     }
+ }
++
++#[path = "canonical_refresh_intent.rs"]
++mod refresh_intent;
+--- a/codex-rs/login/src/auth/canonical_transaction.rs
++++ b/codex-rs/login/src/auth/canonical_transaction.rs
+@@ -37,7 +37,11 @@
+             let deadline = Instant::now() + WAIT;
+             loop {
+                 match shared.try_lock()? {
+-                    Ok(guard) => return Ok(Self { guard: Some(guard) }),
++                    Ok(guard) => {
++                        let transaction = Self { guard: Some(guard) };
++                        transaction.reconcile_refresh()?;
++                        return Ok(transaction);
++                    }
+                     Err(waiting) => shared = waiting,
+                 }
+                 if Instant::now() >= deadline {
+@@ -68,7 +72,11 @@
+             let deadline = Instant::now() + WAIT;
+             loop {
+                 match shared.try_lock()? {
+-                    Ok(guard) => return Ok(Self { guard: Some(guard) }),
++                    Ok(guard) => {
++                        let transaction = Self { guard: Some(guard) };
++                        transaction.reconcile_refresh()?;
++                        return Ok(transaction);
++                    }
+                     Err(waiting) => shared = waiting,
+                 }
+                 if Instant::now() >= deadline {
+@@ -84,3 +92,6 @@
+         Self::acquire()
+     }
+ }
++
++#[path = "canonical_refresh_transaction.rs"]
++mod refresh_intent;

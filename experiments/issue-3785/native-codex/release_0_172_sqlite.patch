@@ -1,0 +1,315 @@
+diff --git a/codex-rs/core/src/config/mod.rs b/codex-rs/core/src/config/mod.rs
+index e19b60095ea5cc5e1b8cb21c8b951aa812501b15..9931cbbeb09015a768026abd92d52c8ca612d36a 100644
+--- a/codex-rs/core/src/config/mod.rs
++++ b/codex-rs/core/src/config/mod.rs
+@@ -1,3 +1,6 @@
++#[cfg(target_os = "linux")]
++mod canonical_sqlite_authority;
++
+ use crate::config::edit::ConfigEdit;
+ use crate::config::edit::ConfigEditsBuilder;
+ use crate::context::world_state::validate_managed_developer_instructions;
+@@ -4539,13 +4542,23 @@ impl Config {
+             .cloned()
+             .or(sqlite_home_env)
+             .unwrap_or_else(|| codex_home.clone());
++        let requirements = config_layer_stack.requirements_toml();
++        #[cfg(target_os = "linux")]
++        canonical_sqlite_authority::admit(
++            sqlite_home.as_path(),
++            if cfg.log_dir.is_some() && requirements.sqlite_home.is_none() {
++                log_dir.as_path()
++            } else {
++                sqlite_home.as_path()
++            },
++            codex_home.as_path(),
++        )?;
+         let enforce_delete_on_nfs =
+             unsafe_enforce_sqlite_journal_mode.is_some_and(|required| required.value);
+         let mut sqlite = codex_state::SqliteConfig::from_sqlite_home_with_nfs_enforcement(
+             sqlite_home,
+             enforce_delete_on_nfs,
+         );
+-        let requirements = config_layer_stack.requirements_toml();
+         if cfg.log_dir.is_some() && requirements.sqlite_home.is_none() {
+             sqlite = sqlite.with_local_logs_home(log_dir.clone());
+         }
+diff --git a/codex-rs/state/Cargo.toml b/codex-rs/state/Cargo.toml
+index 6075cb6b36f32cb653798708669fe9fe1013e32f..16614ec684eecc7c32bf714f0632a29b0d628bef 100644
+--- a/codex-rs/state/Cargo.toml
++++ b/codex-rs/state/Cargo.toml
+@@ -28,6 +28,9 @@ tracing = { workspace = true }
+ tracing-subscriber = { workspace = true }
+ uuid = { workspace = true }
+ 
++[build-dependencies]
++cc = "=1.2.55"
++
+ [dev-dependencies]
+ codex-git-utils = { workspace = true }
+ pretty_assertions = { workspace = true }
+diff --git a/codex-rs/state/src/lib.rs b/codex-rs/state/src/lib.rs
+index 4ae3394ed6762ddaa83b9dd8b92dc89f89a2cff0..79fabb9b40c45ff4145635824213a8bc1a2a0a98 100644
+--- a/codex-rs/state/src/lib.rs
++++ b/codex-rs/state/src/lib.rs
+@@ -46,6 +46,8 @@ pub use runtime::MAX_GUARDIAN_REVIEW_RECORDS_PER_THREAD;
+ pub use runtime::StateRuntime;
+ pub use sqlite::SqliteConfig;
+ pub use sqlite::SqlitePoolWriteExt;
++#[cfg(target_os = "linux")]
++pub use sqlite::admit_canonical_sqlite;
+ 
+ pub use audit::ThreadStateAuditRow;
+ pub use audit::read_thread_rollout_paths;
+diff --git a/codex-rs/state/src/runtime/reclamation.rs b/codex-rs/state/src/runtime/reclamation.rs
+index 36201e16e93ca337386b27c301b663d8fd4fc9c2..051c52380faac773e274f47f1bee25bc998c433e 100644
+--- a/codex-rs/state/src/runtime/reclamation.rs
++++ b/codex-rs/state/src/runtime/reclamation.rs
+@@ -241,8 +241,9 @@ async fn reclaim(
+         clippy::disallowed_methods,
+         reason = "maintenance needs a dedicated connection with no busy wait or automatic checkpoints"
+     )]
+-    let mut connection = match SqliteConnection::connect_with(
+-        &SqliteConnectOptions::new()
++    let mut connection = match SqliteConnection::connect_with(&crate::sqlite::canonical_options(
++        path,
++        SqliteConnectOptions::new()
+             .filename(path)
+             .create_if_missing(false)
+             .busy_timeout(Duration::ZERO)
+@@ -253,7 +254,7 @@ async fn reclaim(
+             .pragma("cache_size", "-16384")
+             .log_statements(LevelFilter::Off)
+             .log_slow_statements(LevelFilter::Off, Duration::ZERO),
+-    )
++    )?)
+     .await
+     {
+         Ok(connection) => connection,
+diff --git a/codex-rs/state/src/runtime/recovery.rs b/codex-rs/state/src/runtime/recovery.rs
+index da81fc81a5e2326ca397b8fe9dab208ec39aa1c7..a122ef5638b3c8ce1fd348aafd2b4a69ce8cf676 100644
+--- a/codex-rs/state/src/runtime/recovery.rs
++++ b/codex-rs/state/src/runtime/recovery.rs
+@@ -96,6 +96,24 @@ impl std::error::Error for RuntimeDbInitError {
+ pub async fn backup_runtime_db_for_fresh_start(
+     db_path: &Path,
+ ) -> std::io::Result<Vec<RuntimeDbBackup>> {
++    #[cfg(target_os = "linux")]
++    if std::env::var_os("CODEX_ROLLOUT_HOME").is_some() {
++        let path = db_path.to_path_buf();
++        let backups =
++            tokio::task::spawn_blocking(move || crate::sqlite::canonical_sqlite_vfs::backup(&path))
++                .await
++                .map_err(std::io::Error::other)??;
++        let backups: Vec<_> = backups
++            .into_iter()
++            .map(|(original_path, backup_path)| RuntimeDbBackup {
++                original_path,
++                backup_path,
++            })
++            .collect();
++        let _ =
++            RECOVERY_BACKUPS.try_with(|report| report.borrow_mut().extend(backups.iter().cloned()));
++        return Ok(backups);
++    }
+     let sqlite_home = db_path.parent().ok_or_else(|| {
+         std::io::Error::other(format!(
+             "database path does not have a parent directory: {}",
+diff --git a/codex-rs/state/src/runtime/threads.rs b/codex-rs/state/src/runtime/threads.rs
+index e7c1159ab71f9183fc33b7e08d5114334842231c..00818db664832b9ed889f812a1c48118f9ae993a 100644
+--- a/codex-rs/state/src/runtime/threads.rs
++++ b/codex-rs/state/src/runtime/threads.rs
+@@ -1,3 +1,6 @@
++#[path = "canonical_rollout_paths.rs"]
++mod canonical_rollout_paths;
++
+ use super::*;
+ use crate::SortDirection;
+ use crate::sqlite::SqlitePoolWriteExt;
+@@ -693,7 +696,7 @@ ON CONFLICT(id) DO NOTHING
+             "#,
+         )
+         .bind(metadata.id.to_string())
+-        .bind(metadata.rollout_path.display().to_string())
++        .bind(canonical_rollout_paths::persisted_path(&metadata.rollout_path)?.display().to_string())
+         .bind(datetime_to_epoch_seconds(metadata.created_at))
+         .bind(datetime_to_epoch_seconds(updated_at))
+         .bind(datetime_to_epoch_seconds(recency_at))
+@@ -1090,7 +1093,7 @@ ON CONFLICT(id) DO UPDATE SET
+             "#,
+         )
+         .bind(metadata.id.to_string())
+-        .bind(metadata.rollout_path.display().to_string())
++        .bind(canonical_rollout_paths::persisted_path(&metadata.rollout_path)?.display().to_string())
+         .bind(datetime_to_epoch_seconds(metadata.created_at))
+         .bind(datetime_to_epoch_seconds(updated_at))
+         .bind(datetime_to_epoch_seconds(insert_recency_at))
+diff --git a/codex-rs/state/src/sqlite.rs b/codex-rs/state/src/sqlite.rs
+index 733cf1de86d55fe956a3c440e7f8ad267af62a82..84d972a77afb9aec70f4fd39f2b024cd026334bf 100644
+--- a/codex-rs/state/src/sqlite.rs
++++ b/codex-rs/state/src/sqlite.rs
+@@ -33,8 +33,27 @@ use std::time::Instant;
+ use tokio::sync::OnceCell;
+ 
+ mod busy_retry;
++#[cfg(target_os = "linux")]
++pub(crate) mod canonical_sqlite_vfs;
+ mod connection;
+ mod nfs;
++#[cfg(target_os = "linux")]
++pub use canonical_sqlite_vfs::admit_canonical_sqlite;
++
++pub(crate) fn canonical_options(
++    path: &Path,
++    options: SqliteConnectOptions,
++) -> Result<SqliteConnectOptions, Error> {
++    #[cfg(target_os = "linux")]
++    {
++        canonical_sqlite_vfs::options(path, options)
++    }
++    #[cfg(not(target_os = "linux"))]
++    {
++        let _ = path;
++        Ok(options)
++    }
++}
+ mod validation;
+ 
+ pub use busy_retry::SqlitePoolWriteExt;
+@@ -492,14 +511,19 @@ impl SqliteConfig {
+         } else {
+             probe_nfs(directory, &OnceCell::new()).await?
+         };
+-        // Keep the migration lock through pool initialization so another managed startup
+-        // cannot open the old inode or initialize a database during cutover.
+-        let migration = if self.enforce_delete_on_nfs && is_nfs {
++        // Canonical SQLite holds descriptor-bound state for the process lifetime.
++        // Managed NFS can require DELETE on those connections but must not replace
++        // their inodes through the ordinary automatic migration path.
++        let require_delete = self.enforce_delete_on_nfs && is_nfs;
++        let canonical =
++            cfg!(target_os = "linux") && std::env::var_os("CODEX_ROLLOUT_HOME").is_some();
++        // Keep the migration lock through pool initialization during ordinary cutover.
++        let _migration = if require_delete && !canonical {
+             Some(nfs::prepare_database(self, path).await?)
+         } else {
+             None
+         };
+-        let journal_mode_policy = if migration.is_some() {
++        let journal_mode_policy = if require_delete {
+             JournalModePolicy::RequireDelete
+         } else if is_nfs {
+             JournalModePolicy::InitializeDelete
+@@ -513,6 +537,7 @@ impl SqliteConfig {
+             .synchronous(SqliteSynchronous::Normal)
+             .busy_timeout(DEFAULT_BUSY_TIMEOUT)
+             .log_statements(LevelFilter::Off);
++        let options = canonical_options(path, options)?;
+         // Each failed attempt closes its pool before initialization is retried.
+         let connect = || async {
+             connect_once(&options, journal_mode_policy)
+@@ -564,11 +589,12 @@ impl SqliteConfig {
+         busy_timeout: Option<Duration>,
+     ) -> Result<SqlitePool, Error> {
+         self.prepare_logs_directory(path).await.map_err(Error::Io)?;
+-        let mut options = SqliteConnectOptions::new()
++        let options = SqliteConnectOptions::new()
+             .filename(path)
+             .create_if_missing(false)
+             .read_only(true)
+             .log_statements(LevelFilter::Off);
++        let mut options = canonical_options(path, options)?;
+         if let Some(busy_timeout) = busy_timeout {
+             options = options.busy_timeout(busy_timeout);
+         }
+@@ -591,10 +617,11 @@ impl SqliteConfig {
+             return Ok(None);
+         }
+         let options = SqliteConnectOptions::new()
+-            .filename(path)
++            .filename(&path)
+             .create_if_missing(false)
+             .busy_timeout(Duration::ZERO)
+             .log_statements(LevelFilter::Off);
++        let options = canonical_options(&path, options)?;
+         SqlitePoolOptions::new()
+             .max_connections(1)
+             .connect_with(options)
+--- a/codex-rs/core/src/config/canonical_sqlite_authority.rs
++++ b/codex-rs/core/src/config/canonical_sqlite_authority.rs
+@@ -1,5 +1,5 @@
+ //! Validate final native configuration before selected SQLite databases open.
+-//! This is path-policy admission; SQLite operation/descriptor leases are separate.
++//! Selected state also retains native SQLite directory and operation authority.
+ use std::fs::{self, File, OpenOptions};
+ use std::io;
+ use std::os::unix::fs::{MetadataExt, OpenOptionsExt};
+@@ -16,7 +16,6 @@
+ } else {
+     0x10000
+ };
+-const NONBLOCK: i32 = 0x800;
+ const DATABASES: [&str; 7] = [
+     "state_5.sqlite",
+     "logs_2.sqlite",
+@@ -45,39 +44,23 @@
+     })
+ }
+ 
+-// This admission does not hold a lease across later SQLite operations. Keep all
+-// metadata checks bounded and never open aliases, repair or read database data.
++// Inspect path policy without opening/closing extra database descriptors.
++// Native state retains canonical handles before any managed pools open.
+ fn database_files(root: &Path, owner: u32) -> io::Result<()> {
+     for database in DATABASES {
+         for suffix in ["", "-wal", "-shm", "-journal"] {
+             let path = root.join(format!("{database}{suffix}"));
+-            let before = match fs::symlink_metadata(&path) {
+-                Ok(info) => info,
+-                Err(error) if error.kind() == io::ErrorKind::NotFound => continue,
+-                Err(error) => return Err(error),
+-            };
+-            if !before.is_file()
+-                || before.uid() != owner
+-                || before.nlink() != 1
+-                || before.mode() & 0o022 != 0
+-            {
+-                return Err(refused());
+-            }
+-            let descriptor = OpenOptions::new()
+-                .read(true)
+-                .custom_flags(NOFOLLOW | NONBLOCK)
+-                .open(&path)?;
+-            let held = descriptor.metadata()?;
+-            let visible = fs::symlink_metadata(&path)?;
+-            for info in [&held, &visible] {
+-                if !info.is_file()
+-                    || info.uid() != owner
+-                    || info.nlink() != 1
+-                    || info.mode() & 0o022 != 0
+-                    || (info.dev(), info.ino()) != (before.dev(), before.ino())
++            match fs::symlink_metadata(&path) {
++                Ok(info)
++                    if info.is_file()
++                        && info.uid() == owner
++                        && info.nlink() == 1
++                        && info.mode() & 0o022 == 0 =>
+                 {
+-                    return Err(refused());
++                    ()
+                 }
++                Err(error) if error.kind() == io::ErrorKind::NotFound => (),
++                _ => return Err(refused()),
+             }
+         }
+     }
+@@ -98,7 +81,8 @@
+         logs,
+         private,
+     )
+-    .map_err(|_| refused())
++    .map_err(|_| refused())?;
++    codex_state::admit_canonical_sqlite(Path::new(&root))
+ }
+ 
+ fn validate(

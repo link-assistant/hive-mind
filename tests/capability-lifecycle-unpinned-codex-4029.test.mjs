@@ -26,11 +26,11 @@ test('CLI version labels reduce to the bare release', () => {
 });
 
 test('a typed stock refusal is expected exactly for an unpinned Codex release', () => {
-  assert.equal(cliLabelVersion(pinned), '0.164.0', 'the bundled baseline names the Dockerfile pin');
+  assert.equal(cliLabelVersion(pinned), '0.172.0', 'the bundled baseline names the Dockerfile pin');
   for (const version of ['0.163.0', '0.165.0', '0.167.0', 'codex-cli 0.167.0']) assert.equal(codexStockRefusalExpected(version, pinned), true, version);
   // The pre-#4029 comparison (`'0.164.0' !== 'codex-cli 0.164.0'`) was true for
   // the pinned release too, so it would have hidden a pinned-baseline regression.
-  for (const version of ['0.164.0', 'codex-cli 0.164.0', undefined, null, '']) assert.equal(codexStockRefusalExpected(version, pinned), false, String(version));
+  for (const version of ['0.172.0', 'codex-cli 0.172.0', undefined, null, '']) assert.equal(codexStockRefusalExpected(version, pinned), false, String(version));
 });
 
 test('P3 tolerates the refusal after the updated Codex starts and restores the pinned runtime before P4', () => {

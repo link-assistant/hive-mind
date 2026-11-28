@@ -18,6 +18,7 @@ from native_process_group import stop_process_group
 
 def run(binary, root, unsafe, selected, expected_fallback, diagnostics):
     observed, invalid = [], []
+    version = os.environ.get("CODEX_PROBE_VERSION", "0.164.0")
 
     class Handler(BaseHTTPRequestHandler):
         def setup(self):
@@ -33,7 +34,7 @@ def run(binary, root, unsafe, selected, expected_fallback, diagnostics):
         def do_GET(self):
             if background(self):
                 return
-            if self.path not in ("/v1/models", "/v1/models?client_version=0.164.0"):
+            if self.path not in ("/v1/models", f"/v1/models?client_version={version}"):
                 invalid.append(True)
                 self.send_error(400)
                 return

@@ -111,7 +111,9 @@ Select the deployment image independently with `image=` in the profile or `--ima
 ### Verifying manually installed Claude Code and stock Codex
 
 The runtime verifier accepts Claude Code releases that report a valid Claude
-Code version label. To verify an operator-installed `@openai/codex` package,
+Code version label. Hive Mind bundles Codex 0.172.0 with GPT-6.2 Sol as the
+preferred model. To use stock Codex when the native npm variant is unavailable,
+install `@openai/codex@0.172.0` with your package manager. To verify that package,
 set `HIVE_MIND_ALLOW_STOCK_CODEX=1` in the environment of the verifier and any
 Hive Mind processes that use the stock installation.
 

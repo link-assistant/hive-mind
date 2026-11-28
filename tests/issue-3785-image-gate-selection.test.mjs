@@ -21,6 +21,7 @@ test('the real detector requires image checks for packaged runtime and gate upda
   for (const [file, expected] of [
     ['src/isolation-runner.lib.mjs', true],
     ['src/codex-stock-skills-0.164.0.json', true],
+    ['src/codex-stock-skills-0.172.0.json', true],
     ['package.json', true],
     ['package-lock.json', true],
     ['scripts/docker-pr-verify-mount-backing.mjs', true],

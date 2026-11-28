@@ -1,0 +1,194 @@
+diff --git a/codex-rs/tui/src/app/event_dispatch.rs b/codex-rs/tui/src/app/event_dispatch.rs
+index 1f85a4ed0c4c66025a4246aed2698d61fa4c7002..5e74dce8092c540908365c2028f4cbb205f219e9 100644
+--- a/codex-rs/tui/src/app/event_dispatch.rs
++++ b/codex-rs/tui/src/app/event_dispatch.rs
+@@ -229,7 +229,40 @@ impl App {
+             }
+             event => (event, None),
+         };
++        let event = match event {
++            AppEvent::CanonicalPrompt {
++                thread_id,
++                op,
++                text,
++            } => {
++                if self.active_thread_id != Some(thread_id)
++                    || self.chat_widget.thread_id() != Some(thread_id)
++                    || self.thread_unavailable(thread_id)
++                {
++                    return Err(color_eyre::eyre::eyre!(
++                        "Canonical prompt history requires the active writable thread."
++                    ));
++                }
++                let history_config = codex_message_history::HistoryConfig::new(
++                    self.local_settings.codex_home.clone(),
++                    &self.local_settings.history,
++                );
++                let result = if let Some(text) = text {
++                    codex_message_history::append_entry(&text, thread_id, &history_config).await
++                } else {
++                    codex_message_history::validate_canonical_history(&history_config).await
++                };
++                if result.is_err() {
++                    return Err(color_eyre::eyre::eyre!(
++                        "Canonical prompt history is unavailable; no turn was sent."
++                    ));
++                }
++                AppEvent::CodexOp(op)
++            }
++            event => event,
++        };
+         match event {
++            AppEvent::CanonicalPrompt { .. } => unreachable!("canonical prompt normalized before dispatch"),
+             AppEvent::OpenDaemonMenu => self.open_daemon_menu(),
+             AppEvent::RemoteControl(_) | AppEvent::RemoteControlForBackend { .. } | AppEvent::RemoteControlFinished { .. } => {}
+             AppEvent::ConfirmDaemonRestart => self.confirm_daemon_restart(),
+diff --git a/codex-rs/tui/src/app_event.rs b/codex-rs/tui/src/app_event.rs
+index e49a439619cd95732ebb72b78009ce1f22c8ab0f..1ba61346c286dea30141594d750ce433c0413652 100644
+--- a/codex-rs/tui/src/app_event.rs
++++ b/codex-rs/tui/src/app_event.rs
+@@ -912,6 +912,13 @@ pub(crate) enum AppEvent {
+     /// bubbling channels through layers of widgets.
+     CodexOp(AppCommand),
+ 
++    /// Publish prompt history before forwarding this turn to the app server.
++    CanonicalPrompt {
++        thread_id: ThreadId,
++        op: AppCommand,
++        text: Option<String>,
++    },
++
+     /// A blocking image-preparation worker has finished; payload stays with its widget.
+     ImagesPrepared(Uuid),
+ 
+diff --git a/codex-rs/tui/src/chatwidget.rs b/codex-rs/tui/src/chatwidget.rs
+index bbc8ca19fdc8b36d0c79e813a1bf0d0e9afdd5a7..a3b6b3cd5386badf79aa428bab169d9932570cd6 100644
+--- a/codex-rs/tui/src/chatwidget.rs
++++ b/codex-rs/tui/src/chatwidget.rs
+@@ -1893,7 +1893,37 @@ impl ChatWidget {
+     where
+         T: Into<AppCommand>,
+     {
+-        let op: AppCommand = op.into();
++        self.submit_op_with_canonical_history(op.into(), None)
++    }
++
++    fn submit_prompt_op(&mut self, op: AppCommand, text: Option<String>) -> bool {
++        let history = std::env::var_os("CODEX_MESSAGE_HISTORY_HOME").map(|_| text);
++        self.submit_op_with_canonical_history(op, history)
++    }
++
++    fn submit_op_with_canonical_history(
++        &mut self,
++        op: AppCommand,
++        canonical_history: Option<Option<String>>,
++    ) -> bool {
++        if canonical_history.is_some()
++            && (!matches!(&self.codex_op_target, CodexOpTarget::AppEvent)
++                || self.thread_id.is_none())
++        {
++            self.add_error_message(
++                "Canonical prompt history requires an active app-server thread.".into(),
++            );
++            return false;
++        }
++        if std::env::var_os("CODEX_MESSAGE_HISTORY_HOME").is_some()
++            && matches!(&op, AppCommand::UserTurn { .. })
++            && canonical_history.is_none()
++        {
++            self.add_error_message(
++                "Canonical prompt history is required before submitting a turn.".into(),
++            );
++            return false;
++        }
+         if self.rejects_misalignment_policy_op(&op) {
+             return false;
+         }
+@@ -1927,7 +1957,17 @@ impl ChatWidget {
+                 }
+             }
+             CodexOpTarget::AppEvent => {
+-                self.app_event_tx.send(AppEvent::CodexOp(op));
++                if let Some(text) = canonical_history {
++                    self.app_event_tx.send(AppEvent::CanonicalPrompt {
++                        thread_id: self
++                            .thread_id
++                            .expect("canonical history admission checked thread"),
++                        op,
++                        text,
++                    });
++                } else {
++                    self.app_event_tx.send(AppEvent::CodexOp(op));
++                }
+             }
+         }
+         true
+diff --git a/codex-rs/tui/src/chatwidget/input_submission.rs b/codex-rs/tui/src/chatwidget/input_submission.rs
+index 0a34081f74f5ffa352a3c6011d36a1587d18acb8..209d6a424cde47b8752c3d3477cf4dcc8a15ac68 100644
+--- a/codex-rs/tui/src/chatwidget/input_submission.rs
++++ b/codex-rs/tui/src/chatwidget/input_submission.rs
+@@ -547,21 +547,6 @@ impl ChatWidget {
+             ));
+         }
+ 
+-        // The app submits recourse turns directly to the verified fork.
+-        if source != UserMessageSource::SafetyRecourse && !self.submit_op(op.clone()) {
+-            return (false, None);
+-        }
+-        if source != UserMessageSource::QuestionAnswer {
+-            self.bottom_pane.clear_pending_questions();
+-        }
+-        self.dismiss_backend_banner_for_new_turn();
+-        self.note_realtime_typed_input(&submitted_message.text);
+-        if render_in_history {
+-            self.input_queue.user_turn_pending_start = true;
+-            self.input_queue.pending_user_message_client_id = Some(client_user_message_id.clone());
+-            self.input_queue.pending_user_message_history_record = Some(history_record.clone());
+-        }
+-
+         // Persist the submitted text to cross-session message history. Mentions are encoded into
+         // placeholder syntax so recall can reconstruct the mention bindings in a future session.
+         let encoded_mentions = submitted_message
+@@ -587,17 +572,36 @@ impl ChatWidget {
+                 None
+             }
+         };
+-        if let Some((text, elements)) = history {
++        let history_text = history.map(|(text, elements)| {
+             let reply_text = crate::async_question_reply::display_text(text);
+             let (text, elements) = match &reply_text {
+                 Some(text) => (text.as_str(), &[][..]),
+                 None => (text.as_str(), elements),
+             };
+-            self.append_message_history_entry(encode_history_mentions_at_elements(
+-                text,
+-                &encoded_mentions,
+-                elements,
+-            ));
++            encode_history_mentions_at_elements(text, &encoded_mentions, elements)
++        });
++
++        // The app submits recourse turns directly to the verified fork.
++        if source != UserMessageSource::SafetyRecourse
++            && !self.submit_prompt_op(op.clone(), history_text.clone())
++        {
++            return (false, None);
++        }
++        if source != UserMessageSource::QuestionAnswer {
++            self.bottom_pane.clear_pending_questions();
++        }
++        self.dismiss_backend_banner_for_new_turn();
++        self.note_realtime_typed_input(&submitted_message.text);
++        if render_in_history {
++            self.input_queue.user_turn_pending_start = true;
++            self.input_queue.pending_user_message_client_id = Some(client_user_message_id.clone());
++            self.input_queue.pending_user_message_history_record = Some(history_record.clone());
++        }
++
++        if std::env::var_os("CODEX_MESSAGE_HISTORY_HOME").is_none()
++            && let Some(text) = history_text
++        {
++            self.append_message_history_entry(text);
+         }
+ 
+         if let Some(pending_steer) = pending_steer {

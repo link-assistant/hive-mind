@@ -9,7 +9,7 @@ import { test } from 'node:test';
 import { installImageRipgrep } from '../scripts/install-image-ripgrep.mjs';
 
 const execute = promisify(execFile);
-async function fixture(t, { arch = 'x64', version = '0.164.0', platformVersion = `0.164.0-linux-${arch}`, body = '#!/bin/sh\nprintf "ripgrep 14.1.1\\n"\n' } = {}) {
+async function fixture(t, { arch = 'x64', version = '0.172.0', platformVersion = `0.172.0-linux-${arch}`, body = '#!/bin/sh\nprintf "ripgrep 14.1.1\\n"\n' } = {}) {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'hive-image-rg-'));
   t.after(() => fs.rm(root, { recursive: true, force: true }));
   const codexRoot = path.join(root, 'node_modules/@openai/codex');

@@ -38,7 +38,7 @@ for (const variant of ['admin', 'user', 'repo', 'outside-stock', 'duplicate', 'm
       `#!${process.execPath}
 import path from 'node:path';
 import readline from 'node:readline';
-if (process.argv.includes('--version')) { console.log('codex-cli 0.164.0'); process.exit(0); }
+if (process.argv.includes('--version')) { console.log('codex-cli 0.172.0'); process.exit(0); }
 readline.createInterface({input: process.stdin}).on('line', line => {
   const message = JSON.parse(line);
   let result = {};

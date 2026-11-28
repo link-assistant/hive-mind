@@ -3,8 +3,11 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
 
-// hive-sync-ok: read the bundled manifest once at module startup, before serving requests.
-const bundled = JSON.parse(fs.readFileSync(new URL('./codex-stock-skills-0.164.0.json', import.meta.url), 'utf8'));
+// hive-sync-ok: read the bundled manifests at module startup, before serving requests.
+const bundled = JSON.parse(fs.readFileSync(new URL('./codex-stock-skills-0.172.0.json', import.meta.url), 'utf8'));
+// An upgraded CLI rematerializes a pristine previous system tree on first start.
+// hive-sync-ok: read the previous bundled manifest at module startup.
+const previous = JSON.parse(fs.readFileSync(new URL('./codex-stock-skills-0.164.0.json', import.meta.url), 'utf8'));
 export const CODEX_STOCK_SKILLS = Object.freeze({ cliVersion: bundled.cliVersion, files: Object.freeze(bundled.files) });
 const MAX_FILE_BYTES = 1024 * 1024;
 const MAX_ENTRIES = 10_000;
@@ -74,8 +77,11 @@ async function inspectStock({ directory, fsImpl, manifest }) {
 }
 
 /** Verify bytes and retain identities for the audit's concurrent-edit guard. */
-export async function validateCodexStockSkills({ directory, fsImpl = fs, manifest = CODEX_STOCK_SKILLS }) {
-  const { snapshot } = await inspectStock({ directory, fsImpl, manifest });
+export async function validateCodexStockSkills({ directory, fsImpl = fs, manifest, allowPrevious = false }) {
+  const { snapshot } = await inspectStock({ directory, fsImpl, manifest: manifest ?? CODEX_STOCK_SKILLS }).catch(error => {
+    if (manifest || !allowPrevious || !(error instanceof CodexStockBaselineError)) throw error;
+    return inspectStock({ directory, fsImpl, manifest: previous });
+  });
   return snapshot;
 }
 

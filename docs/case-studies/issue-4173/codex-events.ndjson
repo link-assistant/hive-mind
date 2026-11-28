@@ -1,0 +1,2 @@
+{"type":"item.completed","item":{"id":"item_0","type":"error","message":"Code Mode is unavailable because failed to spawn code-mode host /runtime/codex-code-mode-host: host executable was not found. Code mode will fail closed; enable `features.code_mode_host` and install `codex-code-mode-host`."}}
+{"type":"turn.completed","usage":{"input_tokens":68934,"cached_input_tokens":63488,"cache_write_input_tokens":0,"output_tokens":1001,"reasoning_output_tokens":450}}

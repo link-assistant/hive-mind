@@ -1,0 +1,144 @@
+{
+  "downloads": [
+    {
+      "file": "wrapper.log",
+      "url": "https://gist.github.com/konard/8c3569c0fc37b7c0b02f53a425451ed7",
+      "bytes": 313285,
+      "sha256": "09088b1d07f962b8f0af32cb6ab09f327cd817900e7adb6607735e46b75a49b2"
+    },
+    {
+      "file": "docker.log",
+      "url": "https://gist.github.com/konard/fadc5aa4306a7fc7f806da90fa7009b8",
+      "bytes": 357010,
+      "sha256": "9a681857086641a1535d4f4f91e2029be3f5db24c3ddfee1bcf8662f6ec6ac2e"
+    },
+    {
+      "file": "bundle.log",
+      "url": "https://gist.github.com/konard/0d0e8b09fa5cb6496279dff058649b19",
+      "bytes": 131914,
+      "sha256": "f2859aeea01b507f3bed9447f7ccdf119b283d086c2b082472c61eab86f98d4d"
+    },
+    {
+      "file": "bot.log",
+      "url": "https://gist.github.com/konard/e9f5cfe76460401da781d4a0ff91b75a",
+      "bytes": 7212764,
+      "sha256": "f6852945080f9a1ac55f107eb1bcb038f20ec4f4c931a57698a92a1071022339"
+    },
+    {
+      "file": "session-main.log",
+      "url": "https://gist.github.com/konard/216442f7cda270d3057eefed99f77590",
+      "bytes": 66465,
+      "sha256": "829c91c4e8b74397633ab51389e58f410407049157e73722a101a68dd5235797"
+    },
+    {
+      "file": "session-restart-1.log",
+      "url": "https://gist.github.com/konard/127f887febd31a00f18b6f2ba65bc705",
+      "bytes": 120601,
+      "sha256": "a88b240b89f9d2ede397982b973813566b7c18c22253fd7966b06add2f1cab8a"
+    },
+    {
+      "file": "session-restart-2.log",
+      "url": "https://gist.github.com/konard/c204622813d3e7e4a2b67e2701d15074",
+      "bytes": 170022,
+      "sha256": "e641c3354a5328d0efb8127427070dbf66c24485a9731527a93aa73b4764f1b0"
+    },
+    {
+      "file": "later-run.log",
+      "url": "https://raw.githubusercontent.com/konard/public-logs/main/tmp-hive-mind-log-upload-r4QYTo/7ce0abc1f2e0972b/sanitized.log.txt",
+      "bytes": 27442567,
+      "sha256": "7ce0abc1f2e0972b313913e89eb81d707aeb429265d8f9b47bb38400ac43aed8"
+    },
+    {
+      "file": "issue.json",
+      "url": "https://github.com/link-assistant/hive-mind/issues/4173",
+      "bytes": 19259,
+      "sha256": "3714a1b40a5b2f1d979202307dacae85426a714a83c966680eb50efeefc7d21a"
+    },
+    {
+      "file": "translator-issue.json",
+      "url": "https://github.com/link-foundation/universal-translator/issues/16",
+      "bytes": 12469,
+      "sha256": "eec5d2d2e57286508e254af64a5d899e6b7c7cffe4e2d045fd86dc131962ff4e"
+    },
+    {
+      "file": "translator-pr.json",
+      "url": "https://github.com/link-foundation/universal-translator/pull/17",
+      "bytes": 35826,
+      "sha256": "0148bb8b4f29a2be113b117f1ae8375bc6b43d0b754214d18e8f53cbc5c8af08"
+    },
+    {
+      "file": "translator-inline.json",
+      "url": "https://api.github.com/repos/link-foundation/universal-translator/pulls/17/comments",
+      "bytes": 7446,
+      "sha256": "43fefa565b129cd139df4f6422447c004a83499884207b1c4a2f3b932380850b"
+    },
+    {
+      "file": "tail-comparison-issue.json",
+      "url": "https://github.com/link-assistant/hive-mind-control-center/issues/5",
+      "bytes": 3794,
+      "sha256": "7f00c4d7448cf43b10f1df131a433e529017f5ac0e248b65852ceddaaf0b4b9d"
+    },
+    {
+      "file": "related-issue-4159.json",
+      "url": "https://github.com/link-assistant/hive-mind/issues/4159",
+      "bytes": 9226,
+      "sha256": "d76df75f10b3ba6d92b1a33549d53f002b12da6b0216457a4cbf86ac1527a79e"
+    },
+    {
+      "file": "related-pr-4160.json",
+      "url": "https://github.com/link-assistant/hive-mind/pull/4160",
+      "bytes": 4435,
+      "sha256": "46d4d6edb85f1ec020627db21089593f17db8496ccd38c3a9ffdc47d8a662551"
+    },
+    {
+      "file": "related-pr-4160-inline.json",
+      "url": "https://api.github.com/repos/link-assistant/hive-mind/pulls/4160/comments",
+      "bytes": 2,
+      "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    {
+      "file": "related-pr-4160.diff",
+      "url": "https://github.com/link-assistant/hive-mind/pull/4160.diff",
+      "bytes": 1589182,
+      "sha256": "465862212e2b9a206b1e5fff6752187d178475e90421d26832af789aa6208e23"
+    },
+    {
+      "file": "related-solver-4160.log",
+      "url": "https://github.com/link-assistant/hive-mind/blob/b6fc2ef67ae269ebf5a81346c760e3fbb3c43e38/dev/log/issues/4159/pulls/4160/sessions/ses_de66b0b10ffeAlasGh1bnXeXAF/solve.log",
+      "bytes": 1569100,
+      "sha256": "dcae085830443e642a152f7087fbd5ee95d6024f077f22adb7dbd09eee0f2fa4"
+    }
+  ],
+  "collectorFiles": [
+    {
+      "file": "event.json",
+      "bytes": 974,
+      "sha256": "0ed84de6d4d1e8fe780b82e0c8be6a00511d492bea588c11261d2cea1e9f3378"
+    },
+    {
+      "file": "docker.log",
+      "bytes": 356872,
+      "sha256": "66ab11ec81a19f2a0344038840f54ca789deeba70939a23b3094a17c5f12675c"
+    },
+    {
+      "file": "inspect.json",
+      "bytes": 14230,
+      "sha256": "6c9ffefbec5c46eb57c32a6e969ffc77135bee6f529d341ea23348c72cdbae80"
+    },
+    {
+      "file": "journal.log",
+      "bytes": 33984,
+      "sha256": "2a730062c41e16182e6ca961d3178c982bfd30c9b03cffd8b651e038533b23a9"
+    },
+    {
+      "file": "git.txt",
+      "bytes": 2337,
+      "sha256": "a882394cd13c41f841db8cb6684c5c7f98e13a581e05fc6d43a7b2e3e43e0950"
+    },
+    {
+      "file": "facts.json",
+      "bytes": 55250,
+      "sha256": "6864541446e3d53f4e41dc477c51789b652ad30ae5ce2a312ef8010aa8a37551"
+    }
+  ]
+}

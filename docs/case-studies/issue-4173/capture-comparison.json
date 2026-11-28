@@ -1,0 +1,12 @@
+{
+  "wrapperBytes": 35936,
+  "dockerBytes": 36029,
+  "dockerSha256": "51b363f78ada2496bd33c87577c94de8208ae9d240758875ccecf885695b0779",
+  "issueMatches": true,
+  "commentsMatch": true,
+  "pullRequestMatches": true,
+  "headMatches": true,
+  "baseMatches": true,
+  "titleMatches": false,
+  "baseRepoMatches": false
+}

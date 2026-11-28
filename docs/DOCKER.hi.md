@@ -355,17 +355,18 @@ docker run --rm -it \
 
 ### Persistent Storage के साथ चलाना
 
-Container restarts के बीच authentication और काम को बनाए रखने के लिए:
+प्रबंधित परिनियोजन रूट कंटेनर के लिए अलग-अलग डेटा डायरेक्टरी बनाता है और इमेज से Claude व Codex की प्रारंभिक सेटिंग लेता है। इनमें Playwright MCP शामिल है। मैनुअल परिनियोजन में भी इसी तरीके से बाइंड माउंट तैयार करें। [मैनुअल परिनियोजन निर्देश](deployment/hive-manager-manual.md)
 
-```bash
-# box user के home directory के लिए एक volume बनाएं
-docker volume create box-home
+`--isolation docker` वाले हर कार्य को इमेज की एक्सटेंशन सेटिंग मिलती है। प्लगइन, स्किल और MCP सेटिंग उसी कार्य के भीतर रहती हैं। रिपॉज़िटरी में स्पष्ट रूप से माँगी गई क्षमताएँ कार्य के अपने कॉन्फ़िगरेशन में उपलब्ध कराई जाती हैं। [समस्या #2190](https://github.com/link-assistant/hive-mind/issues/2190)
 
-# Volume mount के साथ चलाएं
-docker run -it -v box-home:/home/box konard/hive-mind:latest
-```
-
-यदि पूरा home mount नहीं करते हैं, तो `/home/box/.codex` और optional `/home/box/.agents` को अलग-अलग persist करें। `--isolation docker` tasks को ये directories पूरी तरह **नहीं** मिलतीं: [issue #2190](https://github.com/link-assistant/hive-mind/issues/2190) से task container में केवल credential file (`~/.claude/.credentials.json` या `~/.codex/auth.json`) और session directories (`~/.claude/projects`, `~/.claude/sessions`, `~/.codex/sessions`) mount होती हैं; plugins, marketplace, skills, MCP और settings image से आते हैं और container के साथ ही समाप्त हो जाते हैं। Hive Mind `codex exec` से पहले issue, सभी comments और repository instruction files पढ़ता है, स्पष्ट plugin/Agent Skill requirements resolve करता है और चुने गए provider को `.codex/hive-mind/repositories/<owner>/<repo>` में install करता है। हर task इस scope को खाली plugin/skill state से फिर बनाता है, remote plugin sync बंद करता है और host cache या global skills copy नहीं करता। Target repository में कोई skill file deploy या commit नहीं होती।
+| टूल                | होस्ट पर डिफ़ॉल्ट रूप से सहेजा गया डेटा                                                                |
+| ----------------- | ----------------------------------------------------------------------------------------------- |
+| Claude            | चुने गए क्रेडेंशियल और `projects/` व `sessions/` डायरेक्टरी                                             |
+| Codex             | चुने गए क्रेडेंशियल, `sessions/` और `generated_images/`                                               |
+| Gemini            | प्रबंधित परिनियोजन में `GEMINI_HISTORY_HOME` या अन्य होस्ट पर `~/.hive-mind/canonical/gemini-history` |
+| Agent और OpenCode | चुने गए टूल की XDG डेटा डायरेक्टरी                                                                    |
+| Qwen              | हर लॉन्च के लिए `~/.hive-mind/task-data/qwen/` के नीचे अलग डायरेक्टरी                                 |
+| सभी टूल            | Git और GitHub की पहचान और सेटिंग                                                                  |
 
 Credential sharing में एक सीमा बाकी है: host पर file के atomic replacement के बाद file bind mount पुराने inode को रखता है, और Codex preflight authentication को task scope में भी copy करता है। ये रास्ते अभी एक साझा rotating authority नहीं बनाते। [Case study](./case-studies/issue-3785/README.md) में यह अनसुलझी समस्या और असली CLI के प्रयोग दर्ज हैं।
 
@@ -391,7 +392,11 @@ codex mcp add playwright -- npx -y @playwright/mcp@latest --isolated --headless 
 
 ```bash
 # एक detached container शुरू करें
-docker run -d --name hive-worker -v box-home:/home/box konard/hive-mind:latest sleep infinity
+docker run -d --name hive-worker \
+  -v claude-state:/home/box/.claude \
+  -v codex-state:/home/box/.codex \
+  -v hive-state:/home/box/.hive-mind \
+  konard/hive-mind:latest sleep infinity
 
 # चल रहे container में commands execute करें
 docker exec -it hive-worker bash
@@ -410,12 +415,16 @@ services:
   hive-mind:
     image: konard/hive-mind:latest
     volumes:
-      - box-home:/home/box
+      - claude-state:/home/box/.claude
+      - codex-state:/home/box/.codex
+      - hive-state:/home/box/.hive-mind
     stdin_open: true
     tty: true
 
 volumes:
-  box-home:
+  claude-state:
+  codex-state:
+  hive-state:
 ```
 
 फिर चलाएं:

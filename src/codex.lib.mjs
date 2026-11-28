@@ -21,7 +21,7 @@ import { getLogFile, log } from './lib.mjs';
 import { codexTracePathFor, createCodexStderrLog } from './codex-stderr-log.lib.mjs'; // Issue #2293
 // Issues #1955 / #1990: run-health analysis lives in its own module to keep this
 // file under the max-lines budget. Re-exported below for backward compatibility.
-import { findCodexUsageLimitMessage, getCodexErrorEventSummary, getCodexCompletionHealth, getCodexPluginProvisioningHealth, logCodexResourceSnapshot, matchCodexPluginInstallRejection, reportCodexCompletionFailure, reportCodexPluginProvisioning } from './codex-health.lib.mjs';
+import { findCodexUsageLimitMessage, getCodexErrorEventSummary, getCodexCompletionHealth, getCodexExecutionErrorSummary, getCodexPluginProvisioningHealth, logCodexResourceSnapshot, matchCodexPluginInstallRejection, reportCodexCompletionFailure, reportCodexPluginProvisioning } from './codex-health.lib.mjs';
 export { getCodexErrorEventSummary, getCodexCompletionHealth, getCodexPluginProvisioningHealth, matchCodexPluginInstallRejection };
 import { reportError } from './sentry.lib.mjs';
 import { timeouts } from './config.lib.mjs';
@@ -1093,7 +1093,7 @@ export const executeCodexCommand = async params => {
         codexContinuationPrompt = continuation.prompt;
         return await executeWithRetry();
       }
-      const codexErrorSummary = classifyFormalAiCodexFailure({ model: argv.model, errorSummary: getCodexErrorEventSummary(codexJsonState) });
+      const codexErrorSummary = classifyFormalAiCodexFailure({ model: argv.model, errorSummary: getCodexExecutionErrorSummary(codexJsonState) });
       if (codexErrorSummary.ignoredEvents.length > 0) {
         const ignoredMessages = [...new Set(codexErrorSummary.ignoredEvents.map(event => event.message))].join('; ');
         await log(`⚠️ Ignoring non-fatal Codex error event(s): ${ignoredMessages}`, { level: 'warning', verbose: true });

@@ -134,7 +134,7 @@ test('a mounted rollout keeps --resume, and claude and other backends are left a
   assert.equal(dropped.command.chatDisplay, `/codex ${ISSUE_URL} --tool codex --verbose`);
 });
 
-test('R4: agent, gemini, qwen and opencode sessions are not mounted, so a new container drops their --resume', async () => {
+test('R4: fresh recovery starts a new agent, gemini, qwen or opencode session', async () => {
   for (const tool of ['agent', 'gemini', 'qwen', 'opencode']) {
     const sessionInfo = info({ tool, commandAlias: 'solve', args: [ISSUE_URL, '--tool', tool] });
     const command = buildResumeCommand({ sessionInfo, lastSessionId: 'ses_727' });
@@ -142,7 +142,7 @@ test('R4: agent, gemini, qwen and opencode sessions are not mounted, so a new co
     const result = await resolveFreshRecoveryCommand({ sessionName: SESSION, sessionInfo, command, runner: {}, homeDir: await tempHome() });
     assert.equal(result.outcome, FRESH_RESUME_OUTCOMES.DROPPED, tool);
     assert.equal(readResumeId(result.command.args), null, tool);
-    assert.equal(result.detail, `${tool} session ses_727 stayed in the killed container: task containers get no mount of ${tool}'s session store. Starting a new ${tool} session on the same branch instead.`);
+    assert.equal(result.detail, `${tool} session ses_727 is unavailable for fresh-container recovery. Starting a new ${tool} session on the same branch.`);
     const screen = await resolveFreshRecoveryCommand({ sessionName: SESSION, sessionInfo: { ...sessionInfo, isolationBackend: 'screen' }, command, runner: {}, homeDir: await tempHome() });
     assert.equal(screen.outcome, FRESH_RESUME_OUTCOMES.NOT_CHECKED, `${tool} on the same host keeps its session`);
   }

@@ -87,7 +87,7 @@ export const filterMcpServersObject = (mcpServers = {}) => {
  *   if the home `.claude.json` file cannot be read (fatal errors are
  *   caught — callers should treat `null` as "skip --strict-mcp-config").
  */
-export const buildFilteredMcpConfig = async ({ excludePlaywright = false, filterUseless = true, projectDir, log } = {}) => {
+export const buildFilteredMcpConfig = async ({ excludePlaywright = false, filterUseless = true, projectDir, log, mcpStatePath } = {}) => {
   try {
     // Issue #3785: the checkout's own `.mcp.json` is merged into this
     // per-session config (headless Claude Code never approves it, and
@@ -96,7 +96,7 @@ export const buildFilteredMcpConfig = async ({ excludePlaywright = false, filter
     for (const warning of repository.warnings) if (log) await log(`⚠️  ${warning}`);
     let operatorServers = {};
     try {
-      const claudeJson = JSON.parse(await fs.readFile(path.join(os.homedir(), '.claude.json'), 'utf-8'));
+      const claudeJson = JSON.parse(await fs.readFile(mcpStatePath || path.join(os.homedir(), '.claude.json'), 'utf-8'));
       operatorServers = claudeJson.mcpServers || {};
     } catch (err) {
       if (Object.keys(repository.servers).length === 0) throw err;
@@ -104,7 +104,7 @@ export const buildFilteredMcpConfig = async ({ excludePlaywright = false, filter
     const exclude = name => (filterUseless && isUselessMcpServerName(name)) || (excludePlaywright && name.toLowerCase().includes('playwright'));
     const { servers: filtered, added, shadowed } = mergeRepositoryMcpServers({ operatorServers, repositoryServers: repository.servers, exclude });
     const suffix = excludePlaywright ? 'no-playwright-no-useless' : 'no-useless';
-    const tempConfigPath = path.join(os.tmpdir(), `claude-mcp-${suffix}-${Date.now()}-${process.pid}.json`);
+    const tempConfigPath = mcpStatePath ? path.join(path.dirname(mcpStatePath), 'session-mcp.json') : path.join(os.tmpdir(), `claude-mcp-${suffix}-${Date.now()}-${process.pid}.json`);
     await fs.writeFile(tempConfigPath, JSON.stringify({ mcpServers: filtered }, null, 2), { mode: 0o600 });
     if (log) {
       const excluded = [...(filterUseless ? USELESS_MCP_SERVER_NAME_PREFIXES.map(p => `'${p}*'`) : []), ...(excludePlaywright ? ["'playwright*'"] : [])].join(', ') || 'nothing';
@@ -128,13 +128,14 @@ export const buildFilteredMcpConfig = async ({ excludePlaywright = false, filter
  * Callers are expected to append the returned values to the Claude command.
  * Extracted from claude.lib.mjs to keep that file under the 1500-line cap.
  */
-export const resolveClaudeSessionToolFlags = async ({ argv, log, fallbackBuildMcpConfigWithoutPlaywright, projectDir } = {}) => {
+export const resolveClaudeSessionToolFlags = async ({ argv, log, fallbackBuildMcpConfigWithoutPlaywright, projectDir, mcpStatePath } = {}) => {
   const uselessToolsDisabled = argv?.uselessToolsDisabled !== false;
   const excludePlaywright = argv?.playwrightMcp === false;
   let mcpConfigPath = null;
   const hasRepositoryServers = !uselessToolsDisabled && !excludePlaywright && Object.keys((await readRepositoryMcpServers({ projectDir })).servers).length > 0;
-  if (uselessToolsDisabled || excludePlaywright || hasRepositoryServers) {
-    mcpConfigPath = await buildFilteredMcpConfig({ excludePlaywright, filterUseless: uselessToolsDisabled, projectDir, log });
+  if (mcpStatePath || uselessToolsDisabled || excludePlaywright || hasRepositoryServers) {
+    mcpConfigPath = await buildFilteredMcpConfig({ excludePlaywright, filterUseless: uselessToolsDisabled, projectDir, log, mcpStatePath });
+    if (mcpStatePath && !mcpConfigPath) throw new Error('Claude task MCP configuration could not be prepared.');
     if (!mcpConfigPath && excludePlaywright && fallbackBuildMcpConfigWithoutPlaywright) {
       mcpConfigPath = await fallbackBuildMcpConfigWithoutPlaywright(log);
     }

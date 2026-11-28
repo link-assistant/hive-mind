@@ -43,9 +43,11 @@ Each platform has its own npm package. This follows the approach used by
   `version` is `<main version>-native-codex-<platform>`. The manifest records
   the size and SHA-256 of `codex` and `codex-code-mode-host`, built together
   from the pinned recipe on both supported platforms. Installation verifies
-  the binaries and publishes them as siblings in one generation. To reactivate
-  a package-manager command that still selects a generation without the host,
-  restore the stock launcher link before running `install-native-codex.mjs`.
+  the binaries and publishes them as siblings in one generation.
+  `install-native-codex.mjs` upgrades a CLI-only generation when the selected
+  command and its managed `codex-hive-<native version>` link still identify it.
+  If the link was removed or replaced, restore the stock launcher link before
+  rerunning the installer.
 
 ## Size budget
 

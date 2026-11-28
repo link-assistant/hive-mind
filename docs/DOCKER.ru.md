@@ -416,17 +416,18 @@ docker run --rm -it \
 
 ### Запуск с постоянным хранилищем
 
-Для сохранения аутентификации и работы между перезапусками контейнера:
+При управляемом развёртывании для основного контейнера создаются отдельные каталоги данных. Начальная конфигурация Claude и Codex берётся из образа и включает Playwright MCP. При ручном развёртывании используйте те же привязки каталогов. [Инструкция по ручному развёртыванию](deployment/hive-manager-manual.md)
 
-```bash
-# Create a volume for the box user's home directory
-docker volume create box-home
+Задачи с `--isolation docker` получают конфигурацию расширений из образа. Плагины, навыки и настройки MCP остаются внутри задачи. Возможности, явно указанные в репозитории, добавляются в конфигурацию конкретной задачи. [Задача #2190](https://github.com/link-assistant/hive-mind/issues/2190)
 
-# Run with the volume mounted
-docker run -it -v box-home:/home/box konard/hive-mind:latest
-```
-
-Если весь home не монтируется, сохраняйте отдельно `/home/box/.codex` и необязательный `/home/box/.agents`. Задачи `--isolation docker` эти каталоги целиком **не** получают: с [issue #2190](https://github.com/link-assistant/hive-mind/issues/2190) в контейнер задачи монтируются только файл учётных данных (`~/.claude/.credentials.json` или `~/.codex/auth.json`) и каталоги сессий (`~/.claude/projects`, `~/.claude/sessions`, `~/.codex/sessions`); плагины, marketplace, навыки, MCP и настройки берутся из образа и не переживают контейнер. Перед `codex exec` Hive Mind читает issue, все комментарии и инструкции репозитория, определяет явно требуемые плагины и Agent Skills и устанавливает выбранный провайдер в `.codex/hive-mind/repositories/<owner>/<repo>`. Для каждой задачи этот scope пересоздаётся с пустым состоянием плагинов и навыков, удалённая синхронизация плагинов отключается, а host cache и глобальные навыки не копируются. Файлы навыков не разворачиваются и не коммитятся в target repository.
+| Инструмент       | Данные, сохраняемые на хосте по умолчанию                                                                      |
+| ---------------- | -------------------------------------------------------------------------------------------------------------- |
+| Claude           | Выбранные учётные данные и каталоги `projects/` и `sessions/`                                                  |
+| Codex            | Выбранные учётные данные, `sessions/` и `generated_images/`                                                    |
+| Gemini           | `GEMINI_HISTORY_HOME` в управляемом развёртывании или `~/.hive-mind/canonical/gemini-history` на обычном хосте |
+| Agent и OpenCode | Каталог данных XDG выбранного инструмента                                                                      |
+| Qwen             | Отдельный каталог внутри `~/.hive-mind/task-data/qwen/` для каждого запуска                                    |
+| Все инструменты  | Данные о пользователе и конфигурация Git и GitHub                                                              |
 
 У обмена учётными данными остаётся ограничение: после атомарной замены файла на хосте файловое bind-монтирование сохраняет старый inode, а Codex preflight дополнительно копирует аутентификацию в scope задачи. Эти пути пока не образуют единый источник обновляемых учётных данных. [Исследование случая](./case-studies/issue-3785/README.md) содержит описание нерешённой ошибки и эксперименты с настоящим CLI.
 
@@ -452,7 +453,11 @@ Hive Mind также пытается выполнить этот default regist
 
 ```bash
 # Start a detached container
-docker run -d --name hive-worker -v box-home:/home/box konard/hive-mind:latest sleep infinity
+docker run -d --name hive-worker \
+  -v claude-state:/home/box/.claude \
+  -v codex-state:/home/box/.codex \
+  -v hive-state:/home/box/.hive-mind \
+  konard/hive-mind:latest sleep infinity
 
 # Execute commands in the running container
 docker exec -it hive-worker bash
@@ -471,12 +476,16 @@ services:
   hive-mind:
     image: konard/hive-mind:latest
     volumes:
-      - box-home:/home/box
+      - claude-state:/home/box/.claude
+      - codex-state:/home/box/.codex
+      - hive-state:/home/box/.hive-mind
     stdin_open: true
     tty: true
 
 volumes:
-  box-home:
+  claude-state:
+  codex-state:
+  hive-state:
 ```
 
 Затем запустите:

@@ -9,7 +9,8 @@
  * directory so separate native processes cannot both own the same transcript.
  * Migration recovery journals also stay in operator storage: deleting a task
  * configuration must not lose an interrupted native publication's handoff.
- * Docker tasks mount these four directories; scoped homes use relative symlinks.
+ * Generated images also survive task cleanup. Docker tasks mount these
+ * directories, and scoped homes use relative symlinks.
  *
  * Config, plugins and state databases stay task-owned. Full native history,
  * maintenance coordination, index and SQLite projection remains open, so
@@ -30,6 +31,7 @@ export const CODEX_SESSIONS_DIRNAME = 'sessions';
 export const CODEX_ARCHIVED_SESSIONS_DIRNAME = 'archived_sessions';
 export const CODEX_WRITER_LOCKS_DIRNAME = 'thread-writer-locks';
 export const CODEX_MIGRATION_JOURNALS_DIRNAME = 'rollout-migrations';
+export const CODEX_GENERATED_IMAGES_DIRNAME = 'generated_images';
 
 /** Native discovery checks both active and archived rollouts. */
 export async function findCodexThreadRollout({ codexHome, threadId, fsImpl = fs } = {}) {
@@ -141,7 +143,7 @@ const linksTo = async (fsImpl, link, target) => {
 };
 
 /**
- * Share active/archived rollouts, writer locks and migration recovery journals.
+ * Share active/archived rollouts, writer locks, migration journals and images.
  * A real directory left by an older run is merged into the shared one first;
  * publication never replaces an existing name, and the original directory is
  * set aside even after successful copying. Never throws; callers must refuse
@@ -163,6 +165,7 @@ export async function shareScopedCodexSessions({ baseCodexHome, codexHome, fsImp
     await shareDirectory({ name: CODEX_WRITER_LOCKS_DIRNAME, baseCodexHome, codexHome, fsImpl, now, result });
     await shareDirectory({ name: CODEX_MIGRATION_JOURNALS_DIRNAME, baseCodexHome, codexHome, fsImpl, now, result });
     await shareDirectory({ name: CODEX_ARCHIVED_SESSIONS_DIRNAME, baseCodexHome, codexHome, fsImpl, now, result });
+    await shareDirectory({ name: CODEX_GENERATED_IMAGES_DIRNAME, baseCodexHome, codexHome, fsImpl, now, result });
     const status = await shareDirectory({ name: CODEX_SESSIONS_DIRNAME, baseCodexHome, codexHome, fsImpl, now, result });
     return { ...result, status };
   } catch (error) {

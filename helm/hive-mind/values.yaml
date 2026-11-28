@@ -72,7 +72,7 @@ resources:
     cpu: 500m
     memory: 1Gi
 
-# Persistent volume for storing box user data and configurations
+# Persistent volume for tool state. The image retains ownership of the rest of /home/box.
 persistence:
   enabled: true
   accessMode: ReadWriteOnce

@@ -110,3 +110,24 @@ test('activation from the stock link can coexist with an earlier runtime of the 
   await fs.unlink(path.join(ready.root, 'codex-code-mode-host'));
   await assert.rejects(packaged.commandApi.verifyNativeCodexCommand(f), /missing codex-code-mode-host/u);
 });
+
+test('activation upgrades a selected CLI-only generation and preserves its contents', { timeout: 10000, skip: !supported }, async t => {
+  const f = await fixture(t);
+  const packaged = await nativeCodexPackagingFixture(t);
+  const scope = path.dirname(f.source);
+  const previous = await fs.mkdtemp(path.join(scope, '.hive-native-codex-'));
+  const previousCli = path.join(previous, 'codex');
+  const legacy = path.join(scope, 'codex-hive-0.164.0');
+  await fs.writeFile(previousCli, 'earlier CLI bytes', { mode: 0o755 });
+  await fs.symlink(previous, legacy, 'dir');
+  await fs.unlink(f.command);
+  await fs.symlink(previousCli, f.command);
+
+  const ready = await packaged.commandApi.installNativeCodexCommand(f);
+  assert.equal(await fs.realpath(f.command), ready.entrypoint);
+  assert.equal(await fs.realpath(legacy), previous);
+  assert.equal(await fs.readFile(previousCli, 'utf8'), 'earlier CLI bytes');
+  assert.deepEqual(await fs.readdir(previous), ['codex']);
+  await fs.access(path.join(ready.root, 'codex-code-mode-host'));
+  await assert.rejects(fs.access(f.ran), { code: 'ENOENT' });
+});

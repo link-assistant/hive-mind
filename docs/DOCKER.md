@@ -486,21 +486,25 @@ To persist authentication and work between container restarts, mount the actual 
 
 ```bash
 # Host directories used by the current local Docker workflow
-mkdir -p /root/.hive-mind/claude /root/.hive-mind/codex /root/.hive-mind/agents/skills /root/.hive-mind/gh
+mkdir -p /root/.hive-mind/{claude,codex,gh,agent-data,opencode-data,gemini-history,hive}
 touch -a /root/.hive-mind/claude.json
 
 # Run with persistent mounts
 docker run -dit --user box --name hive-mind --restart unless-stopped \
   -v /root/.hive-mind/claude:/home/box/.claude \
   -v /root/.hive-mind/codex:/home/box/.codex \
-  -v /root/.hive-mind/agents:/home/box/.agents \
   -v /root/.hive-mind/claude.json:/home/box/.claude.json \
   -v /root/.hive-mind/gh:/home/box/.config/gh \
+  -v /root/.hive-mind/agent-data:/home/box/.local/share/link-assistant-agent \
+  -v /root/.hive-mind/opencode-data:/home/box/.local/share/opencode \
+  -v /root/.hive-mind/gemini-history:/home/box/.hive-mind-gemini-history \
+  -v /root/.hive-mind/hive:/home/box/.hive-mind \
+  -e GEMINI_HISTORY_HOME=/home/box/.hive-mind-gemini-history \
   konard/hive-mind:latest bash -l -c 'bash /home/box/start-bot.sh'
 
 # Fix ownership after the container starts
 BOX_UID=$(docker exec hive-mind id -u box)
-chown -R $BOX_UID:$BOX_UID /root/.hive-mind/claude /root/.hive-mind/codex /root/.hive-mind/agents /root/.hive-mind/gh
+chown -R $BOX_UID:$BOX_UID /root/.hive-mind/{claude,codex,gh,agent-data,opencode-data,gemini-history,hive}
 chown $BOX_UID:$BOX_UID /root/.hive-mind/claude.json
 ```
 
@@ -509,19 +513,25 @@ The mounted Codex directory keeps the files we rely on:
 - `/home/box/.codex/auth.json`
 - `/home/box/.codex/config.toml`
 - `/home/box/.codex/sessions/`
+- `/home/box/.codex/generated_images/`
 - `/home/box/.codex/hive-mind/repositories/<owner>/<repo>/` (repository-scoped capability working state, rebuilt before each task)
 
-The optional `/home/box/.agents/skills/` mount stores user-level Agent Skills for the long-running container itself. It is **not** propagated into `--isolation docker` task containers (see the next section). Hive Mind does not deploy or commit these capabilities to the target repository.
+The managed setup seeds Claude and Codex configuration from the image, including Playwright MCP. Use the [manual deployment instructions](deployment/hive-manager-manual.md) to seed a new set of bind mounts the same way.
 
 ### What a `--isolation docker` task receives (issue #2190)
 
 Since [issue #2190](https://github.com/link-assistant/hive-mind/issues/2190) a task container no longer inherits the whole `~/.claude`, `~/.claude.json`, `~/.codex` or `~/.agents` tree of the host. The current mount builder exposes credential files and selected session directories:
 
-| Tool   | Shared with every task (bind-mounted)                                       | Per container (from the image)                                                   |
-| ------ | --------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| claude | `~/.claude/.credentials.json`, `~/.claude/projects/`, `~/.claude/sessions/` | `~/.claude.json`, `settings.json`, `plugins/`, `skills/`, `commands/`, `agents/` |
-| codex  | `~/.codex/auth.json`, `~/.codex/sessions/`                                  | `config.toml`, `plugins/`, `skills/`, `~/.agents/`                               |
-| all    | `~/.config/gh`, `~/.gitconfig`, `~/.config/git`                             |                                                                                  |
+| Tool               | Default host-backed storage                                                                                      |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------- |
+| Claude             | Selected credentials and the `projects/` and `sessions/` directories                                             |
+| Codex              | Selected credentials, `sessions/` and `generated_images/`                                                        |
+| Gemini             | History under the managed `GEMINI_HISTORY_HOME`, or `~/.hive-mind/canonical/gemini-history` on an unmanaged host |
+| Agent and OpenCode | The selected tool's XDG data directory                                                                           |
+| Qwen               | A unique directory under `~/.hive-mind/task-data/qwen/` for each task launch                                     |
+| All                | Git and GitHub identity and configuration                                                                        |
+
+Each Docker task uses the image's extension configuration, including Claude and Codex's Playwright MCP. Extension directories and MCP settings stay inside the task. An explicitly selected tool authentication authority has its own validated path. The opt-in router uses separate storage policies.
 
 Why:
 
@@ -592,12 +602,16 @@ services:
   hive-mind:
     image: konard/hive-mind:latest
     volumes:
-      - box-home:/home/box
+      - claude-state:/home/box/.claude
+      - codex-state:/home/box/.codex
+      - hive-state:/home/box/.hive-mind
     stdin_open: true
     tty: true
 
 volumes:
-  box-home:
+  claude-state:
+  codex-state:
+  hive-state:
 ```
 
 Then run:

@@ -335,17 +335,18 @@ docker run --rm -it \
 
 ### 使用持久化存储运行
 
-在容器重启之间持久化身份验证和工作内容：
+托管部署为根容器配置独立的持久化目录，并从镜像初始化 Claude 和 Codex 的配置，包括 Playwright MCP。手动部署可按相同方式初始化绑定挂载。[手动部署说明](deployment/hive-manager-manual.md)
 
-```bash
-# 为 box 用户的主目录创建卷
-docker volume create box-home
+`--isolation docker` 任务使用镜像中的扩展配置。插件、技能和 MCP 设置保留在当前任务中。Hive Mind 会在任务内为仓库明确要求的插件和技能准备独立作用域。[问题 #2190](https://github.com/link-assistant/hive-mind/issues/2190)
 
-# 挂载卷运行
-docker run -it -v box-home:/home/box konard/hive-mind:latest
-```
-
-若不挂载整个 home，请分别持久化 `/home/box/.codex` 和可选的 `/home/box/.agents`。`--isolation docker` 任务**不会**整体继承这些目录：自 [issue #2190](https://github.com/link-assistant/hive-mind/issues/2190) 起，任务容器只挂载凭据文件（`~/.claude/.credentials.json` 或 `~/.codex/auth.json`）和会话目录（`~/.claude/projects`、`~/.claude/sessions`、`~/.codex/sessions`）；插件、marketplace、技能、MCP 和设置均来自镜像，并随容器一起消失。Hive Mind 在 `codex exec` 前读取 issue、全部评论和仓库指令文件，解析明确要求的插件和 Agent Skill，并将选定的提供者安装到 `.codex/hive-mind/repositories/<owner>/<repo>`。每个任务都从空的插件/技能状态重建此作用域，关闭远程插件同步，且不复制主机缓存或全局技能。技能文件不会部署或提交到目标仓库。
+| 工具              | 默认保存在宿主机的数据                                                                       |
+| ----------------- | -------------------------------------------------------------------------------------------- |
+| Claude            | 所选凭据以及 `projects/` 和 `sessions/`                                                      |
+| Codex             | 所选凭据、`sessions/` 和 `generated_images/`                                                 |
+| Gemini            | 托管部署中的 `GEMINI_HISTORY_HOME`，或非托管宿主机的 `~/.hive-mind/canonical/gemini-history` |
+| Agent 和 OpenCode | 所选工具的 XDG 数据目录                                                                      |
+| Qwen              | 每次启动在 `~/.hive-mind/task-data/qwen/` 下使用独立目录                                     |
+| 所有工具          | Git 和 GitHub 的身份与配置                                                                   |
 
 凭据共享仍有限制：主机原子替换文件后，文件绑定挂载仍指向旧 inode；Codex 预检还会把身份验证复制到任务作用域。这些路径尚未形成统一的轮换权威存储。[案例研究](./case-studies/issue-3785/README.md) 记录了这个未解决的问题及真实 CLI 实验。
 
@@ -371,7 +372,11 @@ codex mcp add playwright -- npx -y @playwright/mcp@latest --isolated --headless 
 
 ```bash
 # 启动守护进程容器
-docker run -d --name hive-worker -v box-home:/home/box konard/hive-mind:latest sleep infinity
+docker run -d --name hive-worker \
+  -v claude-state:/home/box/.claude \
+  -v codex-state:/home/box/.codex \
+  -v hive-state:/home/box/.hive-mind \
+  konard/hive-mind:latest sleep infinity
 
 # 在运行中的容器内执行命令
 docker exec -it hive-worker bash
@@ -390,12 +395,16 @@ services:
   hive-mind:
     image: konard/hive-mind:latest
     volumes:
-      - box-home:/home/box
+      - claude-state:/home/box/.claude
+      - codex-state:/home/box/.codex
+      - hive-state:/home/box/.hive-mind
     stdin_open: true
     tty: true
 
 volumes:
-  box-home:
+  claude-state:
+  codex-state:
+  hive-state:
 ```
 
 然后运行：

@@ -388,10 +388,10 @@ export const resolveCrateLatest = async (name, options = {}) => {
   const metadata = await fetchJson(`https://crates.io/api/v1/crates/${encodeURIComponent(name)}`, options);
   if (name !== 'formal-ai') return metadata.crate.max_stable_version;
 
-  // A release can publish its crate and then fail before publishing the
-  // cold-start sidecar (formal-ai#1203). Keep the last usable shared pin.
+  // A release can publish its crate before the cold-start sidecar is available
+  // on both architectures (formal-ai#1203). Keep the last usable shared pin.
   const allowedTags = new Set(metadata.versions.filter(({ num, yanked }) => !yanked && /^\d+\.\d+\.\d+$/.test(num)).map(({ num }) => num));
-  return resolveContainerLatest('ghcr.io/link-assistant/formal-ai', { current: metadata.crate.max_stable_version }, { ...options, allowedTags });
+  return resolveContainerLatest('ghcr.io/link-assistant/formal-ai', { current: metadata.crate.max_stable_version }, { ...options, allowedTags, requiredPlatforms: ['linux/amd64', 'linux/arm64'] });
 };
 
 /** NVM needs published checksums; a GitHub tag or index entry can precede them. */
@@ -438,14 +438,14 @@ const containerTagSuffix = current => String(current ?? '').replace(/^v?\d+(?:\.
  * many version components as the pin, so a date tag such as `20260621` is not
  * read as major version twenty million.
  */
-export const resolveContainerLatest = async (name, record = {}, { fetchImpl = globalThis.fetch, maxPages = 50, allowedTags } = {}) => {
+export const resolveContainerLatest = async (name, record = {}, { fetchImpl = globalThis.fetch, maxPages = 50, allowedTags, requiredPlatforms = [] } = {}) => {
   const parts = name.split('/');
   const custom = parts[0].includes('.') || parts[0].includes(':');
   const registry = custom ? parts.shift() : 'registry-1.docker.io';
   const repository = !custom && parts.length === 1 ? `library/${parts[0]}` : parts.join('/');
   let authorization = null;
-  const fetchPage = async url => {
-    let response = await fetchImpl(url, authorization ? { headers: { authorization } } : undefined);
+  const fetchPage = async (url, headers = {}) => {
+    let response = await fetchImpl(url, { headers: authorization ? { ...headers, authorization } : headers });
     if (response.status === 401 && !authorization) {
       const auth = response.headers.get('www-authenticate') ?? '';
       const realm = auth.match(/realm="([^"]+)"/)?.[1];
@@ -457,7 +457,7 @@ export const resolveContainerLatest = async (name, record = {}, { fetchImpl = gl
       }
       const credentials = await fetchJson(tokenUrl.toString(), { fetchImpl });
       authorization = `Bearer ${credentials.token ?? credentials.access_token}`;
-      response = await fetchImpl(url, { headers: { authorization } });
+      response = await fetchImpl(url, { headers: { ...headers, authorization } });
     }
     if (!response.ok) throw new Error(`Registry returned ${response.status}`);
     return response;
@@ -483,7 +483,16 @@ export const resolveContainerLatest = async (name, record = {}, { fetchImpl = gl
     .filter(candidate => candidate.version)
     .sort((a, b) => compareParsedVersions(b.version, a.version));
   if (!candidates.length) throw new Error(`No stable container tags found for ${name}${allowedTags ? ' matching a published crate version' : ''}`);
-  return candidates[0].tag;
+  if (!requiredPlatforms.length) return candidates[0].tag;
+
+  const accept = 'application/vnd.oci.image.index.v1+json, application/vnd.docker.distribution.manifest.list.v2+json, application/vnd.oci.image.manifest.v1+json, application/vnd.docker.distribution.manifest.v2+json';
+  for (const { tag } of candidates) {
+    const response = await fetchPage(`https://${registry}/v2/${repository}/manifests/${tag}`, { accept });
+    const { manifests = [] } = await response.json();
+    const platforms = new Set(manifests.map(({ platform }) => `${platform?.os}/${platform?.architecture}`));
+    if (requiredPlatforms.every(platform => platforms.has(platform))) return tag;
+  }
+  throw new Error(`No stable container tags found for ${name} with all required platforms (${requiredPlatforms.join(', ')})`);
 };
 
 export const resolveOpenIssue = async (url, options = {}) => {

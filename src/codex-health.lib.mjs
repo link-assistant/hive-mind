@@ -12,6 +12,7 @@
 // importers (and tests) can keep importing them from either module.
 
 import { normalizePluginSelector } from './codex-capability-preflight.lib.mjs';
+import { codexCodeModeHostFailure, isCodexCodeModeHostError } from './codex-code-mode-failure.lib.mjs';
 import { isENOSPC } from './lib.mjs';
 
 const unwrapCodexErrorMessage = value => {
@@ -55,10 +56,9 @@ export const getCodexErrorEventSummary = codexJsonState => {
   const ignoredEvents = [];
 
   // Issue #1955: When the codex turn genuinely completed (a `turn.completed`
-  // event was observed) and codex never emitted a `turn.failed`, the session
-  // SUCCEEDED. Any stray top-level `error` (stream) or nested item `error` event
-  // in that case is non-fatal and must not fail the run. Two things produce such
-  // strays:
+  // event was observed) and codex never emitted a `turn.failed`, stray stream
+  // or item errors are usually non-fatal. A required Code Mode runtime that
+  // failed closed is an exception (Issue #4173). Stray errors have two sources:
   //   1. A transient error codex itself retried/recovered from before completing
   //      the turn (e.g. a momentary stream blip).
   //   2. Echoed content that merely *looks* like a codex protocol event. The
@@ -86,7 +86,8 @@ export const getCodexErrorEventSummary = codexJsonState => {
         ignoredEvents.push({ ...event, reason: nonFatal.reason });
         continue;
       }
-      if (type !== 'turn' && sessionSucceeded && !(type === 'item' && codeModeFailedClosed(message))) {
+      const requiredCodeModeFailure = isCodexCodeModeHostError(message) || (type === 'item' && codeModeFailedClosed(message));
+      if (type !== 'turn' && sessionSucceeded && !requiredCodeModeFailure) {
         ignoredEvents.push({
           ...event,
           reason: 'Codex turn completed successfully with no turn.failed; stray non-turn error event is non-fatal (Issue #1955)',
@@ -123,6 +124,13 @@ export const getCodexErrorEventSummary = codexJsonState => {
   };
 };
 
+/** Preserve native diagnostics in the events and use a stable solver verdict. */
+export const getCodexExecutionErrorSummary = codexJsonState => {
+  const summary = getCodexErrorEventSummary(codexJsonState);
+  if (!summary.events.some(event => isCodexCodeModeHostError(event.message))) return summary;
+  return { ...summary, message: codexCodeModeHostFailure };
+};
+
 /**
  * Issue #3215: the message to check for a usage limit. `message` prefers the
  * `turn.failed` text, which can be generic while an earlier stream `error`
@@ -134,6 +142,7 @@ export const getCodexErrorEventSummary = codexJsonState => {
  * @returns {(string|null)}
  */
 export const findCodexUsageLimitMessage = (errorSummary, detectUsageLimit) => {
+  if (errorSummary?.message === codexCodeModeHostFailure) return null;
   const candidates = [errorSummary?.message, ...(errorSummary?.events || []).filter(event => event.type !== 'item').map(event => event.message)];
   return candidates.find(message => message && detectUsageLimit(message)?.isUsageLimit) || null;
 };

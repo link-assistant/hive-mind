@@ -48,7 +48,7 @@ export interface TaskFailureGroups {
   }[];
 }
 
-export type TaskFailureSignature = 'alias-127' | 'codex-no-rollout' | 'stream-close-timeout' | 'codex-oom' | 'repository-empty' | 'repository-permission' | 'checkout-dirty' | 'auto-restart-limit' | 'no-progress' | 'same-ci-failure' | 'authentication' | 'codex-max-output-tokens' | 'tool-content-policy' | 'tool-failure';
+export type TaskFailureSignature = 'alias-127' | 'codex-no-rollout' | 'stream-close-timeout' | 'codex-oom' | 'repository-empty' | 'repository-permission' | 'checkout-dirty' | 'auto-restart-limit' | 'no-progress' | 'same-ci-failure' | 'authentication' | 'codex-code-mode-host' | 'codex-max-output-tokens' | 'tool-content-policy' | 'tool-failure';
 
 export interface TaskSelection {
   uuid: string;

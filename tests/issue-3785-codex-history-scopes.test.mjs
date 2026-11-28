@@ -18,10 +18,10 @@ async function fixture(t) {
   return { root, base: path.join(root, '.codex'), first: path.join(root, 'first'), second: path.join(root, 'second') };
 }
 
-test('independent Codex configurations share native archives and one writer-lock namespace', async t => {
+test('independent Codex configurations share native archives, generated images and one writer-lock namespace', async t => {
   const { base, first, second } = await fixture(t);
   for (const codexHome of [first, second]) assert.equal((await shareScopedCodexSessions({ baseCodexHome: base, codexHome })).status, 'shared');
-  for (const directory of ['sessions', 'archived_sessions', 'thread-writer-locks']) {
+  for (const directory of ['sessions', 'archived_sessions', 'thread-writer-locks', 'generated_images']) {
     assert.equal(await fs.realpath(path.join(first, directory)), await fs.realpath(path.join(base, directory)));
     assert.equal(await fs.realpath(path.join(second, directory)), await fs.realpath(path.join(base, directory)));
   }
@@ -34,6 +34,12 @@ test('independent Codex configurations share native archives and one writer-lock
   const peer = await fs.stat(path.join(second, 'thread-writer-locks', `${threadId}.lock`));
   assert.equal(peer.ino, owner.ino);
   assert.equal(peer.dev, owner.dev);
+  await fs.mkdir(path.join(first, 'generated_images', threadId));
+  const image = path.join('generated_images', threadId, 'generated.png');
+  await fs.writeFile(path.join(first, image), 'generated output');
+  await fs.rm(first, { recursive: true });
+  assert.equal(await fs.readFile(path.join(base, image), 'utf8'), 'generated output');
+  assert.equal(await fs.readFile(path.join(second, image), 'utf8'), 'generated output');
 });
 
 test('existing private native lock directories refuse projection without moving a live lock', async t => {
@@ -58,7 +64,7 @@ test('linked canonical archive destinations refuse history projection', async t 
   assert.deepEqual(await fs.readdir(foreign), []);
 });
 
-test('Docker tasks mount native archives and writer locks from host-backed parent storage', async t => {
+test('Docker tasks mount native archives, writer locks and generated images from host-backed parent storage', async t => {
   const { root } = await fixture(t);
   const prepared = await prepareDockerIsolationHostPaths({ tool: 'codex', homeDir: root, env: {} });
   const mounts = await getDockerIsolationAuthMounts({
@@ -71,7 +77,7 @@ test('Docker tasks mount native archives and writer locks from host-backed paren
         () => false
       ),
   });
-  for (const directory of ['archived_sessions', 'thread-writer-locks']) {
+  for (const directory of ['archived_sessions', 'thread-writer-locks', 'generated_images']) {
     const source = path.join(root, '.codex', directory);
     assert.ok(prepared.created.includes(source));
     assert.ok(mounts.some(mount => mount.source === source && mount.target === `/home/box/.codex/${directory}`));

@@ -17,7 +17,7 @@ async function fixture(t) {
   const configurationHome = path.join(homeDir, '.codex');
   const canonical = path.join(root, 'canonical');
   await fs.mkdir(configurationHome, { recursive: true, mode: 0o700 });
-  for (const name of ['sessions', 'archived_sessions', 'thread-writer-locks', 'rollout-migrations']) await fs.mkdir(path.join(configurationHome, name), { mode: 0o700 });
+  for (const name of ['sessions', 'archived_sessions', 'thread-writer-locks', 'rollout-migrations', 'generated_images']) await fs.mkdir(path.join(configurationHome, name), { mode: 0o700 });
   await fs.mkdir(canonical, { mode: 0o700 });
   await fs.writeFile(path.join(canonical, 'auth.json'), '{"OPENAI_API_KEY":"sk-SYNTHETIC"}', { mode: 0o600 });
   const stat = await fs.stat(canonical, { bigint: true });

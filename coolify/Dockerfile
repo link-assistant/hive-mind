@@ -19,7 +19,7 @@
 #
 # Build: docker build -f coolify/Dockerfile -t konard/hive-mind .
 
-ARG FORMAL_AI_VERSION=0.357.4
+ARG FORMAL_AI_VERSION=0.357.6
 # Bookworm's glibc 2.36 remains compatible with the Ubuntu 24.04 Box runtime.
 FROM rust:1.100-slim-bookworm AS formal-ai-builder
 ARG FORMAL_AI_VERSION
@@ -152,7 +152,7 @@ RUN command -v jq >/dev/null || HOMEBREW_NO_AUTO_UPDATE=1 brew install jq
 # need something newer used to download their own node/bun into /tmp on every
 # run and leave the copy behind — a second accumulation of versions on top of
 # the image's own. Reported upstream as link-foundation/box#112 and fixed in
-# box 2.7.0. The current 2.10.5 base keeps one version per language. When a
+# box 2.7.0. The current 2.10.6 base keeps one version per language. When a
 # pin below differs from the base, replace the runtime and repoint the default
 # before pruning superseded Node.js versions (the prune behavior is covered
 # by tests/test-issue-2187-runtime-versions.mjs).
@@ -295,6 +295,8 @@ RUN --mount=type=bind,source=.,target=/tmp/hive-mind-source,readonly \
     bun install --backend=copyfile -g gh-load-pull-request && \
     bun install --backend=copyfile -g gh-upload-log@latest
 
+RUN --network=none node "$(dirname "$(readlink -f "$(command -v hive)")")/install-native-gemini.mjs"
+
 # --- Playwright MCP Setup ---
 # Box 2.1.1 pre-installs Playwright browsers and @playwright/test.
 # We only add @playwright/mcp (AI-specific MCP server for Claude/Codex).
@@ -370,6 +372,7 @@ RUN mkdir -p /home/box/.claude && \
 # Minimal USER root: only for creating /app directory and copying files.
 # All /home/box operations run as box user to prevent permission issues (issue #1505).
 USER root
+RUN install -D -m 644 /home/box/.codex/config.toml /usr/local/share/hive-mind/codex-config.toml
 WORKDIR /app
 
 # Copy application files from repo root

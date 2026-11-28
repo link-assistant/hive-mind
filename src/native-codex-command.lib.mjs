@@ -73,10 +73,20 @@ export async function installNativeCodexCommand({ command = 'codex', searchPath 
     const before = await fs.lstat(bin, { bigint: true });
     if (!before.isSymbolicLink()) throw refusal();
     const link = await fs.readlink(bin);
-    const entrypoint = await fs.realpath(bin);
-    if (path.basename(entrypoint) === 'codex') return await verifyNativeCodexCommand({ command: bin });
-    const upstream = await stockPackage(entrypoint);
     const nativeVersion = await readNativeCodexVersion();
+    const entrypoint = await fs.realpath(bin);
+    let launcher = entrypoint;
+    if (path.basename(entrypoint) === 'codex') {
+      const generation = path.dirname(entrypoint);
+      const scope = path.dirname(generation);
+      const legacy = path.join(scope, `codex-hive-${nativeVersion}`);
+      // The schema-less selector was used before the companion was packaged.
+      // Publish a new generation if this bin still selects that managed runtime.
+      if (path.basename(scope) !== '@openai' || !path.basename(generation).startsWith('.hive-native-codex-') || (await fs.realpath(legacy).catch(() => null)) !== generation) return await verifyNativeCodexCommand({ command: bin });
+      launcher = path.join(scope, 'codex', 'bin', 'codex.js');
+      if ((await fs.realpath(launcher)) !== launcher) throw refusal();
+    }
+    const upstream = await stockPackage(launcher);
     if (upstream.version !== nativeVersion) throw refusal();
     const destination = path.join(path.dirname(upstream.root), `codex-hive-${nativeVersion}-v${NATIVE_CODEX_MANIFEST_SCHEMA}`);
     const ready = await installNativeCodexRuntime({ destination });

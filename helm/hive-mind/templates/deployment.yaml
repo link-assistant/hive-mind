@@ -4,6 +4,8 @@ metadata:
   name: {{ include "hive-mind.fullname" . }}
   labels:
     {{- include "hive-mind.labels" . | nindent 4 }}
+{{- $statePaths := list ".claude" ".codex" ".config/gh" ".config/git" ".local/share/link-assistant-agent" ".local/share/opencode" ".hive-mind" ".hive-mind-gemini-history" ".start-command" }}
+{{- $environment := .Values.env | default dict }}
 spec:
   {{- if not .Values.autoscaling.enabled }}
   replicas: {{ .Values.replicaCount }}
@@ -30,6 +32,38 @@ spec:
       serviceAccountName: {{ include "hive-mind.serviceAccountName" . }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- if .Values.persistence.enabled }}
+      initContainers:
+      - name: prepare-state
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        securityContext:
+          {{- toYaml .Values.securityContext | nindent 12 }}
+        command:
+        - /bin/bash
+        - -ec
+        - |
+          umask 077
+          for directory in {{ join " " $statePaths }}; do
+            mkdir -p "/state/$directory"
+          done
+          for file in .claude/settings.json .codex/config.toml; do
+            if [[ ! -e "/state/$file" && ! -L "/state/$file" && -f "/home/box/$file" ]]; then
+              cp -n -- "/home/box/$file" "/state/$file"
+            fi
+          done
+          if [[ -f /state/.claude.json && ! -L /state/.claude.json ]]; then
+            cp -n -- /state/.claude.json /state/.claude/.claude.json
+          elif [[ -f /home/box/.claude.json ]]; then
+            cp -n -- /home/box/.claude.json /state/.claude/.claude.json
+          fi
+          if [[ ! -e /state/.config/git/config && -f /state/.gitconfig && ! -L /state/.gitconfig ]]; then
+            cp -n -- /state/.gitconfig /state/.config/git/config
+          fi
+        volumeMounts:
+        - name: data
+          mountPath: /state
+      {{- end }}
       containers:
       - name: {{ .Chart.Name }}
         securityContext:
@@ -45,6 +79,14 @@ spec:
           {{- toYaml . | nindent 12 }}
         {{- end }}
         env:
+        {{- if and .Values.persistence.enabled (not (hasKey $environment "CLAUDE_CONFIG_DIR")) }}
+        - name: CLAUDE_CONFIG_DIR
+          value: /home/box/.claude
+        {{- end }}
+        {{- if and .Values.persistence.enabled (not (hasKey $environment "GEMINI_HISTORY_HOME")) }}
+        - name: GEMINI_HISTORY_HOME
+          value: /home/box/.hive-mind-gemini-history
+        {{- end }}
         {{- if and .Values.secrets .Values.secrets.githubToken (ne .Values.secrets.githubToken "") }}
         - name: GITHUB_TOKEN
           valueFrom:
@@ -93,8 +135,11 @@ spec:
           {{- toYaml .Values.resources | nindent 12 }}
         volumeMounts:
         {{- if .Values.persistence.enabled }}
+        {{- range $statePaths }}
         - name: data
-          mountPath: /home/box
+          mountPath: /home/box/{{ . }}
+          subPath: {{ . }}
+        {{- end }}
         {{- end }}
         {{- with .Values.volumeMounts }}
         {{- toYaml . | nindent 12 }}

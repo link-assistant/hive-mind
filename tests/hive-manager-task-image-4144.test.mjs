@@ -217,7 +217,15 @@ test('plain instances pass a task image only when they use the host Docker socke
   baked(LATEST_ID, `HIVE_MIND_DOCKER_ISOLATION_IMAGE_TAG=${RELEASE}\n`);
 
   const screen = dryRun(run, []);
-  assert.deepEqual(plannedEnvironment(screen), { GIT_CONFIG_GLOBAL: '/home/box/.config/git/config', TELEGRAM_ISOLATION: 'screen' });
+  assert.deepEqual(plannedEnvironment(screen), {
+    GEMINI_HISTORY_HOME: '/home/box/.hive-mind-gemini-history',
+    GIT_CONFIG_GLOBAL: '/home/box/.config/git/config',
+    TELEGRAM_ISOLATION: 'screen',
+  });
+  assert.match(screen, /target=\/home\/box\/\.local\/share\/link-assistant-agent/);
+  assert.match(screen, /target=\/home\/box\/\.local\/share\/opencode/);
+  assert.match(screen, /target=\/home\/box\/\.hive-mind-gemini-history/);
+  assert.doesNotMatch(screen, /target=\/home\/box\/\.agents(?:\s|$)/);
   assert.doesNotMatch(screen, /Task image/);
 
   const host = dryRun(run, ['--docker-socket', socket]);

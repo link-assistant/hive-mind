@@ -39,7 +39,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.join(__dirname, '..');
 
 const DOCKERFILES = ['Dockerfile', 'Dockerfile.dind', 'coolify/Dockerfile'];
-const BOX_RELEASE = '2.10.5';
+const BOX_RELEASE = '2.10.6';
 const TASK_NODE_VERSION = '26.13.1';
 const TASK_BUN_VERSION = '1.4.5';
 

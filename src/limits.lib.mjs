@@ -33,11 +33,8 @@ dayjs.extend(utc);
 
 // Import cache TTL configuration
 import { cacheTtl } from './config.lib.mjs';
-// Import centralized queue thresholds for progress bar visualization
-// This ensures thresholds are consistent between queue logic and display formatting
-// See: https://github.com/link-assistant/hive-mind/issues/1242
 export { DISPLAY_THRESHOLDS } from './queue-config.lib.mjs';
-import { DISPLAY_THRESHOLDS } from './queue-config.lib.mjs';
+import { DISPLAY_THRESHOLDS, thresholdToPercent } from './queue-config.lib.mjs';
 
 const execAsync = promisify(exec);
 /**
@@ -326,6 +323,12 @@ function formatPlainTitledCodeSection(section) {
   if (!body) return formatCodeBlock(title);
   return `${title}\n\n${formatCodeBlock(body)}`;
 }
+function formatThresholdProgress(percentage, threshold, locale, displayedPercentage = Math.floor(percentage * 10) / 10) {
+  const bar = getProgressBar(percentage, threshold);
+  const suffix = percentage >= threshold ? ' ⚠️' : ` ${lt('used', {}, { locale })}`;
+  return `${bar} ${displayedPercentage}%${suffix}\n`;
+}
+
 function formatLimitWindowSection(label, window, periodHours, threshold, options = {}) {
   const locale = resolveLimitLocale(options);
   let section = `${label}\n`;
@@ -335,10 +338,11 @@ function formatLimitWindowSection(label, window, periodHours, threshold, options
       section += `${getProgressBar(timePassed)} ${timePassed}% ${lt('passed', {}, { locale })}\n`;
     }
 
-    const pct = Math.floor(window.percentage);
-    const bar = getProgressBar(pct, threshold);
-    const suffix = pct >= threshold ? ' ⚠️' : ` ${lt('used', {}, { locale })}`;
-    section += `${bar} ${pct}%${suffix}\n`;
+    const percentage = Number(window.percentage);
+    const wholePercent = Math.floor(percentage);
+    // Keep a fractional value visible when flooring would hide a threshold crossing.
+    const displayedPercentage = wholePercent < threshold && percentage >= threshold ? percentage : wholePercent;
+    section += formatThresholdProgress(percentage, threshold, locale, displayedPercentage);
     const resetTime = getLocalizedResetTime(window, { locale });
     if (resetTime) {
       const relativeTime = getLocalizedRelativeReset(window, { locale });
@@ -387,7 +391,8 @@ export async function getGitHubRateLimits(verbose = false) {
       };
     }
     // Calculate remaining percentage
-    const usedPercentage = core.limit > 0 ? Math.round((core.used / core.limit) * 100) : 0;
+    const usedRatio = core.limit > 0 ? core.used / core.limit : 0;
+    const usedPercentage = Math.round(usedRatio * 100);
     const remainingPercentage = 100 - usedPercentage;
 
     // Format reset time from Unix timestamp
@@ -417,6 +422,7 @@ export async function getGitHubRateLimits(verbose = false) {
         limit: core.limit,
         used: core.used,
         remaining: core.remaining,
+        usedRatio,
         usedPercentage,
         remainingPercentage,
         resetTimestamp: core.reset,
@@ -485,7 +491,8 @@ export async function getCpuLoadInfo(verbose = false) {
     // Calculate usage percentage based on 5-minute load average vs CPU count
     // Load average of 1.0 per CPU = 100% utilization
     // Using 5m average for consistency with solve queue (see issue #1137)
-    const usagePercentage = Math.min(100, Math.round((loadAvg5 / cpuCount) * 100));
+    const usageRatio = loadAvg5 / cpuCount;
+    const usagePercentage = Math.min(100, Math.round(usageRatio * 100));
     const usedCpuCores = getDisplayCpuCoresUsed(loadAvg5, cpuCount);
 
     if (verbose) {
@@ -498,6 +505,7 @@ export async function getCpuLoadInfo(verbose = false) {
         loadAvg5,
         loadAvg15,
         cpuCount,
+        usageRatio,
         usagePercentage,
         usedCpuCores,
       },
@@ -574,7 +582,8 @@ export async function getMemoryInfo(verbose = false) {
       };
     }
     // Calculate used percentage
-    const usedPercentage = Math.round((usedMB / totalMB) * 100);
+    const usedRatio = usedMB / totalMB;
+    const usedPercentage = Math.round(usedRatio * 100);
 
     if (verbose) {
       console.log(`[VERBOSE] /limits memory: ${usedMB}MB used of ${totalMB}MB total (${usedPercentage}% used)`);
@@ -588,6 +597,7 @@ export async function getMemoryInfo(verbose = false) {
         totalBytes: totalMB * 1024 * 1024,
         usedBytes: usedMB * 1024 * 1024,
         availableBytes: availableMB * 1024 * 1024,
+        usedRatio,
         usedPercentage,
         freePercentage: 100 - usedPercentage,
         totalFormatted: formatBytes(totalMB * 1024 * 1024),
@@ -614,7 +624,7 @@ export async function getMemoryInfo(verbose = false) {
  */
 export async function getDiskSpaceInfo(verbose = false) {
   try {
-    let totalMB, usedMB, availableMB, usedPercentage;
+    let totalMB, usedMB, availableMB;
 
     if (process.platform === 'darwin') {
       // macOS: use df with 1024-byte blocks and parse
@@ -648,7 +658,8 @@ export async function getDiskSpaceInfo(verbose = false) {
     }
 
     // Calculate used percentage (rounded to nearest integer)
-    usedPercentage = Math.round((usedMB / totalMB) * 100);
+    const usedRatio = usedMB / totalMB;
+    const usedPercentage = Math.round(usedRatio * 100);
     // Free percentage is the inverse
     const freePercentage = 100 - usedPercentage;
     if (verbose) {
@@ -664,6 +675,7 @@ export async function getDiskSpaceInfo(verbose = false) {
         totalBytes: totalMB * 1024 * 1024,
         usedBytes: usedMB * 1024 * 1024,
         availableBytes: availableMB * 1024 * 1024,
+        usedRatio,
         usedPercentage,
         freePercentage,
         totalFormatted: formatBytes(totalMB * 1024 * 1024),
@@ -1015,11 +1027,8 @@ export function formatUsageMessage(usage, diskSpace = null, githubRateLimit = nu
 
   if (cpuLoad) {
     let section = `${lt('cpu', {}, { locale })}\n`;
-    const usedBar = getProgressBar(cpuLoad.usagePercentage, DISPLAY_THRESHOLDS.CPU);
-    // Show 'used' label when below threshold, warning emoji when at/above threshold
-    // See: https://github.com/link-assistant/hive-mind/issues/1267
-    const suffix = cpuLoad.usagePercentage >= DISPLAY_THRESHOLDS.CPU ? ' ⚠️' : ` ${lt('used', {}, { locale })}`;
-    section += `${usedBar} ${cpuLoad.usagePercentage}%${suffix}\n`;
+    const percentage = cpuLoad.usageRatio === undefined ? cpuLoad.usagePercentage : Math.min(100, thresholdToPercent(cpuLoad.usageRatio));
+    section += formatThresholdProgress(percentage, DISPLAY_THRESHOLDS.CPU, locale);
     // Linux load average is demand, not bounded CPU time. Keep the cores-used
     // display within CPU capacity and show raw load average only when saturated.
     const usedCpuCores = cpuLoad.usedCpuCores ?? getDisplayCpuCoresUsed(cpuLoad.loadAvg5, cpuLoad.cpuCount);
@@ -1032,28 +1041,23 @@ export function formatUsageMessage(usage, diskSpace = null, githubRateLimit = nu
   }
   if (memory) {
     let section = `${lt('ram', {}, { locale })}\n`;
-    const usedBar = getProgressBar(memory.usedPercentage, DISPLAY_THRESHOLDS.RAM);
-    const suffix = memory.usedPercentage >= DISPLAY_THRESHOLDS.RAM ? ' ⚠️' : ` ${lt('used', {}, { locale })}`;
-    section += `${usedBar} ${memory.usedPercentage}%${suffix}\n`;
+    const percentage = memory.usedRatio === undefined ? memory.usedPercentage : thresholdToPercent(memory.usedRatio);
+    section += formatThresholdProgress(percentage, DISPLAY_THRESHOLDS.RAM, locale);
     section += `${formatBytesRange(memory.usedBytes, memory.totalBytes, { locale })}\n`;
     sections.push(section);
   }
 
   if (diskSpace) {
     let section = `${lt('disk_space', {}, { locale })}\n`;
-    const usedBar = getProgressBar(diskSpace.usedPercentage, DISPLAY_THRESHOLDS.DISK);
-    const suffix = diskSpace.usedPercentage >= DISPLAY_THRESHOLDS.DISK ? ' ⚠️' : ` ${lt('used', {}, { locale })}`;
-    section += `${usedBar} ${diskSpace.usedPercentage}%${suffix}\n`;
+    const percentage = diskSpace.usedRatio === undefined ? diskSpace.usedPercentage : thresholdToPercent(diskSpace.usedRatio);
+    section += formatThresholdProgress(percentage, DISPLAY_THRESHOLDS.DISK, locale);
     section += `${formatBytesRange(diskSpace.usedBytes, diskSpace.totalBytes, { locale })}\n`;
     sections.push(section);
   }
-  // GitHub API rate limits section (if provided)
-  // Threshold: Blocks parallel claude commands when >= 75%
   if (githubRateLimit) {
     let section = `${lt('github_api', {}, { locale })}\n`;
-    const usedBar = getProgressBar(githubRateLimit.usedPercentage, DISPLAY_THRESHOLDS.GITHUB_API);
-    const suffix = githubRateLimit.usedPercentage >= DISPLAY_THRESHOLDS.GITHUB_API ? ' ⚠️' : ` ${lt('used', {}, { locale })}`;
-    section += `${usedBar} ${githubRateLimit.usedPercentage}%${suffix}\n`;
+    const percentage = githubRateLimit.usedRatio === undefined ? githubRateLimit.usedPercentage : thresholdToPercent(githubRateLimit.usedRatio);
+    section += formatThresholdProgress(percentage, DISPLAY_THRESHOLDS.GITHUB_API, locale);
     section += `${githubRateLimit.used}/${githubRateLimit.limit} ${lt('requests', {}, { locale })}\n`;
     const githubResetTime = getLocalizedResetTime(githubRateLimit, { locale });
     const githubRelativeReset = getLocalizedRelativeReset(githubRateLimit, { locale }, githubRateLimit.relativeReset);

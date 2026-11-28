@@ -72,8 +72,8 @@ assertMatch(invalidInteger.stderr, /\[config\] HIVE_MIND_GITHUB_API_DELAY_MS="30
 const invalidFloat = importWithEnv('src/queue-config.lib.mjs', 'mod.QUEUE_CONFIG.RAM_THRESHOLD', {
   HIVE_MIND_RAM_THRESHOLD: '0.65oops',
 });
-assertEqual(invalidFloat.value, 0.65, 'partially numeric floats should use the documented default');
-assertMatch(invalidFloat.stderr, /\[queue-config\] HIVE_MIND_RAM_THRESHOLD="0.65oops" is not a valid number; using default 0.65\./, 'invalid float fallback should identify the variable, raw value, and default');
-assertEqual(countMatches(invalidFloat.stderr, /HIVE_MIND_RAM_THRESHOLD=/g), 1, 'a variable read more than once during startup should warn only once');
+assertEqual(invalidFloat.value, 0.618, 'partially numeric floats should use the documented default');
+assertMatch(invalidFloat.stderr, /\[queue-config\] HIVE_MIND_RAM_THRESHOLD="0.65oops" is not a valid number; using default 0.618\./, 'invalid float fallback should identify the variable, raw value, and default');
+assertEqual(countMatches(invalidFloat.stderr, /HIVE_MIND_RAM_THRESHOLD=/g), 1, 'an invalid override should warn once during startup');
 
 console.log(`Issue #2062 configuration warning tests passed (${assertions} assertions)`);

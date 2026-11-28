@@ -336,6 +336,23 @@ During the watch phase, every GitHub probe of a check has a 10-minute deadline. 
 | `TELEGRAM_BOT_VERBOSE`                          | false      | Enable verbose logging                                                                                       |
 | `TELEGRAM_CONFIGURATION`                        | (none)     | LINO configuration string                                                                                    |
 
+#### Solve queue thresholds
+
+The Telegram solve queue uses **61.8%** of measured capacity as the default admission threshold. At or above the threshold, RAM, CPU, disk, and GitHub API checks queue further work when the respective check applies. Claude and Codex limits allow one task for the affected tool at a time.
+
+| Environment variable                        | Links Notation key | Default strategy        |
+| ------------------------------------------- | ------------------ | ----------------------- |
+| `HIVE_MIND_RAM_THRESHOLD`                   | `ram`              | `enqueue`               |
+| `HIVE_MIND_CPU_THRESHOLD`                   | `cpu`              | `enqueue`               |
+| `HIVE_MIND_DISK_THRESHOLD`                  | `disk`             | `enqueue`               |
+| `HIVE_MIND_CLAUDE_5_HOUR_SESSION_THRESHOLD` | `claude-5-hour`    | `dequeue-one-at-a-time` |
+| `HIVE_MIND_CLAUDE_WEEKLY_THRESHOLD`         | `claude-weekly`    | `dequeue-one-at-a-time` |
+| `HIVE_MIND_CODEX_5_HOUR_SESSION_THRESHOLD`  | `codex-5-hour`     | `dequeue-one-at-a-time` |
+| `HIVE_MIND_CODEX_WEEKLY_THRESHOLD`          | `codex-weekly`     | `dequeue-one-at-a-time` |
+| `HIVE_MIND_GITHUB_API_THRESHOLD`            | `github-api`       | `enqueue`               |
+
+Individual environment variables take ratios such as `0.618`. The corresponding `_STRATEGY` variables accept `enqueue`, `reject`, or `dequeue-one-at-a-time`. An entry in `HIVE_MIND_QUEUE_CONFIG` overrides both variables for that metric. For example, `HIVE_MIND_QUEUE_CONFIG='((disk (61.8% enqueue)) (github-api (50% enqueue)))'` sets the disk and GitHub API thresholds and strategies.
+
 ### 13.1. Bot Instance State, Status and Drain
 
 The Telegram bot keeps its instance state in two stores that must agree (issue #4143): `hive-mind-state.lino`, written first, and a link-cli doublets store with the transactions log enabled, written second. Readers take the link-cli copy when it matches the `.lino` file, retry while they differ, and otherwise use the `.lino` file; the next write repairs the link-cli copy. The state holds the instance (PID, host, version, heartbeat), the intake (`accepting` or `draining`), every running, starting, queued and waiting task with its isolation backend, and the `/subscribe` list. After a restart the bot restores subscribers and re-queues the tasks that had not started.

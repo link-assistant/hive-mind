@@ -56,6 +56,10 @@ const LinoParser = linoModule.Parser || linoModule.default?.Parser;
  */
 export const THRESHOLD_STRATEGIES = Object.freeze(['reject', 'enqueue', 'dequeue-one-at-a-time']);
 
+// Reciprocal of the golden ratio rounded to the policy's one-decimal percent.
+// Keep 61.8% itself on the throttled side of the boundary (issue #4190).
+const DEFAULT_QUEUE_THRESHOLD = 0.618;
+
 /**
  * Validate a threshold strategy value
  * @param {string} strategy - The strategy to validate
@@ -87,11 +91,11 @@ function normalizeMetricName(name) {
  * ```
  * (
  *   (disk (90% reject))
- *   (ram (65% enqueue))
- *   (cpu (65% enqueue))
- *   (claude-5-hour (65% dequeue-one-at-a-time))
- *   (claude-weekly (97% dequeue-one-at-a-time))
- *   (github-api (50% enqueue))
+ *   (ram (61.8% enqueue))
+ *   (cpu (61.8% enqueue))
+ *   (claude-5-hour (61.8% dequeue-one-at-a-time))
+ *   (claude-weekly (61.8% dequeue-one-at-a-time))
+ *   (github-api (61.8% enqueue))
  * )
  * ```
  *
@@ -144,9 +148,9 @@ export function parseQueueConfig(linoConfig) {
 
         for (const id of ids) {
           // Check for percentage
-          const percentMatch = id.match(/^(\d+)%$/);
+          const percentMatch = id.match(/^(\d+(?:\.\d+)?)%$/);
           if (percentMatch) {
-            thresholdValue = parseInt(percentMatch[1], 10) / 100;
+            thresholdValue = Number(percentMatch[1]) / 100;
             continue;
           }
 
@@ -222,11 +226,10 @@ const linoConfig = parseQueueConfig(getenv('HIVE_MIND_QUEUE_CONFIG', ''));
  * @param {string} linoKey - Key in normalized format for lino config (e.g., 'disk', 'ram')
  * @param {string} envVarThreshold - Environment variable for threshold value
  * @param {string} envVarStrategy - Environment variable for strategy
- * @param {number} defaultThreshold - Default threshold value (0.0 - 1.0)
  * @param {string} defaultStrategy - Default strategy
  * @returns {{ value: number, strategy: string }}
  */
-function getThresholdConfig(linoKey, envVarThreshold, envVarStrategy, defaultThreshold, defaultStrategy) {
+function getThresholdConfig(linoKey, envVarThreshold, envVarStrategy, defaultStrategy) {
   // Check links notation config first
   if (linoConfig[linoKey]) {
     return {
@@ -237,10 +240,21 @@ function getThresholdConfig(linoKey, envVarThreshold, envVarStrategy, defaultThr
 
   // Fall back to individual env vars, then defaults
   return {
-    value: parseFloatWithDefault(envVarThreshold, defaultThreshold),
+    value: parseFloatWithDefault(envVarThreshold, DEFAULT_QUEUE_THRESHOLD),
     strategy: validateStrategy(getenv(envVarStrategy, ''), defaultStrategy),
   };
 }
+
+const thresholds = {
+  ram: getThresholdConfig('ram', 'HIVE_MIND_RAM_THRESHOLD', 'HIVE_MIND_RAM_STRATEGY', 'enqueue'),
+  cpu: getThresholdConfig('cpu', 'HIVE_MIND_CPU_THRESHOLD', 'HIVE_MIND_CPU_STRATEGY', 'enqueue'),
+  disk: getThresholdConfig('disk', 'HIVE_MIND_DISK_THRESHOLD', 'HIVE_MIND_DISK_STRATEGY', 'enqueue'),
+  claude5Hour: getThresholdConfig('claude5Hour', 'HIVE_MIND_CLAUDE_5_HOUR_SESSION_THRESHOLD', 'HIVE_MIND_CLAUDE_5_HOUR_SESSION_STRATEGY', 'dequeue-one-at-a-time'),
+  claudeWeekly: getThresholdConfig('claudeWeekly', 'HIVE_MIND_CLAUDE_WEEKLY_THRESHOLD', 'HIVE_MIND_CLAUDE_WEEKLY_STRATEGY', 'dequeue-one-at-a-time'),
+  codex5Hour: getThresholdConfig('codex5Hour', 'HIVE_MIND_CODEX_5_HOUR_SESSION_THRESHOLD', 'HIVE_MIND_CODEX_5_HOUR_SESSION_STRATEGY', 'dequeue-one-at-a-time'),
+  codexWeekly: getThresholdConfig('codexWeekly', 'HIVE_MIND_CODEX_WEEKLY_THRESHOLD', 'HIVE_MIND_CODEX_WEEKLY_STRATEGY', 'dequeue-one-at-a-time'),
+  githubApi: getThresholdConfig('githubApi', 'HIVE_MIND_GITHUB_API_THRESHOLD', 'HIVE_MIND_GITHUB_API_STRATEGY', 'enqueue'),
+};
 
 /**
  * Configuration constants for queue throttling
@@ -255,38 +269,23 @@ function getThresholdConfig(linoKey, envVarThreshold, envVarStrategy, defaultThr
  * - 'enqueue': Block and wait in queue
  * - 'dequeue-one-at-a-time': Allow one command, block subsequent
  *
- * Issue #2045: disk now defaults to the normal wait/enqueue path at 65% used.
- * Operators can still choose immediate rejection with HIVE_MIND_DISK_STRATEGY=reject.
+ * Operators can choose immediate disk rejection with HIVE_MIND_DISK_STRATEGY=reject.
  */
 export const QUEUE_CONFIG = {
   // Threshold configurations with value and strategy
   // Priority: HIVE_MIND_QUEUE_CONFIG > individual env vars > defaults
-  thresholds: {
-    ram: getThresholdConfig('ram', 'HIVE_MIND_RAM_THRESHOLD', 'HIVE_MIND_RAM_STRATEGY', 0.65, 'enqueue'),
-    cpu: getThresholdConfig('cpu', 'HIVE_MIND_CPU_THRESHOLD', 'HIVE_MIND_CPU_STRATEGY', 0.65, 'enqueue'),
-    // Issue #2045: wait instead of immediately rejecting when disk crosses 65%.
-    disk: getThresholdConfig('disk', 'HIVE_MIND_DISK_THRESHOLD', 'HIVE_MIND_DISK_STRATEGY', 0.65, 'enqueue'),
-    claude5Hour: getThresholdConfig('claude5Hour', 'HIVE_MIND_CLAUDE_5_HOUR_SESSION_THRESHOLD', 'HIVE_MIND_CLAUDE_5_HOUR_SESSION_STRATEGY', 0.65, 'dequeue-one-at-a-time'),
-    claudeWeekly: getThresholdConfig('claudeWeekly', 'HIVE_MIND_CLAUDE_WEEKLY_THRESHOLD', 'HIVE_MIND_CLAUDE_WEEKLY_STRATEGY', 0.97, 'dequeue-one-at-a-time'),
-    codex5Hour: getThresholdConfig('codex5Hour', 'HIVE_MIND_CODEX_5_HOUR_SESSION_THRESHOLD', 'HIVE_MIND_CODEX_5_HOUR_SESSION_STRATEGY', 0.65, 'dequeue-one-at-a-time'),
-    codexWeekly: getThresholdConfig('codexWeekly', 'HIVE_MIND_CODEX_WEEKLY_THRESHOLD', 'HIVE_MIND_CODEX_WEEKLY_STRATEGY', 0.97, 'dequeue-one-at-a-time'),
-    // Issue #1726: lowered default from 0.75 to 0.50 to start backing off earlier
-    // and leave a wider safety margin before the hard 5,000/hr ceiling. Hosted
-    // runners hit the ceiling repeatedly with the 75% setting (see
-    // docs/case-studies/issue-1726).
-    githubApi: getThresholdConfig('githubApi', 'HIVE_MIND_GITHUB_API_THRESHOLD', 'HIVE_MIND_GITHUB_API_STRATEGY', 0.5, 'enqueue'),
-  },
+  thresholds,
 
   // Legacy flat threshold values for backward compatibility
   // These are derived from thresholds.{metric}.value
-  RAM_THRESHOLD: getThresholdConfig('ram', 'HIVE_MIND_RAM_THRESHOLD', 'HIVE_MIND_RAM_STRATEGY', 0.65, 'enqueue').value,
-  CPU_THRESHOLD: getThresholdConfig('cpu', 'HIVE_MIND_CPU_THRESHOLD', 'HIVE_MIND_CPU_STRATEGY', 0.65, 'enqueue').value,
-  DISK_THRESHOLD: getThresholdConfig('disk', 'HIVE_MIND_DISK_THRESHOLD', 'HIVE_MIND_DISK_STRATEGY', 0.65, 'enqueue').value,
-  CLAUDE_5_HOUR_SESSION_THRESHOLD: getThresholdConfig('claude5Hour', 'HIVE_MIND_CLAUDE_5_HOUR_SESSION_THRESHOLD', 'HIVE_MIND_CLAUDE_5_HOUR_SESSION_STRATEGY', 0.65, 'dequeue-one-at-a-time').value,
-  CLAUDE_WEEKLY_THRESHOLD: getThresholdConfig('claudeWeekly', 'HIVE_MIND_CLAUDE_WEEKLY_THRESHOLD', 'HIVE_MIND_CLAUDE_WEEKLY_STRATEGY', 0.97, 'dequeue-one-at-a-time').value,
-  CODEX_5_HOUR_SESSION_THRESHOLD: getThresholdConfig('codex5Hour', 'HIVE_MIND_CODEX_5_HOUR_SESSION_THRESHOLD', 'HIVE_MIND_CODEX_5_HOUR_SESSION_STRATEGY', 0.65, 'dequeue-one-at-a-time').value,
-  CODEX_WEEKLY_THRESHOLD: getThresholdConfig('codexWeekly', 'HIVE_MIND_CODEX_WEEKLY_THRESHOLD', 'HIVE_MIND_CODEX_WEEKLY_STRATEGY', 0.97, 'dequeue-one-at-a-time').value,
-  GITHUB_API_THRESHOLD: getThresholdConfig('githubApi', 'HIVE_MIND_GITHUB_API_THRESHOLD', 'HIVE_MIND_GITHUB_API_STRATEGY', 0.5, 'enqueue').value,
+  RAM_THRESHOLD: thresholds.ram.value,
+  CPU_THRESHOLD: thresholds.cpu.value,
+  DISK_THRESHOLD: thresholds.disk.value,
+  CLAUDE_5_HOUR_SESSION_THRESHOLD: thresholds.claude5Hour.value,
+  CLAUDE_WEEKLY_THRESHOLD: thresholds.claudeWeekly.value,
+  CODEX_5_HOUR_SESSION_THRESHOLD: thresholds.codex5Hour.value,
+  CODEX_WEEKLY_THRESHOLD: thresholds.codexWeekly.value,
+  GITHUB_API_THRESHOLD: thresholds.githubApi.value,
 
   // Timing
   // MIN_START_INTERVAL_MS: Minimum global spacing between task startups.
@@ -319,7 +318,8 @@ export const QUEUE_CONFIG = {
  * @returns {number} Percentage value (0 - 100)
  */
 export function thresholdToPercent(ratio) {
-  return Math.round(ratio * 100);
+  // Remove binary floating-point artifacts while preserving fractional percentages.
+  return Number((ratio * 100).toPrecision(15));
 }
 
 /**

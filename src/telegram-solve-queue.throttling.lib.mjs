@@ -75,9 +75,9 @@ export async function checkSystemResources(queue, totalProcessing = 0, options =
   // Check RAM (using cached value)
   const memResult = await getCachedMemoryInfo(queue.verbose);
   if (memResult.success) {
-    const usedRatio = memResult.memory.usedPercentage / 100;
+    const usedRatio = memResult.memory.usedRatio ?? memResult.memory.usedPercentage / 100;
     if (usedRatio >= QUEUE_CONFIG.thresholds.ram.value) {
-      const reason = formatWaitingReason('ram', memResult.memory.usedPercentage, QUEUE_CONFIG.thresholds.ram.value, { locale });
+      const reason = formatWaitingReason('ram', usedRatio * 100, QUEUE_CONFIG.thresholds.ram.value, { locale });
       const strategy = QUEUE_CONFIG.thresholds.ram.strategy;
       queue.recordThrottle(`ram_${strategy}`);
       if (strategy === 'reject') {
@@ -104,9 +104,9 @@ export async function checkSystemResources(queue, totalProcessing = 0, options =
     // Calculate usage ratio: loadAvg5 / cpuCount
     // Load average of 1.0 per CPU = 100% utilization
     const usageRatio = loadAvg5 / cpuCount;
-    const usagePercent = Math.min(100, Math.round(usageRatio * 100));
+    const usagePercent = Math.min(100, usageRatio * 100);
     if (queue.verbose) {
-      queue.log(`CPU 5m load avg: ${loadAvg5.toFixed(2)}, cpus: ${cpuCount}, usage: ${usagePercent}%`);
+      queue.log(`CPU 5m load avg: ${loadAvg5.toFixed(2)}, cpus: ${cpuCount}, usage: ${usagePercent.toFixed(1)}%`);
     }
     if (usageRatio >= QUEUE_CONFIG.thresholds.cpu.value) {
       const reason = formatWaitingReason('cpu', usagePercent, QUEUE_CONFIG.thresholds.cpu.value, { locale });
@@ -126,16 +126,12 @@ export async function checkSystemResources(queue, totalProcessing = 0, options =
       }
     }
   }
-  // Check disk space (using cached value)
-  // Default strategy changed to 'reject' because queue is lost on restart anyway
-  // See: https://github.com/link-assistant/hive-mind/issues/1253
+  // Check disk space (using cached value).
   const diskResult = await getCachedDiskInfo(queue.verbose);
   if (diskResult.success) {
-    // Calculate usage from free percentage
-    const usedPercent = 100 - diskResult.diskSpace.freePercentage;
-    const usedRatio = usedPercent / 100;
+    const usedRatio = diskResult.diskSpace.usedRatio ?? (100 - diskResult.diskSpace.freePercentage) / 100;
     if (usedRatio >= QUEUE_CONFIG.thresholds.disk.value) {
-      const reason = formatWaitingReason('disk', usedPercent, QUEUE_CONFIG.thresholds.disk.value, { locale });
+      const reason = formatWaitingReason('disk', usedRatio * 100, QUEUE_CONFIG.thresholds.disk.value, { locale });
       const strategy = QUEUE_CONFIG.thresholds.disk.strategy;
       queue.recordThrottle(`disk_${strategy}`);
       if (strategy === 'reject') {
@@ -300,10 +296,9 @@ export async function checkApiLimits(queue, hasRunningToolProcess = false, toolP
   if (hasRunningToolProcess) {
     const githubResult = await getCachedGitHubLimits(queue.verbose);
     if (githubResult.success) {
-      const usedPercent = githubResult.githubRateLimit.usedPercentage;
-      const usedRatio = usedPercent / 100;
+      const usedRatio = githubResult.githubRateLimit.usedRatio ?? githubResult.githubRateLimit.usedPercentage / 100;
       if (usedRatio >= QUEUE_CONFIG.thresholds.githubApi.value) {
-        const reason = formatWaitingReason('github', usedPercent, QUEUE_CONFIG.thresholds.githubApi.value, { locale });
+        const reason = formatWaitingReason('github', usedRatio * 100, QUEUE_CONFIG.thresholds.githubApi.value, { locale });
         const strategy = QUEUE_CONFIG.thresholds.githubApi.strategy;
         queue.recordThrottle(usedRatio >= 1.0 ? 'github_100' : `github_${strategy}`);
         if (strategy === 'reject') {

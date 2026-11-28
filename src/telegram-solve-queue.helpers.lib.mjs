@@ -2,6 +2,7 @@
 
 import { processesForTool, readToolProcessSnapshot } from './queue-work.lib.mjs';
 import { lt } from './limits-i18n.lib.mjs';
+import { thresholdToPercent } from './queue-config.lib.mjs';
 
 /**
  * Build a clickable, human-readable link to a queued issue/PR for the
@@ -435,7 +436,7 @@ export async function getRunningGeminiProcesses(verbose = false) {
  * @returns {string} Formatted percentage
  */
 export function formatThresholdPercent(ratio) {
-  return `${Math.round(ratio * 100)}%`;
+  return `${thresholdToPercent(ratio)}%`;
 }
 
 /**
@@ -491,7 +492,7 @@ export function formatDuration(ms, options = {}) {
 export function formatWaitingReason(metric, currentValue, threshold, options = {}) {
   const locale = typeof options === 'string' ? options : options?.locale || null;
   const thresholdPercent = formatThresholdPercent(threshold);
-  const currentPercent = Math.round(currentValue);
+  const currentPercent = Math.round(currentValue * 10) / 10;
   const params = { currentPercent, thresholdPercent, metric };
 
   if (locale && locale !== 'en') {

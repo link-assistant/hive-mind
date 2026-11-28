@@ -332,6 +332,10 @@ Hive Mind 默认将 `CLAUDE_CODE_PROMPT_CACHE_TTL`（主对话）和 `CLAUDE_COD
 | `TELEGRAM_BOT_VERBOSE`                          | false    | 启用详细日志                                                                        |
 | `TELEGRAM_CONFIGURATION`                        | （无）   | LINO 配置字符串                                                                     |
 
+#### 求解队列阈值
+
+Telegram 求解队列的 RAM、CPU、磁盘、GitHub API 以及 Claude 和 Codex 的 5 小时与每周用量阈值默认为 **61.8%**。单独的环境变量使用 `0.618` 这样的比例值，`HIVE_MIND_QUEUE_CONFIG` 则使用 `61.8%` 这样的百分比，并优先于对应的单独设置。详见[队列阈值配置表](CONFIGURATION.md#solve-queue-thresholds)。
+
 ### 13.1. 机器人实例状态、状态查询与排空
 
 Telegram 机器人把实例状态保存在两个必须一致的存储中（issue #4143）：先写入 `hive-mind-state.lino`，再写入启用了事务日志的 link-cli 双元组存储。读取时若 link-cli 副本与 `.lino` 文件一致则使用它，不一致时重试，否则使用 `.lino` 文件；下一次写入会修复 link-cli 副本。状态包含实例（PID、主机、版本、心跳）、接收状态（`accepting` 或 `draining`）、所有运行中、启动中、排队和等待的任务及其隔离后端，以及 `/subscribe` 列表。重启后机器人会恢复订阅者，并把尚未开始的任务重新排队。

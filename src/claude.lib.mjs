@@ -363,7 +363,7 @@ export const executeClaudeCommand = async params => {
     const claudeWorkLanguage = await import('./i18n.lib.mjs').then(i18n => i18n.getWorkLocale?.() ?? null).catch(() => null);
     if (!useRouter && !process.env.HIVE_MIND_PARENT_SESSION_ID && !taskHome) {
       await ensureClaudeAuthAuthority({ env: process.env, establish: false, verbose: !!argv.verbose });
-      taskHome = await prepareClaudeTaskHome({ enablePlaywright: argv.playwrightMcp !== false });
+      taskHome = await prepareClaudeTaskHome({ enablePlaywright: argv.playwrightMcp !== false, log });
     }
     await ensureClaudeQuietConfig({ log, workLanguage: claudeWorkLanguage, settingsPath: taskHome?.settingsPath });
     const { mcpConfigPath, disallowedToolsList } = await resolveClaudeSessionToolFlags({ argv, log, fallbackBuildMcpConfigWithoutPlaywright: buildMcpConfigWithoutPlaywright, projectDir: tempDir, mcpStatePath: taskHome?.mcpStatePath });

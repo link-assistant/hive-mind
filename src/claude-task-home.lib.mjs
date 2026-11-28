@@ -11,12 +11,14 @@ const playwright = {
   args: ['-y', '@playwright/mcp@latest', '--isolated', '--headless', '--no-sandbox', '--timeout-action=600000', '--viewport-size', '1920x1080'],
 };
 
-async function taskPreferences(configDir) {
-  const source = await fs.readFile(path.join(configDir, 'settings.json'), 'utf8').catch(error => {
-    if (error.code !== 'ENOENT') throw error;
-    return '{}';
-  });
-  const settings = JSON.parse(source);
+async function taskPreferences(configDir, log) {
+  let settings;
+  try {
+    settings = JSON.parse(await fs.readFile(path.join(configDir, 'settings.json'), 'utf8'));
+  } catch (error) {
+    if (error.code !== 'ENOENT' && log) await log('⚠️  Could not read Claude root preferences. Using task defaults.', { verbose: true });
+    return {};
+  }
   const preferences = {};
   if (typeof settings?.language === 'string') preferences.language = settings.language;
   for (const key of Object.keys(CLAUDE_PROMPT_CACHE_DEFAULTS)) {
@@ -26,7 +28,7 @@ async function taskPreferences(configDir) {
 }
 
 /** Direct, Screen and tmux solves need a fresh Claude config directory too. */
-export async function prepareClaudeTaskHome({ homeDir = os.homedir(), env = process.env, tempDir = os.tmpdir(), enablePlaywright = true } = {}) {
+export async function prepareClaudeTaskHome({ homeDir = os.homedir(), env = process.env, tempDir = os.tmpdir(), enablePlaywright = true, log } = {}) {
   const history = resolveClaudeConfigDirectory(env, homeDir);
   const scope = await fs.mkdtemp(path.join(tempDir, 'hive-claude-'));
   const dispose = () => fs.rm(scope, { recursive: true, force: true });
@@ -37,7 +39,7 @@ export async function prepareClaudeTaskHome({ homeDir = os.homedir(), env = proc
       await fs.symlink(shared, path.join(scope, name), 'dir');
     }
     const settingsPath = path.join(scope, 'settings.json');
-    const preferences = await taskPreferences(history);
+    const preferences = await taskPreferences(history, log);
     if (Object.keys(preferences).length) await fs.writeFile(settingsPath, JSON.stringify(preferences), { mode: 0o600 });
     const mcpStatePath = path.join(scope, '.claude.json');
     await fs.writeFile(mcpStatePath, JSON.stringify({ hasCompletedOnboarding: true, mcpServers: enablePlaywright ? { playwright } : {} }), { mode: 0o600 });

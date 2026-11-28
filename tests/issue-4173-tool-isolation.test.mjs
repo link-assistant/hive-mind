@@ -49,6 +49,19 @@ test('Claude task homes persist conversations with independent settings, skills 
   assert.equal(await fs.readFile(path.join(root, 'projects', 'conversation.jsonl'), 'utf8'), 'persisted');
 });
 
+test('Claude can launch with defaults when root preferences are malformed', async t => {
+  const homeDir = await fixture(t);
+  const root = path.join(homeDir, '.claude');
+  await fs.mkdir(root);
+  const malformed = '{"language":';
+  await fs.writeFile(path.join(root, 'settings.json'), malformed);
+  const scope = await prepareClaudeTaskHome({ homeDir, env: {}, tempDir: homeDir });
+  await assert.rejects(fs.access(scope.settingsPath), { code: 'ENOENT' });
+  const { mcpServers } = JSON.parse(await fs.readFile(scope.mcpStatePath, 'utf8'));
+  assert.deepEqual(Object.keys(mcpServers), ['playwright']);
+  assert.equal(await fs.readFile(path.join(root, 'settings.json'), 'utf8'), malformed);
+});
+
 test('Gemini Docker preparation selects host-backed history without a configuration or credential mount', async t => {
   const homeDir = await fixture(t);
   const options = { tool: 'gemini', homeDir, env: {}, sessionId: 'gemini-history' };

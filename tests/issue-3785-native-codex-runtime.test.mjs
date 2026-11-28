@@ -39,10 +39,41 @@ test('complete packaging identities publish one verified idempotent generation',
   const f = await packagingFixture(t);
   const ready = await f.api.installNativeCodexRuntime({ destination: f.destination });
   const published = await fs.lstat(f.destination);
+  const host = path.join(ready.root, 'codex-code-mode-host');
+  await fs.access(host, fs.constants.X_OK);
+  assert.equal((await fs.stat(host)).nlink, 1);
+  assert.deepEqual(await fs.readFile(host), await fs.readFile(path.join(f.runtime, 'codex-code-mode-host')));
   assert.equal((await f.api.verifyNativeCodexRuntime(f.destination)).entrypoint, ready.entrypoint);
   assert.equal((await f.api.installNativeCodexRuntime({ destination: f.destination })).entrypoint, ready.entrypoint);
   assert.equal((await fs.lstat(f.destination)).ino, published.ino);
   assert.equal((await fs.readdir(f.root)).filter(name => name.startsWith('.hive-native-codex-')).length, 1);
+});
+
+test('a variant without its Code Mode host fails before generation publication', { timeout: 10000, skip: !supported }, async t => {
+  const f = await packagingFixture(t);
+  await fs.unlink(path.join(f.runtime, 'codex-code-mode-host'));
+  await assert.rejects(f.api.installNativeCodexRuntime({ destination: f.destination }), /missing codex-code-mode-host/u);
+  await assert.rejects(fs.lstat(f.destination), { code: 'ENOENT' });
+  assert.equal((await fs.readdir(f.root)).filter(name => name.startsWith('.hive-native-codex-')).length, 0);
+});
+
+test('a missing, changed, or non-executable installed Code Mode host fails verification', { timeout: 10000, skip: !supported }, async t => {
+  const f = await packagingFixture(t, { hostBytes: 4 * 1024 * 1024 + 1 });
+  const ready = await f.api.installNativeCodexRuntime({ destination: f.destination });
+  const host = path.join(ready.root, 'codex-code-mode-host');
+  await fs.chmod(host, 0o644);
+  await assert.rejects(f.api.verifyNativeCodexRuntime(f.destination), /execution were refused/u);
+  await fs.chmod(host, 0o755);
+  const handle = await fs.open(host, 'r+');
+  try {
+    await handle.write(Buffer.from([255]), 0, 1, 64);
+  } finally {
+    await handle.close();
+  }
+  await assert.rejects(f.api.verifyNativeCodexRuntime(f.destination), /execution were refused/u);
+  await fs.unlink(host);
+  await assert.rejects(f.api.verifyNativeCodexRuntime(f.destination), /missing codex-code-mode-host/u);
+  await assert.rejects(f.api.installNativeCodexRuntime({ destination: f.destination }), /missing codex-code-mode-host/u);
 });
 
 test('observed optimized native size installs and verifies with bounded reads', { timeout: 45000, skip: !supported }, async t => {

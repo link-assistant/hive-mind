@@ -399,6 +399,7 @@ const PACKAGE_MANIFEST_PATTERN = /^(package-lock\.json|npm-shrinkwrap\.json|bun\
 
 /** Native source/build/probe updates invalidate installed-image evidence too. */
 export function isNativeCodexBuildInput(file) {
+  if (file === 'experiments/issue-4159/probe-native-code-mode.mjs') return true;
   return /^(scripts\/(build-native-codex\.py|verify-native-codex-publish\.mjs|native-codex-packages\.mjs|check-npm-tarball-size\.mjs)|experiments\/issue-3785\/(native-codex\/.+|test_native_codex_build\.py|probe-cargo-executable-hardlink\.py|probe_native_codex_(preparation|package)\.py|probe-packaged-native-codex\.mjs|probe-codex-native-[^/]+\.(mjs|py)|native_(process_group|network_fixture)\.py|native-request-proxy\.mjs))$/u.test(file);
 }
 

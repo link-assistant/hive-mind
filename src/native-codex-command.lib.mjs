@@ -4,7 +4,7 @@ import { constants } from 'node:fs';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { locateNativeCommand as locate, nativeCommandRevision as revision } from './native-agent-command.lib.mjs';
-import { installNativeCodexRuntime, readNativeCodexVersion, verifyNativeCodexRuntime } from './native-codex-runtime.lib.mjs';
+import { installNativeCodexRuntime, NATIVE_CODEX_HOST_MISSING, NATIVE_CODEX_MANIFEST_SCHEMA, readNativeCodexVersion, verifyNativeCodexRuntime } from './native-codex-runtime.lib.mjs';
 
 const refusal = () => new Error('The installed native Codex command could not be verified; installation and execution were refused.');
 
@@ -58,8 +58,8 @@ export async function verifyNativeCodexCommand({ command = 'codex', searchPath =
     const verified = await verifyNativeCodexRuntime(path.dirname(entrypoint));
     if ((await fs.realpath(bin)) !== verified.entrypoint) throw refusal();
     return { ...verified, command: bin };
-  } catch {
-    throw refusal();
+  } catch (error) {
+    throw error.code === NATIVE_CODEX_HOST_MISSING ? error : refusal();
   }
 }
 
@@ -78,7 +78,7 @@ export async function installNativeCodexCommand({ command = 'codex', searchPath 
     const upstream = await stockPackage(entrypoint);
     const nativeVersion = await readNativeCodexVersion();
     if (upstream.version !== nativeVersion) throw refusal();
-    const destination = path.join(path.dirname(upstream.root), `codex-hive-${nativeVersion}`);
+    const destination = path.join(path.dirname(upstream.root), `codex-hive-${nativeVersion}-v${NATIVE_CODEX_MANIFEST_SCHEMA}`);
     const ready = await installNativeCodexRuntime({ destination });
     const staged = path.join(path.dirname(bin), `.hive-codex-bin-${randomUUID()}`);
     await fs.symlink(ready.entrypoint, staged);
@@ -87,8 +87,8 @@ export async function installNativeCodexCommand({ command = 'codex', searchPath 
     await fs.rename(temporary, bin);
     temporary = undefined;
     return await verifyNativeCodexCommand({ command: bin });
-  } catch {
-    throw refusal();
+  } catch (error) {
+    throw error.code === NATIVE_CODEX_HOST_MISSING ? error : refusal();
   } finally {
     if (temporary)
       await fs.unlink(temporary).catch(() => {

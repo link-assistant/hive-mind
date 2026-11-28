@@ -9,7 +9,7 @@ import { pathToFileURL } from 'node:url';
 
 // Issue #4050: the executable lives in the per-platform variant version of the
 // package, installed under its optional-dependency alias next to the main one.
-export async function nativeCodexPackagingFixture(t, { binaryBytes = 128, maxBinaryBytes, variantVersion } = {}) {
+export async function nativeCodexPackagingFixture(t, { binaryBytes = 128, hostBytes = 128, maxBinaryBytes, variantVersion } = {}) {
   const root = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), 'native-codex-identity-fixture-')));
   t.after(() => fs.rm(root, { recursive: true, force: true }));
   const src = path.join(root, 'src');
@@ -41,14 +41,20 @@ export async function nativeCodexPackagingFixture(t, { binaryBytes = 128, maxBin
   binary.set([127, 69, 76, 70, 2, 1, 1]);
   binary.writeUInt16LE(3, 16);
   binary.writeUInt16LE(recipe.targets[platform].elfMachine, 18);
-  await fs.writeFile(path.join(runtime, 'codex'), binary, { mode: 0o755 });
-  await fs.truncate(path.join(runtime, 'codex'), binaryBytes);
-  const binaryChecksum = createHash('sha256');
-  for await (const chunk of createReadStream(path.join(runtime, 'codex'))) binaryChecksum.update(chunk);
+  const executables = {};
+  for (const [name, bytes] of Object.entries({ codex: binaryBytes, 'codex-code-mode-host': hostBytes })) {
+    const file = path.join(runtime, name);
+    await fs.writeFile(file, binary, { mode: 0o755 });
+    await fs.truncate(file, bytes);
+    const checksum = createHash('sha256');
+    for await (const chunk of createReadStream(file)) checksum.update(chunk);
+    executables[name] = { sha256: checksum.digest('hex'), bytes };
+    binary[64]++;
+  }
   const compiler = `rustc ${recipe.rustToolchain} (synthetic packaging fixture)\nhost: ${recipe.targets[platform].target}\n`;
   const source = Buffer.from(JSON.stringify({ schema: 1, recipeSha256, upstreamCommit: recipe.upstreamCommit, compiler, cargoEnvironment: recipe.cargoEnvironment, sourceFiles: JSON.parse(await fs.readFile(new URL('../../src/native-codex/source-files.json', import.meta.url), 'utf8')) }));
   await fs.writeFile(path.join(runtime, 'source.json'), source);
-  await fs.writeFile(path.join(runtime, 'manifest.json'), JSON.stringify({ schema: 1, platform, target: recipe.targets[platform].target, version: recipe.version, upstreamCommit: recipe.upstreamCommit, recipeSha256, sourceSha256: sha256(source), compiler, cargoEnvironment: recipe.cargoEnvironment, licenses: recipe.licenses, binary: { sha256: binaryChecksum.digest('hex'), bytes: binaryBytes } }));
+  await fs.writeFile(path.join(runtime, 'manifest.json'), JSON.stringify({ schema: 2, platform, target: recipe.targets[platform].target, version: recipe.version, upstreamCommit: recipe.upstreamCommit, recipeSha256, sourceSha256: sha256(source), compiler, cargoEnvironment: recipe.cargoEnvironment, licenses: recipe.licenses, executables }));
   for (const name of ['native-codex-command.lib.mjs', 'native-agent-command.lib.mjs']) await fs.copyFile(new URL(`../../src/${name}`, import.meta.url), path.join(src, name));
   const commandApi = await import(pathToFileURL(path.join(src, 'native-codex-command.lib.mjs')));
   const api = await import(pathToFileURL(path.join(src, 'native-codex-runtime.lib.mjs')));

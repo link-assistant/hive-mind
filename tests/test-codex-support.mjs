@@ -531,6 +531,16 @@ test('Codex error summary unwraps unsupported ChatGPT-account model errors', () 
   assert.match(summary.message, /ChatGPT account/);
 });
 
+test('Codex error summary reports required Code Mode failure even after turn completion', () => {
+  const failure = 'Code Mode is unavailable because failed to spawn code-mode host codex-code-mode-host: host executable was not found. Code mode will fail closed; enable `features.code_mode_host` and install `codex-code-mode-host`.';
+  const fallback = 'Code Mode is unavailable. Falling back to direct tools.';
+  const state = parseCodexExecJsonOutput([{ type: 'thread.started', thread_id: 'host-test' }, { type: 'turn.started' }, { type: 'item.completed', item: { id: 'item_0', type: 'error', message: failure } }, { type: 'item.completed', item: { id: 'item_1', type: 'error', message: fallback } }, { type: 'turn.completed' }].map(event => JSON.stringify(event)).join('\n'));
+  const summary = getCodexErrorEventSummary(state);
+  assert.equal(summary.hasError, true, 'a failure to start required tool execution stays fatal');
+  assert.equal(summary.message, failure, 'the reported error identifies the unavailable host');
+  assert.equal(summary.ignoredEvents[0].message, fallback, 'fallback warnings retain the completed turn behavior');
+});
+
 test('Codex error summary ignores non-fatal app-server stream lag item errors', () => {
   const jsonl = ['{"type":"thread.started","thread_id":"thread_issue_1696"}', '{"type":"item.completed","item":{"id":"item_115","type":"error","message":"in-process app-server event stream lagged; dropped 133 events"}}', '{"type":"item.completed","item":{"id":"item_116","type":"error","message":"in-process app-server event stream lagged; dropped 1 events"}}', '{"type":"turn.completed","usage":{"input_tokens":1200,"cached_input_tokens":200,"output_tokens":50}}'].join('\n');
 

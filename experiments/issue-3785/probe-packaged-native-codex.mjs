@@ -21,6 +21,7 @@ const sourceBefore = await fs.stat(path.join(source, 'codex'));
 const destination = path.join(output, 'runtime');
 const ready = await installNativeCodexRuntime({ destination });
 assert.equal(ready.version, '0.172.0');
+process.env.CODEX_PROBE_VERSION = ready.version;
 assert.equal((await verifyNativeCodexRuntime(destination)).entrypoint, ready.entrypoint);
 const published = await fs.lstat(destination);
 assert.equal((await installNativeCodexRuntime({ destination })).entrypoint, ready.entrypoint);

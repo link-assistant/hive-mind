@@ -49,6 +49,7 @@ def run(binary, scenario, negative, diagnostic_file=None):
     observed = []
     invalid = []
     registrations = []
+    version = os.environ.get("CODEX_PROBE_VERSION", "0.164.0")
 
     class Handler(BaseHTTPRequestHandler):
         def setup(self):
@@ -103,7 +104,7 @@ def run(binary, scenario, negative, diagnostic_file=None):
                 self.reply(400, {})
 
         def do_GET(self):
-            if self.path in ("/v1/models", "/v1/models?client_version=0.164.0"):
+            if self.path in ("/v1/models", f"/v1/models?client_version={version}"):
                 self.reply(200, {"models": []})
             elif not background(self):
                 invalid.append(("GET", self.path[:200]))

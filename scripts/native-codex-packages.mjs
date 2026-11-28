@@ -42,13 +42,14 @@ import { analyzePublishResult, runCommand, sleep } from './publish-to-npm.mjs';
 
 const execute = promisify(execFile);
 const repository = fileURLToPath(new URL('../', import.meta.url));
+const readRecipe = async (file = path.join(repository, 'src/native-codex/recipe.json')) => JSON.parse(await fs.readFile(file, 'utf8'));
 
 export const variantName = (name, platform) => `${name}-native-codex-${platform}`;
 export const variantVersion = (version, platform) => `${version}-native-codex-${platform}`;
 export const variantTag = platform => `native-codex-${platform}`;
 
-export async function readPlatforms(recipeFile = path.join(repository, 'src/native-codex/recipe.json')) {
-  return Object.keys(JSON.parse(await fs.readFile(recipeFile, 'utf8')).targets);
+export async function readPlatforms(recipeFile) {
+  return Object.keys((await readRecipe(recipeFile)).targets);
 }
 
 /** The variant's whole manifest: no scripts, bins or dependencies to run on install. */
@@ -56,7 +57,7 @@ export function variantManifest(main, platform) {
   const manifest = {
     name: main.name,
     version: variantVersion(main.version, platform),
-    description: `Native Codex executable for ${main.name} on ${platform} (installed as ${variantName(main.name, platform)}).`,
+    description: `Native Codex runtime for ${main.name} on ${platform} (installed as ${variantName(main.name, platform)}).`,
     license: `SEE LICENSE IN runtime/${platform}/licenses/LICENSE`,
     os: [platform.split('-')[0]],
     cpu: [platform.split('-').slice(1).join('-')],
@@ -71,22 +72,24 @@ export function optionalDependenciesFor(main, platforms) {
 }
 
 /** Copy one assembled platform runtime; only regular, unaliased files are admitted. */
-async function copyRuntime(source, destination, top = true) {
+async function copyRuntime(source, destination, executableNames) {
   await fs.mkdir(destination, { recursive: true, mode: 0o755 });
   for (const entry of await fs.readdir(source, { withFileTypes: true })) {
     const from = path.join(source, entry.name);
     const to = path.join(destination, entry.name);
-    if (entry.isDirectory()) await copyRuntime(from, to, false);
+    if (entry.isDirectory()) await copyRuntime(from, to);
     else if (entry.isFile() && (await fs.lstat(from)).nlink === 1) {
       await fs.copyFile(from, to, fs.constants.COPYFILE_EXCL);
-      await fs.chmod(to, top && entry.name === 'codex' ? 0o755 : 0o644);
+      await fs.chmod(to, executableNames?.has(entry.name) ? 0o755 : 0o644);
     } else throw new Error(`Refusing a non-regular native runtime entry: ${from}`);
   }
 }
 
 export async function packVariants({ out, runtime = path.join(repository, 'src/native-codex/runtime'), main, platforms, verify = true, budget = NPM_TARBALL_BUDGET_BYTES, log = console.log } = {}) {
   main ??= JSON.parse(await fs.readFile(path.join(repository, 'package.json'), 'utf8'));
-  const known = await readPlatforms();
+  const recipe = await readRecipe();
+  const known = Object.keys(recipe.targets);
+  const executableNames = new Set(Object.keys(recipe.executables));
   platforms ??= known;
   const unknown = platforms.filter(platform => !known.includes(platform));
   if (unknown.length || !platforms.length) throw new Error(`Unsupported native Codex platforms: ${JSON.stringify(unknown)}; the recipe builds ${known.join(', ')}.`);
@@ -95,7 +98,7 @@ export async function packVariants({ out, runtime = path.join(repository, 'src/n
   for (const platform of platforms) {
     const stage = await fs.mkdtemp(path.join(os.tmpdir(), `hive-native-codex-${platform}-`));
     try {
-      await copyRuntime(path.join(runtime, platform), path.join(stage, 'runtime', platform));
+      await copyRuntime(path.join(runtime, platform), path.join(stage, 'runtime', platform), executableNames);
       await fs.writeFile(path.join(stage, 'package.json'), `${JSON.stringify(variantManifest(main, platform), null, 2)}\n`);
       const { stdout } = await execute('npm', ['pack', '--json', '--ignore-scripts', '--pack-destination', path.resolve(out)], { cwd: stage, maxBuffer: 1 << 22 });
       const [entry] = parseNpmPackEntries(stdout);

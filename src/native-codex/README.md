@@ -3,11 +3,13 @@
 `recipe.json` identifies the upstream commit, all adapter inputs, the compiler,
 release profile, supported Linux machines and upstream license notices.
 `scripts/build-native-codex.py` applies those checked inputs to a fresh checkout,
-records every changed source file, builds only the actual CLI, and packages the
-executable with its source inventory and provenance. It refuses changed inputs,
-changed prepared source, the wrong machine type, oversized executables and
-unexpected CLI versions. Compilation uses one Cargo job with debug information
-disabled and a pinned optimized profile.
+records every changed source file, and builds the CLI and its Code Mode host.
+It packages both executables with their source inventory and provenance. It
+refuses changed inputs, changed prepared source, the wrong machine type,
+oversized executables and unexpected CLI versions. Compilation uses one Cargo
+job with debug information disabled and a pinned optimized profile.
+The build verifies Codex's sandboxed V8 archive and Rust binding against the
+checksums in the pinned source before passing them to Cargo.
 
 The release-build workflow compiles on native x64 and arm64 Ubuntu runners, then
 exercises actual status, reauthentication, logout and model request controls
@@ -15,8 +17,8 @@ against each packaged binary. Its artifacts are build outputs with finite CI
 retention; they are not a production runtime download service.
 
 The assembly job checks both platform manifests, source fingerprints, executable
-identities and every license before copying any output. It restores the known
-CLI executable modes lost by artifact downloads, then checks the assembled
+identities and every license before copying any output. It restores both
+executable modes lost by artifact downloads, then checks the assembled
 payload again. Since issue #4050 each platform payload is its own npm variant
 package (`@link-assistant/hive-mind@<version>-native-codex-linux-<arch>`), and the
 main tarball carries only this recipe; see `PACKAGES.md`. A real `npm pack`
@@ -29,10 +31,11 @@ must pin this package's exact version, and checks its complete identity before
 copying into a fresh private generation. It publishes only after the
 copied bytes verify, preserves collisions and admits existing generations only
 when they match this package's manifest. Dependent CI jobs install the actual
-npm archive on both native machines and run authentication/model request controls
-through that module's installed generation. These compiled-package checks pass
-on both native platforms at `f7b1f506d`; the case study preserves exact output
-identities in `evidence/ci-f7b1f506d-native-release.txt`.
+npm archive on both native machines and exercise authentication, model requests,
+and a Code Mode shell command through that module's installed generation.
+Earlier compiled-package controls passed on both native platforms at
+`f7b1f506d`. The case study preserves exact output identities in
+`evidence/ci-f7b1f506d-native-release.txt`.
 
 The normal and instant npm release jobs, and branch-package image checks, now
 require the same successful native build and assemble its two platform artifacts.

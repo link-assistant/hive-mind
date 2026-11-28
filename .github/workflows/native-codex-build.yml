@@ -124,7 +124,9 @@ jobs:
         with:
           # Diagnostic input only: never consumed by package assembly or runtime.
           name: native-codex-unadmitted-compiler-output-${{ matrix.platform }}
-          path: ${{ runner.temp }}/codex-release-source/codex-rs/target/*/release/codex
+          path: |
+            ${{ runner.temp }}/codex-release-source/codex-rs/target/*/release/codex
+            ${{ runner.temp }}/codex-release-source/codex-rs/target/*/release/codex-code-mode-host
           if-no-files-found: ignore
           retention-days: 14
       - name: Preserve the verified self-contained platform artifact
@@ -204,6 +206,8 @@ jobs:
           wait "$!"
           node experiments/issue-4116/installed-manager.mjs "$RUNNER_TEMP/codex-runtime-install" > "$RUNNER_TEMP/native-installed-manager.log" 2>&1
           node --max-old-space-size=256 experiments/issue-3785/probe-packaged-native-codex.mjs "$RUNNER_TEMP/codex-runtime-install/node_modules/@link-assistant/hive-mind" "$RUNNER_TEMP/native-installed-generation" "$RUNNER_TEMP/codex-runtime-install/node_modules/.bin/codex" > "$RUNNER_TEMP/native-installed-controls.log" 2>&1
+      - name: Run a shell command through the installed Code Mode host
+        run: node --max-old-space-size=96 experiments/issue-4159/probe-native-code-mode.mjs "$RUNNER_TEMP/codex-runtime-install/node_modules/.bin/codex" > "$RUNNER_TEMP/native-installed-code-mode.log" 2>&1
       - name: Preserve installed-package diagnostics
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7

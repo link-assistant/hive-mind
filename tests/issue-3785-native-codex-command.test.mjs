@@ -98,3 +98,15 @@ test('wrong stock metadata refuses before native generation or command publicati
   assert.deepEqual(await fs.readdir(path.dirname(f.source)), ['codex']);
   await assert.rejects(fs.access(f.ran), { code: 'ENOENT' });
 });
+
+test('activation from the stock link can coexist with an earlier runtime of the same Codex version', { timeout: 10000, skip: !supported }, async t => {
+  const f = await fixture(t);
+  const packaged = await nativeCodexPackagingFixture(t);
+  const previous = path.join(path.dirname(f.source), 'codex-hive-0.164.0');
+  await fs.symlink('previous-generation', previous, 'dir');
+  const ready = await packaged.commandApi.installNativeCodexCommand(f);
+  assert.equal(await fs.readlink(previous), 'previous-generation');
+  assert.equal(await fs.realpath(f.command), ready.entrypoint);
+  await fs.unlink(path.join(ready.root, 'codex-code-mode-host'));
+  await assert.rejects(packaged.commandApi.verifyNativeCodexCommand(f), /missing codex-code-mode-host/u);
+});

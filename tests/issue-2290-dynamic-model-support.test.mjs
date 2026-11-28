@@ -65,6 +65,10 @@ assert.match(warnings[0]?.message, /gpt-6\.2-sol.*missing.*Using "gpt-6\.1-sol"/
 const unavailableSol = await validateRuntimeModelName('gpt-6.2-sol', 'codex', { availableModels: previousCatalogue });
 assert.equal(unavailableSol.valid, false);
 assert.match(unavailableSol.message, /gpt-6\.2-sol.*codex debug models.*Upgrade Codex/u);
+const emptyCatalogue = await validateRuntimeModelName('gpt-6.2-sol', 'codex', { availableModels: [] });
+assert.equal(emptyCatalogue.valid, false);
+assert.match(emptyCatalogue.message, /gpt-6\.2-sol.*codex debug models.*Upgrade Codex/u);
+assert.equal((await validateRuntimeModelName('gpt-6.2-sol', 'codex', { availableModels: null })).valid, true);
 const oldAlias = await validateRuntimeModelName('openai/sol', 'codex', { availableModels: previousCatalogue });
 assert.equal(oldAlias.mappedModel, 'openai/gpt-6.1-sol');
 assert.match(oldAlias.warning, /gpt-6\.2-sol.*Using "openai\/gpt-6\.1-sol"/u);

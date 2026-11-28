@@ -581,8 +581,8 @@ const resolveLiveFamilyAlias = (baseModel, toolName, liveModelIds) => {
 };
 
 const discoverRuntimeModels = async (toolName, options) => {
-  const discovered = [];
-  if (toolName === 'codex') discovered.push(...normalizeRuntimeModelIds(await getInstalledCodexModels()));
+  const installed = toolName === 'codex' ? await getInstalledCodexModels() : null;
+  const discovered = normalizeRuntimeModelIds(installed);
 
   if (options.useRouter || options.loadCatalogue) {
     try {
@@ -595,7 +595,7 @@ const discoverRuntimeModels = async (toolName, options) => {
       traceModelResolution('live catalogue unavailable', { tool: toolName, error: error?.message });
     }
   }
-  return discovered;
+  return installed === null && discovered.length === 0 ? null : discovered;
 };
 
 /**
@@ -637,8 +637,10 @@ export const validateRuntimeModelName = async (model, tool = 'claude', options =
       .replace(/^openai[/.]/, '');
     // The installed Codex CLI is authoritative: a pinned model it no longer offers
     // fails only after the run starts, so say so while the user can still react.
-    if (toolName === 'codex' && liveModelIds.length > 0 && !liveModelIds.includes(bareModelId)) {
-      const warning = `Model "${model}" (${bareModelId}) is not in the installed Codex CLI's catalogue (codex debug models). Available models include ${listCodexModelNames(liveModelIds, [...installedCodexHiddenModels]).join(', ')}.`;
+    if (toolName === 'codex' && Array.isArray(availableModels) && !liveModelIds.includes(bareModelId)) {
+      const visibleModels = listCodexModelNames(liveModelIds, [...installedCodexHiddenModels]);
+      const choices = visibleModels.length ? ` Available models include ${visibleModels.join(', ')}.` : '';
+      const warning = `Model "${model}" (${bareModelId}) is not in the installed Codex CLI's catalogue (codex debug models).${choices}`;
       if (bareModelId === defaultModels.codex) {
         return { valid: false, message: `${warning} Upgrade Codex or choose an available model.` };
       }

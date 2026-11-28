@@ -19,6 +19,7 @@ services:
       # Claude/AI Configuration
       - CLAUDE_API_KEY
       - ANTHROPIC_API_KEY
+      - GEMINI_HISTORY_HOME=/home/box/.hive-mind-gemini-history
 
       # YouTrack Configuration
       - YOUTRACK_URL
@@ -63,6 +64,10 @@ services:
       - ./claude-config:/home/box/.claude
       - ./codex-config:/home/box/.codex
       - ./config:/home/box/.config
+      - ./hive-state:/home/box/.hive-mind
+      - ./agent-data:/home/box/.local/share/link-assistant-agent
+      - ./opencode-data:/home/box/.local/share/opencode
+      - ./gemini-history:/home/box/.hive-mind-gemini-history
 
       # GitHub CLI config persistence
       - ./gh-config:/home/box/.config/gh
@@ -84,8 +89,8 @@ services:
     logging:
       driver: json-file
       options:
-        max-size: "10m"
-        max-file: "5"
+        max-size: '10m'
+        max-file: '5'
 
     # Network mode - using bridge for isolation
     network_mode: bridge
@@ -96,7 +101,7 @@ services:
 
     # Health check
     healthcheck:
-      test: ["CMD", "pgrep", "-f", "hive.mjs"]
+      test: ['CMD', 'pgrep', '-f', 'hive.mjs']
       interval: 30s
       timeout: 10s
       retries: 3

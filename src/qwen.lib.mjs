@@ -43,6 +43,7 @@ import { ensureGeminiFamilyMemoryDisabled, isAgentMemoryDisabled } from './agent
 import { ensureGeminiFamilyAuxiliaryDisabled, isAuxiliaryModelCallsDisabled } from './auxiliary-model-calls-policy.lib.mjs'; // Issue #2236
 import { applyGeminiFamilyPricingTier } from './pricing-tier.lib.mjs'; // Issue #2771
 import { logFinalPrompts } from './prompt-log.lib.mjs';
+import { createQwenTaskRuntime } from './qwen-runtime.lib.mjs';
 
 export const mapModelToId = model => qwenModels[model] || model;
 
@@ -506,6 +507,7 @@ export const executeQwen = async params => {
 export const executeQwenCommand = async params => {
   const { tempDir, branchName, prompt, systemPrompt: originalSystemPrompt, argv, log, formatAligned = (_icon, label, value = '') => `${label} ${value}`.trim(), getResourceSnapshot = async () => ({ memory: '\nunknown', load: 'unknown' }), forkedRepo, feedbackLines, qwenPath = 'qwen', $: dollar = $, waitForRetryDelay = waitWithCountdown } = params;
   const systemPrompt = withGeolocationPolicy(originalSystemPrompt, argv);
+  let runtimeDir = process.env.QWEN_RUNTIME_DIR;
 
   let retryCount = 0;
   // Issue #2169: retries are bounded by a wall-clock budget (12 h by default, configurable via
@@ -587,6 +589,8 @@ export const executeQwenCommand = async params => {
 
     try {
       if (argv.useRouter === true) qwenEnv.HIVE_MIND_USE_ROUTER = '1';
+      runtimeDir ||= await createQwenTaskRuntime();
+      qwenEnv.QWEN_RUNTIME_DIR = runtimeDir;
       assertRouterTaskAuthentication({ tool: 'qwen', cwd: tempDir, env: qwenEnv });
       const launch = dollar({
         cwd: tempDir,

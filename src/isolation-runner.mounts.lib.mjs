@@ -8,8 +8,11 @@ import { prepareStorageDirectory } from './storage-directory.lib.mjs';
 import { nativeAuthDockerProjection } from './native-auth-docker.lib.mjs';
 import { resolveClaudeConfigDirectory } from './claude-paths.lib.mjs';
 import { ensureClaudeAuthAuthority } from './claude-auth-authority.lib.mjs';
+import { CODEX_GENERATED_IMAGES_DIRNAME } from './codex-sessions.lib.mjs';
+import { createQwenTaskRuntime } from './qwen-runtime.lib.mjs';
 
 export const DOCKER_CONTAINER_HOME = '/home/box';
+const qwenRuntimeTarget = path.join(DOCKER_CONTAINER_HOME, '.hive-mind', 'qwen-runtime');
 function normalizeTool(tool) {
   return String(tool || 'claude')
     .trim()
@@ -51,7 +54,7 @@ async function maybeAddMount(mounts, source, target, exists) {
 /**
  * Per-tool host paths that a Docker-isolated task receives (issue #2190).
  *
- * Only the credential *file* and the session/transcript *directories* are
+ * Only credentials and the session and artifact *directories* are
  * mounted — never the whole `~/.claude` / `~/.codex` application directory and
  * never `~/.claude.json` or `~/.agents`:
  *
@@ -70,7 +73,7 @@ async function maybeAddMount(mounts, source, target, exists) {
  */
 export const DOCKER_ISOLATION_TOOL_MOUNTS = Object.freeze({
   claude: Object.freeze([Object.freeze({ relativePath: path.join('.claude', '.credentials.json'), kind: 'file', role: 'auth' }), Object.freeze({ relativePath: path.join('.claude', 'projects'), kind: 'dir', role: 'sessions' }), Object.freeze({ relativePath: path.join('.claude', 'sessions'), kind: 'dir', role: 'sessions' })]),
-  codex: Object.freeze([Object.freeze({ relativePath: path.join('.codex', 'auth.json'), kind: 'file', role: 'auth' }), Object.freeze({ relativePath: path.join('.codex', 'sessions'), kind: 'dir', role: 'sessions' }), Object.freeze({ relativePath: path.join('.codex', 'archived_sessions'), kind: 'dir', role: 'sessions' }), Object.freeze({ relativePath: path.join('.codex', 'thread-writer-locks'), kind: 'dir', role: 'coordination' }), Object.freeze({ relativePath: path.join('.codex', 'rollout-migrations'), kind: 'dir', role: 'coordination' })]),
+  codex: Object.freeze([Object.freeze({ relativePath: path.join('.codex', 'auth.json'), kind: 'file', role: 'auth' }), Object.freeze({ relativePath: path.join('.codex', 'sessions'), kind: 'dir', role: 'sessions' }), Object.freeze({ relativePath: path.join('.codex', 'archived_sessions'), kind: 'dir', role: 'sessions' }), Object.freeze({ relativePath: path.join('.codex', 'thread-writer-locks'), kind: 'dir', role: 'coordination' }), Object.freeze({ relativePath: path.join('.codex', 'rollout-migrations'), kind: 'dir', role: 'coordination' }), Object.freeze({ relativePath: path.join('.codex', CODEX_GENERATED_IMAGES_DIRNAME), kind: 'dir', role: 'artifacts' })]),
 });
 /**
  * Is `relativePath` covered by one of the router-suppressed credential paths?
@@ -152,11 +155,25 @@ export async function prepareDockerIsolationHostPaths({ tool = 'claude', homeDir
   if (useRouter) return { created, missingAuth };
   const normalizedTool = normalizeTool(tool);
   admitNativeStorageProjection(normalizedTool, env, useRouter);
-  // Issue #3785: move a conventional Claude credential file into the shared
-  // authority so the task shares its refresh locks, not only its bytes.
-  if (normalizedTool === 'claude') claudeHistoryRoot(env, homeDir);
-  if (normalizedTool === 'claude') await ensureClaudeAuthAuthority({ env, homeDir, establish: true, io: fsImpl.promises });
-  const nativeAuth = await nativeAuthDockerProjection({ tool: normalizedTool, env, homeDir });
+  // Adopt Claude credentials before creating the child projection.
+  if (normalizedTool === 'claude') {
+    claudeHistoryRoot(env, homeDir);
+    await ensureClaudeAuthAuthority({ env, homeDir, establish: true, io: fsImpl.promises });
+  }
+  let nativeAuth = await nativeAuthDockerProjection({ tool: normalizedTool, env, homeDir });
+  let storageEnv;
+  if (normalizedTool === 'gemini' && env.GEMINI_HISTORY_HOME === undefined && env.HIVE_MIND_GEMINI_HISTORY_IDENTITY === undefined) {
+    const history = path.join(homeDir, '.hive-mind', 'canonical', 'gemini-history');
+    const directory = await prepareStorageDirectory(history, { io: fsImpl.promises });
+    if (directory.created) created.push(history);
+    storageEnv = { GEMINI_HISTORY_HOME: history };
+    env = { ...env, ...storageEnv };
+    nativeAuth = await nativeAuthDockerProjection({ tool: normalizedTool, env, homeDir });
+  }
+  if (normalizedTool === 'qwen') {
+    const source = await createQwenTaskRuntime({ homeDir, io: fsImpl.promises });
+    return { created: [source], missingAuth, taskData: { mount: { source, target: qwenRuntimeTarget }, env: { QWEN_RUNTIME_DIR: qwenRuntimeTarget } } };
+  }
   const data = await prepareToolDataMount({ tool: normalizedTool, homeDir, env, io: fsImpl.promises });
   if (data) return { ...data, missingAuth };
   for (const entry of DOCKER_ISOLATION_TOOL_MOUNTS[normalizedTool] || []) {
@@ -177,5 +194,5 @@ export async function prepareDockerIsolationHostPaths({ tool = 'claude', homeDir
       missingAuth.push(hostPath);
     }
   }
-  return { created, missingAuth, ...(nativeAuth ? { nativeAuthIdentity: nativeAuth.identity } : {}) };
+  return { created, missingAuth, ...(nativeAuth ? { nativeAuthIdentity: nativeAuth.identity } : {}), ...(storageEnv ? { storageEnv } : {}) };
 }

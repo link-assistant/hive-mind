@@ -35,6 +35,7 @@ import { buildMcpConfigWithoutPlaywright, ensureClaudePlaywrightMcpServer } from
 import { resolveClaudeSessionToolFlags } from './useless-tools.lib.mjs';
 import { resolveRepositoryClaudePluginArgs } from './claude-repository-config.lib.mjs';
 import { ensureClaudeQuietConfig } from './claude-quiet-config.lib.mjs';
+import { prepareClaudeTaskHome } from './claude-task-home.lib.mjs';
 import { fetchModelInfo } from './model-info.lib.mjs';
 import { classifyRetryableError, createTransientRetryBudget, describeClassificationEvidence, logExecutionContext, prepareRetryAfterError, waitWithCountdown } from './tool-retry.lib.mjs';
 import { createRetryProgressObserver } from './tool-retry-progress.lib.mjs';
@@ -217,6 +218,7 @@ export const executeClaudeCommand = async params => {
   let incompleteTurnPrompt = null;
   // Issue #1834: resume before a fresh restart; preserve recovery caps across retries.
   const tryThinkingBlockRecovery = createThinkingBlockRecovery({ argv, tempDir, branchName, $, log });
+  let taskHome;
   const executeWithRetry = async () => {
     const promptForAttempt = [prompt, baseBranchInterventionPrompt, incompleteTurnPrompt].filter(Boolean).join('\n\n');
     if (retryCount === 0) {
@@ -359,8 +361,12 @@ export const executeClaudeCommand = async params => {
       claudeArgs = `--resume ${argv.resume} ${claudeArgs}`;
     }
     const claudeWorkLanguage = await import('./i18n.lib.mjs').then(i18n => i18n.getWorkLocale?.() ?? null).catch(() => null);
-    await ensureClaudeQuietConfig({ log, workLanguage: claudeWorkLanguage });
-    const { mcpConfigPath, disallowedToolsList } = await resolveClaudeSessionToolFlags({ argv, log, fallbackBuildMcpConfigWithoutPlaywright: buildMcpConfigWithoutPlaywright, projectDir: tempDir });
+    if (!useRouter && !process.env.HIVE_MIND_PARENT_SESSION_ID && !taskHome) {
+      await ensureClaudeAuthAuthority({ env: process.env, establish: false, verbose: !!argv.verbose });
+      taskHome = await prepareClaudeTaskHome({ enablePlaywright: argv.playwrightMcp !== false });
+    }
+    await ensureClaudeQuietConfig({ log, workLanguage: claudeWorkLanguage, settingsPath: taskHome?.settingsPath });
+    const { mcpConfigPath, disallowedToolsList } = await resolveClaudeSessionToolFlags({ argv, log, fallbackBuildMcpConfigWithoutPlaywright: buildMcpConfigWithoutPlaywright, projectDir: tempDir, mcpStatePath: taskHome?.mcpStatePath });
     if (mcpConfigPath) claudeArgs += ` --strict-mcp-config --mcp-config "${mcpConfigPath}"`;
     const { args: repositoryPluginArgs } = await resolveRepositoryClaudePluginArgs({ projectDir: tempDir, log }); // Issue #3785: repository plugins, this session only
     for (let i = 1; i < repositoryPluginArgs.length; i += 2) claudeArgs += ` --plugin-dir "${repositoryPluginArgs[i]}"`;
@@ -392,8 +398,8 @@ export const executeClaudeCommand = async params => {
       await log(`💰 Pricing tier: ${describePricingTier(claudePricingTier)}${claudeContextModel.changed ? ` — model ${argv.model} runs as ${claudeContextModel.model}` : ''}${subSessionSizeCapped ? ` — --sub-session-size capped to ${parsedSubSessionSize.tokens} tokens` : ''}`, { verbose: !claudeContextModel.changed && !subSessionSizeCapped });
       // Issue #817: streaming mode sets exitAfterStopDelayMs=60000 so the headless Claude process stays alive between NDJSON turns.
       // Issue #2130: `toolInvocation.env` points the native CLI at the local Formal AI server (base URL + API key).
-      if (!useRouter) await ensureClaudeAuthAuthority({ env: process.env, establish: false, verbose: !!argv.verbose }).catch(error => log(`❌ ${error.message}`, { level: 'error' }).then(() => Promise.reject(error)));
-      const claudeEnv = { ...getClaudeEnv({ thinkingBudget: resolvedThinkingBudget, model: effectiveModel, thinkLevel, maxBudget, planModel: resolvedPlanModel, executionModel: resolvedExecutionModel, subAgentModel: resolvedSubAgentModel, showThinkingContent: argv.showThinkingContent, exitAfterStopDelayMs: streamingInput ? 60_000 : undefined, subSessionSize: parsedSubSessionSize, contextWindowTokens, pricingTier: claudePricingTier }), ...toolInvocation.env, ...buildGeolocationEnv(argv) };
+      if (!useRouter && !taskHome) await ensureClaudeAuthAuthority({ env: process.env, establish: false, verbose: !!argv.verbose }).catch(error => log(`❌ ${error.message}`, { level: 'error' }).then(() => Promise.reject(error)));
+      const claudeEnv = { ...getClaudeEnv({ thinkingBudget: resolvedThinkingBudget, model: effectiveModel, thinkLevel, maxBudget, planModel: resolvedPlanModel, executionModel: resolvedExecutionModel, subAgentModel: resolvedSubAgentModel, showThinkingContent: argv.showThinkingContent, exitAfterStopDelayMs: streamingInput ? 60_000 : undefined, subSessionSize: parsedSubSessionSize, contextWindowTokens, pricingTier: claudePricingTier }), ...toolInvocation.env, ...taskHome?.env, ...buildGeolocationEnv(argv) };
       if (useRouter) claudeEnv.HIVE_MIND_USE_ROUTER = '1';
       if (argv.verbose) claudeEnv.ANTHROPIC_LOG = 'debug';
       claudeBaseUrl = (await claudeAttribution.prepareEnv(claudeEnv)).ANTHROPIC_BASE_URL || null; // Issue #3279: attribution hooks via GIT_CONFIG_*; endpoint kept for pricing
@@ -1336,7 +1342,7 @@ export const executeClaudeCommand = async params => {
       await finalizeAttemptInput().catch(() => {});
     }
   }; // End of executeWithRetry function
-  const claudeResult = (await executeWithRetry().finally(() => claudeAttribution.finalize({ branchName }))) || {}; // Start with retry logic; attribution is finalized on every path (issue #3279)
+  const claudeResult = (await executeWithRetry().finally(() => Promise.all([claudeAttribution.finalize({ branchName }), taskHome?.dispose()]))) || {};
   // Issue #2119, #3279: price by the model that answered (Formal AI: $0); a non-Anthropic model behind a non-Anthropic ANTHROPIC_BASE_URL loses Claude's Anthropic list price.
   const servedPricing = applyServedModelPricing({ tool: 'claude', model: argv.model, servedModels: Object.keys(claudeResult.resultModelUsage || {}), baseUrl: claudeBaseUrl, pricingInfo: claudeResult.pricingInfo ?? null, publicPricingEstimate: claudeResult.publicPricingEstimate ?? null, anthropicTotalCostUSD: claudeResult.anthropicTotalCostUSD ?? null, tokenUsage: claudeResult.streamTokenUsage ?? null, resultModelUsage: claudeResult.resultModelUsage ?? null });
   return { ...claudeResult, ...servedPricing };

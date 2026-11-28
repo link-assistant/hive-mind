@@ -39,7 +39,7 @@ assert.deepEqual(applyCodexCapabilityEnv({ PATH: '/bin' }, { codexHome: statePat
 const mounts = await getDockerIsolationAuthMounts({
   tool: 'codex',
   homeDir: '/persistent',
-  existsSync: candidate => ['auth.json', 'sessions', 'archived_sessions', 'thread-writer-locks', 'rollout-migrations'].some(entry => candidate === `${baseHome}/${entry}`),
+  existsSync: candidate => ['auth.json', 'sessions', 'archived_sessions', 'thread-writer-locks', 'rollout-migrations', 'generated_images'].some(entry => candidate === `${baseHome}/${entry}`),
 });
 assert.deepEqual(mounts, [
   { source: `${baseHome}/auth.json`, target: '/home/box/.codex/auth.json' },
@@ -47,6 +47,7 @@ assert.deepEqual(mounts, [
   { source: `${baseHome}/archived_sessions`, target: '/home/box/.codex/archived_sessions' },
   { source: `${baseHome}/thread-writer-locks`, target: '/home/box/.codex/thread-writer-locks' },
   { source: `${baseHome}/rollout-migrations`, target: '/home/box/.codex/rollout-migrations' },
+  { source: `${baseHome}/generated_images`, target: '/home/box/.codex/generated_images' },
 ]);
 const everything = await getDockerIsolationAuthMounts({ tool: 'codex', homeDir: '/persistent', existsSync: () => true });
 assert(!everything.some(mount => mount.source === baseHome || mount.source === '/persistent/.agents'), 'Docker isolation no longer propagates the whole .codex directory or the user Agent Skills folder (issue #2190)');

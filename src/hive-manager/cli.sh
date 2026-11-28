@@ -502,7 +502,7 @@ init_state() {
   (
     local item stage
     local missing=()
-    for item in claude codex agents gh git hive start-command start-logs; do
+    for item in claude codex agent-data opencode-data gemini-history gh git hive start-command start-logs; do
       if [[ ! -e $state_dir/$item && ! -L $state_dir/$item ]]; then
         missing+=("$item")
       else
@@ -537,6 +537,9 @@ init_state() {
             cp -- "/home/box/.$config" "/mnt/$config"
           fi
         done
+        if [[ -f /mnt/claude.json && -f /home/box/.claude.json ]]; then
+          cp -- /home/box/.claude.json /mnt/claude.json
+        fi
         if [[ -d /mnt/git && ! -e /mnt/git/config ]]; then touch /mnt/git/config; fi
         chown -R box:box /mnt/*
       '
@@ -555,13 +558,16 @@ deployment_args() {
     --mount "type=bind,source=$state_dir/claude,target=/home/box/.claude"
     --mount "type=bind,source=$state_dir/claude.json,target=/home/box/.claude.json"
     --mount "type=bind,source=$state_dir/codex,target=/home/box/.codex"
-    --mount "type=bind,source=$state_dir/agents,target=/home/box/.agents"
+    --mount "type=bind,source=$state_dir/agent-data,target=/home/box/.local/share/link-assistant-agent"
+    --mount "type=bind,source=$state_dir/opencode-data,target=/home/box/.local/share/opencode"
+    --mount "type=bind,source=$state_dir/gemini-history,target=/home/box/.hive-mind-gemini-history"
     --mount "type=bind,source=$state_dir/gh,target=/home/box/.config/gh"
     --mount "type=bind,source=$state_dir/git,target=/home/box/.config/git"
     --mount "type=bind,source=$state_dir/hive,target=/home/box/.hive-mind"
     --mount "type=bind,source=$state_dir/start-command,target=/home/box/.start-command"
     --mount "type=bind,source=$state_dir/start-logs,target=/tmp/start-command/logs"
     --env GIT_CONFIG_GLOBAL=/home/box/.config/git/config
+    --env GEMINI_HISTORY_HOME=/home/box/.hive-mind-gemini-history
   )
   if [[ $variant == plain && ! $socket ]]; then
     admission_flags+=(--env TELEGRAM_ISOLATION=screen)
@@ -881,9 +887,10 @@ apply_deployment() {
   fi
   init_state
 
-  # Validate stock binaries and the image baseline without mounting live state.
+  # Validate the installed binaries and the effective root configuration,
+  # including restored state, before setup or custom commands can use it.
   # Validate bot configuration separately before stopping the active instance.
-  docker run --pull never --rm --network none --user box --entrypoint bash "$image_id" -c '
+  docker run --pull never --rm --network none "${admission_flags[@]}" --entrypoint bash "$image_id" -c '
     set -e
     hive_source=$(readlink -f "$(command -v hive)")
     verifier=${hive_source%/*}/verify-agent-runtime.mjs

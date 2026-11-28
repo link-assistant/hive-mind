@@ -30,7 +30,15 @@ fi
 # Fix Claude and GitHub config directories
 echo "  - Setting up Claude and GitHub directories"
 mkdir -p "$BOX_HOME/.claude/plugins" "$BOX_HOME/.config/gh" "$BOX_HOME/.codex"
+if [[ ! -e $BOX_HOME/.codex/config.toml && ! -L $BOX_HOME/.codex/config.toml ]]; then
+  cp -- /usr/local/share/hive-mind/codex-config.toml "$BOX_HOME/.codex/config.toml" || exit 1
+fi
 chown -R box:box "$BOX_HOME/.claude" "$BOX_HOME/.config" "$BOX_HOME/.codex"
+for directory in .hive-mind .local/share/link-assistant-agent .local/share/opencode .hive-mind-gemini-history; do
+  if [[ -d $BOX_HOME/$directory ]]; then
+    chown box:box "$BOX_HOME/$directory" && chmod 700 "$BOX_HOME/$directory" || exit 1
+  fi
+done
 chown -R box:box /app/claude-logs /app/claude-sessions /app/output 2>/dev/null || true
 
 # Ensure /tmp has proper permissions for git operations

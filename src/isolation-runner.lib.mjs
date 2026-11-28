@@ -219,6 +219,10 @@ export async function buildDockerIsolationStartArgs(command, args = [], options 
   const nativeAuth = !routerWired && (await nativeAuthDockerProjection({ tool: normalizeTool(tool), env, homeDir, expectedIdentity: options.nativeAuthIdentity }));
   const mounts = await getDockerIsolationAuthMounts({ tool, env, homeDir, existsSync: exists, useRouter: routerWired, ghRouted: routerWired && routerGitHub.mode !== 'off', nativeAuthIdentity: nativeAuth?.identity });
   if (nativeAuth) for (const [name, value] of Object.entries(nativeAuth.env)) startArgs.push('-e', `${name}=${value}`);
+  if (options.taskData) {
+    mounts.push(options.taskData.mount);
+    for (const [name, value] of Object.entries(options.taskData.env)) startArgs.push('-e', `${name}=${value}`);
+  }
   // Issue #2164 (R13): a routed task also loses the ability to destroy remote
   // history by accident. The hook lives on the host and is mounted read-only, so
   // the task cannot edit the rule it is being held to; git is pointed at it with
@@ -432,6 +436,8 @@ export async function executeWithIsolation(command, args, options = {}) {
       const prepared = await prepareDockerIsolationHostPaths({ tool: effectiveOptions.tool, homeDir: effectiveOptions.homeDir || os.homedir(), env: effectiveOptions.env, useRouter: Boolean(router) });
       effectiveOptions.sharedDataIdentity = prepared.identity;
       effectiveOptions.nativeAuthIdentity = prepared.nativeAuthIdentity;
+      effectiveOptions.taskData = prepared.taskData;
+      if (prepared.storageEnv) effectiveOptions.env = { ...effectiveOptions.env, ...prepared.storageEnv };
       for (const dir of prepared.created) if (verbose) console.log(`[VERBOSE] isolation-runner: created host directory for task mounts: ${dir}`);
       for (const file of prepared.missingAuth) console.warn(`[WARN] isolation-runner: ${file} is missing on the host; the task container will start without ${effectiveOptions.tool ?? 'claude'} credentials`);
     } catch (error) {
@@ -470,6 +476,7 @@ export async function executeWithIsolation(command, args, options = {}) {
       const env = effectiveOptions.env || process.env;
       const image = getDockerIsolationImage({ env });
       const mounts = await getDockerIsolationAuthMounts({ tool: effectiveOptions.tool, env, homeDir: effectiveOptions.homeDir || os.homedir(), existsSync: effectiveOptions.existsSync || pathExists, useRouter: Boolean(router) });
+      if (effectiveOptions.taskData) mounts.push(effectiveOptions.taskData.mount);
       console.log('[VERBOSE] isolation-runner: Docker isolation backend: native ($ --isolated docker)');
       console.log(`[VERBOSE] isolation-runner: Docker isolation image: ${image}`);
       console.log(`[VERBOSE] isolation-runner: Docker isolation privileged: ${shouldRunPrivilegedDockerIsolation(image, env)}`);

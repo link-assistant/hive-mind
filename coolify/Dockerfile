@@ -286,6 +286,8 @@ RUN --mount=type=bind,source=.,target=/tmp/hive-mind-source,readonly \
     bun install --backend=copyfile -g gh-load-pull-request && \
     bun install --backend=copyfile -g gh-upload-log@latest
 
+RUN --network=none node "$(dirname "$(readlink -f "$(command -v hive)")")/install-native-gemini.mjs"
+
 # --- Playwright MCP Setup ---
 # Box 2.1.1 pre-installs Playwright browsers and @playwright/test.
 # We only add @playwright/mcp (AI-specific MCP server for Claude/Codex).
@@ -361,6 +363,7 @@ RUN mkdir -p /home/box/.claude && \
 # Minimal USER root: only for creating /app directory and copying files.
 # All /home/box operations run as box user to prevent permission issues (issue #1505).
 USER root
+RUN install -D -m 644 /home/box/.codex/config.toml /usr/local/share/hive-mind/codex-config.toml
 WORKDIR /app
 
 # Copy application files from repo root

@@ -39,7 +39,7 @@ await fs.chmod(lifecycleFixture, 0o777);
 const socket = '/var/run/docker.sock';
 const socketGroup = String((await fs.stat(socket)).gid);
 try {
-  const historyDirectories = ['sessions', 'archived_sessions', 'thread-writer-locks', 'rollout-migrations'];
+  const historyDirectories = ['sessions', 'archived_sessions', 'thread-writer-locks', 'rollout-migrations', 'generated_images'];
   for (const directory of historyDirectories) await fs.mkdir(path.join(fixture, 'home/.codex', directory), { recursive: true });
   for (const relative of ['', 'home', 'home/.codex', ...historyDirectories.map(directory => `home/.codex/${directory}`)]) await fs.chmod(path.join(fixture, relative), 0o777);
   await fs.writeFile(path.join(fixture, 'home/.codex/auth.json'), '{"synthetic":"canonical"}', { mode: 0o644 });

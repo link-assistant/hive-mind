@@ -42,15 +42,18 @@ for (const kinds of [['auth', 'history'], ['auth'], ['history']]) {
     const f = await fixture(t);
     for (const kind of ['auth', 'history']) if (!kinds.includes(kind)) delete f.options.env[selectors[kind]];
     const prepared = await prepareDockerIsolationHostPaths(f.options);
-    assert.deepEqual(prepared.created, []);
+    const defaultHistory = path.join(f.homeDir, '.hive-mind/canonical/gemini-history');
+    assert.deepEqual(prepared.created, kinds.includes('history') ? [] : [defaultHistory]);
     assert.deepEqual(prepared.missingAuth, []);
-    const mounts = await getDockerIsolationAuthMounts({ ...f.options, nativeAuthIdentity: prepared.nativeAuthIdentity });
-    const args = await buildDockerIsolationStartArgs('solve', [], { ...f.options, nativeAuthIdentity: prepared.nativeAuthIdentity, sessionId: 'synthetic-gemini-projection' });
+    const options = { ...f.options, env: { ...f.options.env, ...prepared.storageEnv }, nativeAuthIdentity: prepared.nativeAuthIdentity };
+    const mounts = await getDockerIsolationAuthMounts(options);
+    const args = await buildDockerIsolationStartArgs('solve', [], { ...options, sessionId: 'synthetic-gemini-projection' });
     for (const kind of kinds) {
       assert.ok(mounts.some(mount => mount.source === f[kind] && mount.target === targets[kind]));
       assert.ok(args.includes(`${selectors[kind]}=${targets[kind]}`));
       assert.ok(args.includes(`${markers[kind]}=${await identity(f[kind])}`));
     }
+    if (!kinds.includes('history')) assert.ok(mounts.some(mount => mount.source === defaultHistory && mount.target === targets.history));
     assert.equal(
       mounts.some(mount => mount.source === f.configuration || mount.source.endsWith('/oauth_creds.json')),
       false
@@ -157,13 +160,15 @@ test('Gemini Router suppression does not inspect vendor storage', { timeout: 100
   );
 });
 
-test('ordinary unselected Gemini keeps independent task state', { timeout: 10000 }, async t => {
+test('ordinary unselected Gemini only shares the default history directory', { timeout: 10000 }, async t => {
   const f = await fixture(t);
   const options = { ...f.options, env: {} };
-  assert.deepEqual(await prepareDockerIsolationHostPaths(options), { created: [], missingAuth: [] });
-  const mounts = await getDockerIsolationAuthMounts(options);
-  assert.equal(
-    mounts.some(mount => Object.values(targets).includes(mount.target)),
-    false
+  const prepared = await prepareDockerIsolationHostPaths(options);
+  const history = path.join(f.homeDir, '.hive-mind/canonical/gemini-history');
+  assert.deepEqual(prepared.created, [history]);
+  const mounts = await getDockerIsolationAuthMounts({ ...options, env: prepared.storageEnv, nativeAuthIdentity: prepared.nativeAuthIdentity });
+  assert.deepEqual(
+    mounts.filter(mount => Object.values(targets).includes(mount.target)).map(({ source, target }) => [source, target]),
+    [[history, targets.history]]
   );
 });

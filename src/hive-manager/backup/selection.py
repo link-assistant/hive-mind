@@ -11,7 +11,7 @@ import tarfile
 
 
 PROVIDERS = {"claude": ("claude", "claude.json"), "codex": ("codex",)}
-COMMON_STATE = ("agents", "gh", "git", "hive", "start-command", "start-logs")
+COMMON_STATE = ("agents", "agent-data", "opencode-data", "gemini-history", "gh", "git", "hive", "start-command", "start-logs")
 VERSION = 1
 STOPPED = {"created", "exited"}
 NAME = re.compile(r"[a-zA-Z0-9][a-zA-Z0-9_.-]*")

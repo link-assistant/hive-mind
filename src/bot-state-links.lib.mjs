@@ -33,6 +33,7 @@
 import { execFile } from 'node:child_process';
 import { createHash, randomUUID } from 'node:crypto';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 
 import { B64_PREFIX, LINO_STATE_ROOT, decodeB64, encodeB64, normalizeStringTree } from './bot-state-lino.lib.mjs';
@@ -232,13 +233,22 @@ export function createLinksStore({ dbPath, env = process.env, command = resolveC
     return availability;
   }
 
-  async function exportText() {
-    const out = tmpPath('out');
+  async function exportText({ live = false, replayJournal = false } = {}) {
+    const tempDir = await fsp.mkdtemp(path.join(os.tmpdir(), 'hive-mind-links-'));
     try {
-      await clink(['--db', dbPath, '--out', out, ...lookupArgs], '--out');
+      const out = path.join(tempDir, 'export.lino');
+      const db = live ? dbPath : path.join(tempDir, path.basename(dbPath));
+      if (!live) {
+        // Link CLI 3.3.3 saves even when exporting. Give it a private copy so
+        // status readers can run concurrently and against a read-only mount.
+        const [data, names] = dataFiles();
+        await fsp.copyFile(data, db, fs.constants.COPYFILE_FICLONE);
+        await fsp.copyFile(names, path.join(tempDir, path.basename(names)), fs.constants.COPYFILE_FICLONE).catch(ignoreMissing);
+      }
+      await clink(['--db', db, '--out', out, ...lookupArgs, ...(replayJournal ? transactionArgs : [])], '--out');
       return await fsp.readFile(out, 'utf8');
     } finally {
-      await fsp.rm(out, { force: true }).catch(() => {});
+      await fsp.rm(tempDir, { recursive: true, force: true }).catch(() => {});
     }
   }
 
@@ -253,6 +263,7 @@ export function createLinksStore({ dbPath, env = process.env, command = resolveC
   }
 
   const base = dbPath.replace(/\.links$/, '');
+  const journal = `${base}.transitions.log`;
   const dataFiles = () => [dbPath, `${base}.names.links`];
   // Legacy link-cli 3.1.x marker log; 3.2+ migrates it to a self-compacting `.transitions.log`.
   const logFiles = () => [`${base}.transitions.links`, `${base}.transitions.names.links`];
@@ -291,11 +302,11 @@ export function createLinksStore({ dbPath, env = process.env, command = resolveC
       // The data, names and journal are a set. The bot state lock serializes
       // replacement against bot writes. A reader verifies the snapshot against
       // .lino, which also repairs the binary set if replacement is interrupted.
-      for (const file of [`${base}.transitions.log`, ...logFiles()]) await fsp.rm(file, { force: true });
+      for (const file of [journal, ...logFiles()]) await fsp.rm(file, { force: true });
       // Names first: `read()` treats a missing data file as "no state yet".
       const targets = dataFiles();
       for (const index of [1, 0]) await fsp.rename(freshData[index], targets[index]).catch(ignoreMissing);
-      await fsp.rename(`${freshBase}.transitions.log`, `${base}.transitions.log`).catch(ignoreMissing);
+      await fsp.rename(`${freshBase}.transitions.log`, journal).catch(ignoreMissing);
     } finally {
       await cleanup();
     }
@@ -312,15 +323,22 @@ export function createLinksStore({ dbPath, env = process.env, command = resolveC
       return { data: dataFiles(), log: logFiles() };
     },
     available,
-    /** Read the tree; `null` when the store holds no state yet. */
-    async read() {
+    /** Read the tree. A writer can open the journal to replay unapplied commits. */
+    async read({ replayJournal = false } = {}) {
       if (!(await available())) return null;
       try {
         await fsp.access(dbPath);
       } catch {
         return null;
       }
-      return decodeDoublets(await exportText(), rootKey);
+      const journalExists =
+        replayJournal &&
+        atLeast(2) &&
+        (await fsp.access(journal).then(
+          () => true,
+          () => false
+        ));
+      return decodeDoublets(await exportText({ live: journalExists, replayJournal: journalExists }), rootKey);
     },
     /** Write the tree and rebuild the store when garbage outgrows it. */
     async write(tree, { repair = false } = {}) {
@@ -337,7 +355,7 @@ export function createLinksStore({ dbPath, env = process.env, command = resolveC
       if (!atLeast(2)) await rotateLogIfLarge();
       await importTree(tree);
       if (!exists) return true;
-      const total = parseDoubletsExport(await exportText()).size;
+      const total = parseDoubletsExport(await exportText({ live: true })).size;
       const live = countLiveLinks(tree) + 8;
       if (total > Math.max(256, live * 4)) {
         log(`Rebuilding ${dbPath}: ${total} links, ${live} live`);

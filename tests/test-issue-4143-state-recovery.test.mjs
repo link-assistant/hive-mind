@@ -186,6 +186,48 @@ test('an interrupted mirror migration is readable and repairable without losing 
   assert.equal(await fs.readFile(store.paths.lino, 'utf8'), 'unrelated_root:\n');
 });
 
+test('a writer recovers a committed Link CLI transaction before repairing unreadable text', { timeout: 10000, skip: process.env.HIVE_MIND_REQUIRE_CLINK !== '1' }, async t => {
+  const { store } = await setup(t);
+  await store.update(state => {
+    state.marker = 'previous';
+  });
+  const files = store.linksStore.files.data;
+  const dataBeforeCommit = await Promise.all(files.map(file => fs.readFile(file)));
+  const journalPath = store.paths.links.replace(/\.links$/, '.transitions.log');
+  const journalBeforeCommit = await fs.readFile(journalPath, 'utf8');
+  await store.update(state => {
+    state.marker = 'committed';
+  });
+  const journalAfterCommit = await fs.readFile(journalPath, 'utf8');
+  assert.ok(journalAfterCommit.startsWith(journalBeforeCommit));
+  const unapplied = journalAfterCommit.slice(journalBeforeCommit.length).replace(/^__transactions:applied:.*\n/gm, '');
+  assert.match(unapplied, /__transactions:commit:/);
+  assert.notEqual(journalBeforeCommit + unapplied, journalAfterCommit);
+  await Promise.all(files.map((file, index) => fs.writeFile(file, dataBeforeCommit[index])));
+  await fs.writeFile(journalPath, journalBeforeCommit + unapplied);
+  await fs.writeFile(store.paths.lino, 'unrelated_root:\n');
+
+  const storageFiles = [...files, journalPath, store.paths.lino];
+  const lastWrites = () => Promise.all(storageFiles.map(async file => (await fs.stat(file, { bigint: true })).mtimeNs));
+  const beforeRead = await lastWrites();
+  await fs.chmod(store.paths.dir, 0o500);
+  try {
+    const readOnly = await store.read({ lock: false, retries: 0 });
+    assert.equal(readOnly.state.marker, 'previous');
+    const status = await command({ status: true }, { store });
+    assert.equal(status.code, 0);
+    assert.equal(status.output.source, 'links');
+    assert.equal(status.output.consistent, false, 'status identifies the degraded snapshot');
+  } finally {
+    await fs.chmod(store.paths.dir, 0o700);
+  }
+  assert.deepEqual(await lastWrites(), beforeRead, 'read-only export does not write the state directory');
+  assert.equal(await fs.readFile(journalPath, 'utf8'), journalBeforeCommit + unapplied);
+  const repaired = await store.update(() => false);
+  assert.equal(repaired.state.marker, 'committed');
+  assert.equal((await store.read()).consistent, true);
+});
+
 test('an interrupted startup retains queued work and chat stops for the next instance', { timeout: 10000 }, async t => {
   const { store } = await setup(t);
   const initial = { stoppedAt: '2026-11-25T12:00:00.000Z', stoppedBy: { id: '12', username: 'owner', firstName: 'Owner' }, reason: 'maintenance' };

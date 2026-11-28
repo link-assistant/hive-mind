@@ -177,7 +177,7 @@ export async function runInstanceStateCommand(config, { store, env = process.env
     }
   }
 
-  const result = await stateStore.read();
+  const result = await stateStore.read({ lock: false });
   const description = describe(result.state, { now: now() });
   if (!result.exists && !config.json) out(`No bot state in ${stateStore.paths.dir} yet.`);
   if (result.errors?.length && !config.json) err(result.errors.join('\n'));

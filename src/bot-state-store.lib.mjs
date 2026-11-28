@@ -112,17 +112,17 @@ export function createBotStateStore({ env = process.env, dir = resolveBotStateDi
     return tree;
   }
 
-  async function readLinks() {
+  async function readLinks(options) {
     try {
-      return { tree: await links.read(), available: await links.available() };
+      return { tree: await links.read(options), available: await links.available() };
     } catch (error) {
       trace(`link-cli read failed: ${error.stderr || error.message}`);
       return { tree: null, available: await links.available(), error };
     }
   }
 
-  async function readOnce() {
-    const linksResult = await readLinks();
+  async function readOnce({ repair = false } = {}) {
+    let linksResult = await readLinks();
     let linoTree = null;
     let linoError = null;
     try {
@@ -131,6 +131,9 @@ export function createBotStateStore({ env = process.env, dir = resolveBotStateDi
       linoError = error;
       trace(`.lino read failed: ${error.message}`);
     }
+    // Only the writer can replay the journal. If text is unreadable, the
+    // journal may contain a committed update absent from the plain export.
+    if (repair && !linoTree && linksResult.available) linksResult = await readLinks({ replayJournal: true });
     const expected = linoTree && (normalizeStringTree(linoTree) ?? {});
     const actual = linksResult.tree && (normalizeStringTree(linksResult.tree) ?? {});
     const agree = linksResult.available ? !linoError && !linksResult.error && stringTreesEqual(expected ?? null, actual ?? null) : null;
@@ -225,7 +228,7 @@ export function createBotStateStore({ env = process.env, dir = resolveBotStateDi
       return withStateLock(
         BOT_STATE_LOCK_NAME,
         async () => {
-          const snapshot = await readOnce();
+          const snapshot = await readOnce({ repair: true });
           const current = toResult(snapshot, 1);
           if (!current.exists && current.errors.length) throw new Error(`No readable bot state copy: ${current.errors.join('; ')}`);
           const version = target ?? current.schemaVersion ?? BOT_STATE_VERSION;

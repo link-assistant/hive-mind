@@ -1,0 +1,3 @@
+clink 3.2.1 lines=100
+killed import after 6s
+input lines present after reopen: 30 of 100 (atomic would be 0 or 100)

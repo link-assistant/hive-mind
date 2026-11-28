@@ -40,6 +40,23 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 
 // Store stopped chats: Map<chatId, { stoppedAt: Date, stoppedBy: { id, username, firstName }, reason?: string }>
 const stoppedChats = new Map();
+const stoppedChatListeners = new Set();
+
+export function onStoppedChatsChanged(listener) {
+  stoppedChatListeners.add(listener);
+  return () => stoppedChatListeners.delete(listener);
+}
+
+/** Restore the owner, reason and original stop time before accepting commands. */
+export function restoreStoppedChats(entries = {}) {
+  for (const [id, entry] of Object.entries(entries)) {
+    const chatId = Number(id);
+    const stoppedAt = new Date(entry?.stoppedAt);
+    if (!Number.isSafeInteger(chatId) || !Number.isFinite(stoppedAt.getTime()) || stoppedChats.has(chatId)) continue;
+    const stoppedBy = entry.stoppedBy ? { ...entry.stoppedBy, id: Number(entry.stoppedBy.id) } : null;
+    stoppedChats.set(chatId, { stoppedAt, stoppedBy, reason: entry.reason || null });
+  }
+}
 
 /**
  * Check if a chat is currently stopped
@@ -79,9 +96,8 @@ export function setChatStopped(chatId, stopped, user = null, reason = null) {
         : null,
       reason: reason || null,
     });
-  } else {
-    stoppedChats.delete(chatId);
-  }
+  } else if (!stoppedChats.delete(chatId)) return;
+  for (const listener of stoppedChatListeners) listener();
 }
 
 /**

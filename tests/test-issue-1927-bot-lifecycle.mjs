@@ -228,7 +228,7 @@ function fakeTimers() {
     cleanup: () => order.push('cleanup'),
   });
 
-  handle('SIGTERM');
+  await handle('SIGTERM');
   assert(order[0] === 'onShutdown', 'onShutdown runs first (sets the shutting-down flag before anything else)');
   assert(order.includes('cleanup'), 'cleanup runs (aborts retry loop, clears timers, stops queue)');
   assert(order[order.length - 1] === 'stop:SIGTERM', 'bot.stop(signal) runs last, with the real signal');
@@ -262,7 +262,7 @@ function fakeTimers() {
   });
   let threw = false;
   try {
-    handle('SIGINT');
+    await handle('SIGINT');
   } catch {
     threw = true;
   }

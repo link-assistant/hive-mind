@@ -14,7 +14,7 @@ function stateLabel(state, tr) {
 }
 
 export function registerPauseResumeCommands(bot, options = {}) {
-  const { VERBOSE = false, isOldMessage, isForwarded, isGroupChat, isChatAuthorized, isTopicAuthorized, safeReply = defaultSafeReply, monitor = sessionMonitor, detachHandler = handler => handler, claimUrl, getSolveQueue } = options;
+  const { VERBOSE = false, isOldMessage, isForwarded, isGroupChat, isChatAuthorized, isTopicAuthorized, safeReply = defaultSafeReply, monitor = sessionMonitor, detachHandler = handler => handler, claimUrl, getSolveQueue, isIntakePaused, getStoppedChatRejectMessage } = options;
   const operations = { pause: monitor.pauseTrackedSession, unpause: monitor.unpauseTrackedSession, resume: monitor.resumeStoppedSession, status: monitor.getDockerTaskControlState };
   const visible = (ctx, info) => ctx.chat?.type === 'private' || String(info.chatId) === String(ctx.chat?.id);
   const requester = (ctx, info) => isStopTargetRequester({ userId: ctx.from?.id, sessionInfo: info });
@@ -73,6 +73,7 @@ export function registerPauseResumeCommands(bot, options = {}) {
         const queued = getSolveQueue?.()?.findLaunchConflict(info.url, []);
         if (active?.isActive || (queued && ![sessionName, info.sessionId, info.rootSessionName].includes(queued.sessionName))) return await reply(tr('telegram.task_control_conflict'));
       }
+      if (command === 'resume' && isIntakePaused?.()) return await reply(getStoppedChatRejectMessage(ctx.chat.id, '/resume'));
       const result = await operations[command](sessionName, { requestedBy, reason, verbose: VERBOSE });
       if (!result.success) return await reply(tr('telegram.task_control_failed', { command, error: escapeMarkdown(result.error) }));
       if (command === 'status') return await reply(`${stateLabel(result.state, tr)} · ${escapeMarkdown(sessionName)}${info.url ? `\n${escapeMarkdown(info.url)}` : ''}`);

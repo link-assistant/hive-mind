@@ -1,0 +1,25 @@
+## before: first write imported with --transactions, one-line encoding
+tasks=1 doublet_lines=1 live_links=99 first_write_ms=4649 read_ok=true
+tasks=5 doublet_lines=1 live_links=219 first_write_ms=6279 read_ok=true
+tasks=10 doublet_lines=1 live_links=369 first_write_ms=10530 read_ok=true
+tasks=50: Error: Parse error: Nesting too deep at line 1, column 13538: nesting depth exceeds the maximum of 64
+## after: fresh store without --transactions, lines nest at most 33 levels
+tasks=1 doublet_lines=1 live_links=99 first_write_ms=89 read_ok=true
+tasks=10 doublet_lines=2 live_links=369 first_write_ms=236 read_ok=true
+tasks=50 doublet_lines=5 live_links=1569 first_write_ms=1160 read_ok=true
+tasks=100 doublet_lines=9 live_links=3069 first_write_ms=3659 read_ok=true
+tasks=300 doublet_lines=24 live_links=9069 first_write_ms=29875 read_ok=true
+## with --indexed-lookups (default), first write + one incremental --transactions write + read
+tasks=1 doublet_lines=1 live_links=99 first_write_ms=44 read_ok=true next_write_ms=368 read_ms=37 read2_ok=true
+tasks=10 doublet_lines=2 live_links=369 first_write_ms=44 read_ok=true next_write_ms=729 read_ms=29 read2_ok=true
+tasks=50 doublet_lines=5 live_links=1569 first_write_ms=99 read_ok=true next_write_ms=677 read_ms=65 read2_ok=true
+tasks=100 doublet_lines=9 live_links=3069 first_write_ms=122 read_ok=true next_write_ms=927 read_ms=116 read2_ok=true
+tasks=300 doublet_lines=24 live_links=9069 first_write_ms=298 read_ok=true next_write_ms=1326 read_ms=346 read2_ok=true
+tasks=1000 doublet_lines=78 live_links=30069 first_write_ms=1024 read_ok=true next_write_ms=4093 read_ms=1092 read2_ok=true
+## HIVE_MIND_STATE_LINKS_INDEXED_LOOKUPS=off (link-cli scan lookups)
+tasks=1 doublet_lines=1 live_links=99 first_write_ms=64 read_ok=true next_write_ms=418 read_ms=80 read2_ok=true
+tasks=10 doublet_lines=2 live_links=369 first_write_ms=148 read_ok=true next_write_ms=767 read_ms=268 read2_ok=true
+tasks=50 doublet_lines=5 live_links=1569 first_write_ms=1064 read_ok=true next_write_ms=4435 read_ms=2365 read2_ok=true
+tasks=100 doublet_lines=9 live_links=3069 first_write_ms=3354 read_ok=true next_write_ms=14374 read_ms=9007 read2_ok=true
+clink 3.1.2: tasks=10 doublet_lines=2 live_links=369 first_write_ms=66 read_ok=true next_write_ms=605 read_ms=24 read2_ok=true
+clink 3.1.2: tasks=100 doublet_lines=9 live_links=3069 first_write_ms=95 read_ok=true next_write_ms=1208 read_ms=105 read2_ok=true

@@ -1,0 +1,24 @@
+# links-notation 0.32.0
+"root:\n  a \"\"\n  b \"\"\n" => [["root",[null,"a",""],[null,"b",""]]]
+"root:\n  a ''\n  b ''\n" => [["root",[null,"a",""],[null,"b",""]]]
+"root:\n  a \"\"\n  b \"x y\"\n" => [["root",[null,"a",""],[null,"b","x y"]]]
+"root:\n  tag #release\n  next 1\n" => [["root",[null,"tag","#release"],[null,"next","1"]]]
+"root:\n  time 12:30\n" => [["root",[null,"time","12:30"]]]
+"root:\n  url https://x/y#frag\n" => [["root",[null,"url","https://x/y#frag"]]]
+# lino-objects-codec 1.2.0 + links-notation 0.32.0
+hive_mind_state:
+  tasks hive_mind_state_tasks
+  a ~1{}
+  b ~1{}
+
+hive_mind_state_tasks:
+  q-1 hive_mind_state_tasks_q-1
+
+hive_mind_state_tasks_q-1:
+  args hive_mind_state_tasks_q-1_args
+
+hive_mind_state_tasks_q-1_args:
+  --model
+  ~1{}
+  '#x'
+[["hive_mind_state",[null,"tasks","hive_mind_state_tasks"],[null,"a",""],[null,"b",""]],["hive_mind_state_tasks",[null,"q-1","hive_mind_state_tasks_q-1"]],["hive_mind_state_tasks_q-1",[null,"args","hive_mind_state_tasks_q-1_args"]],["hive_mind_state_tasks_q-1_args","--model","","#x"]]

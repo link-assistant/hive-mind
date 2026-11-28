@@ -49,6 +49,17 @@ const BATCH_RESPECT_BLOCKERS = config.batchRespectBlockers !== false; // #4069: 
 const { applyIssueClosingEnvironment } = await import('./post-merge-issue-closing.lib.mjs');
 const { startMergedPullRequestSweeper, sweepScope } = await import('./merged-pr-sweeper.lib.mjs');
 applyIssueClosingEnvironment(config);
+if (config.stateDir) process.env.HIVE_MIND_STATE_DIR = config.stateDir; // #4143
+// The operator commands only touch the state directory, so no token is needed.
+if (config.status || config.drain || config.resumeIntake || config.waitForIdle || config.stateMigrate !== undefined) {
+  const { runInstanceStateCommand } = await import('./bot-instance-status.lib.mjs');
+  const code = await runInstanceStateCommand(config).catch(error => {
+    console.error(`[bot-state] ${error.message}`);
+    return 1;
+  });
+  await new Promise(resolve => process.stdout.write('', resolve));
+  process.exit(code);
+}
 if (!BOT_TOKEN) {
   console.error('Error: TELEGRAM_BOT_TOKEN not set. Use --configuration-file or TELEGRAM_BOT_TOKEN env var.');
   process.exit(1);
@@ -205,7 +216,11 @@ const { repositoryModeSelectionFromArgv } = await import('./solve.repository-mod
 const { validateTelegramGitHubUrl } = await import('./telegram-url-validation.lib.mjs');
 const { describeInvalidBatchLink, planSolveTargets, runSolveBatch, SOLVE_REJECT_SCOPE } = await import('./telegram-solve-batch.lib.mjs'); // #4067
 const { executeStartScreen: executeStartScreenCommand, buildExecuteAndUpdateMessage } = await import('./telegram-command-execution.lib.mjs');
-const { isChatStopped, getChatStopInfo, getStoppedChatRejectMessage, DEFAULT_STOP_REASON } = await import('./telegram-start-stop-command.lib.mjs');
+const chatStopModule = await import('./telegram-start-stop-command.lib.mjs');
+const { DEFAULT_STOP_REASON } = chatStopModule;
+// Issue #4143: publish tasks and intake into the durable state; a draining instance rejects new tasks in every chat.
+const instanceState = config.dryRun ? null : (await import('./bot-instance-state.lib.mjs')).createBotInstanceState({ verbose: VERBOSE, version: await getVersion().catch(() => null) });
+const { isChatStopped, getChatStopInfo, getStoppedChatRejectMessage } = instanceState ? instanceState.wrapChatStop(chatStopModule) : chatStopModule;
 const { isOldMessage: _isOldMessage, isGroupChat: _isGroupChat, isChatAuthorized: _isChatAuthorized, isForwarded: _isForwarded, isForwardedOrReply: _isForwardedOrReply, extractCommandFromText, mentionsGitHubHost } = await import('./telegram-message-filters.lib.mjs');
 const { safeEditMessageText, safeReply, safeSendMessage } = await import('./telegram-safe-reply.lib.mjs');
 const { createUpdateErrorHandler } = await import('./telegram-update-error.lib.mjs');
@@ -215,8 +230,8 @@ const TELEGRAM_HANDLER_TIMEOUT_MS = 60_000;
 const { installTelegramContextSafety } = await import('./telegram-context-safety.lib.mjs');
 const { installTelegramCommandRouting, TELEGRAM_ROUTING_UPDATES } = await import('./telegram-command-routing.lib.mjs');
 const { registerTerminalWatchCommand, startAutoTerminalWatchForSession } = await import('./telegram-terminal-watch-command.lib.mjs');
-const { launchBotWithRetry } = await import('./telegram-bot-launcher.lib.mjs');
-const { addSessionCompletionListener, trackSession, untrackSession, startSessionMonitoring, hasActiveSessionForUrlAsync, findStoppableSessionByUrl, findTrackedSessionByIdentifier, stopTrackedDockerSession, setSessionStore, setSessionLogger, resumeTrackedSessions, getActiveSessionCount } = await import('./session-monitor.lib.mjs');
+const { launchBotWithRetry, logPollingStartupDiagnostics } = await import('./telegram-bot-launcher.lib.mjs');
+const { addSessionCompletionListener, trackSession, untrackSession, startSessionMonitoring, hasActiveSessionForUrlAsync, findStoppableSessionByUrl, findTrackedSessionByIdentifier, stopTrackedDockerSession, setSessionStore, setSessionLogger, resumeTrackedSessions, getActiveSessionCount, getActiveSessions } = await import('./session-monitor.lib.mjs');
 const { createBotLogger } = await import('./bot-logger.lib.mjs');
 const { createSessionStore, resolveBotStateDir } = await import('./session-store.lib.mjs');
 const { createHeartbeat, resumeSessionsOnLaunch, createShutdownHandler } = await import('./bot-lifecycle.lib.mjs');
@@ -318,7 +333,21 @@ async function validateGitHubUrl(args, options = {}) {
 }
 
 const recordLaunchFailure = failure => getSolveQueue({ verbose: VERBOSE }).recordLaunchFailure(failure);
-const executeAndUpdateMessage = buildExecuteAndUpdateMessage({ resolveIsolation, ISOLATION_BACKEND, isolationRunner, CONTAINER_RESOURCE_LIMITS, VERBOSE, executeStartScreen, trackSession, untrackSession, recordLaunchFailure, AUTO_WATCH_MESSAGE, startAutoTerminalWatchForSession, bot, formatExecutingWorkSessionMessage, formatStartingWorkSessionMessage });
+const executeWorkSession = buildExecuteAndUpdateMessage({ resolveIsolation, ISOLATION_BACKEND, isolationRunner, CONTAINER_RESOURCE_LIMITS, VERBOSE, executeStartScreen, trackSession, untrackSession, recordLaunchFailure, AUTO_WATCH_MESSAGE, startAutoTerminalWatchForSession, bot, formatExecutingWorkSessionMessage, formatStartingWorkSessionMessage });
+let otherDirectLaunches = 0;
+async function executeAndUpdateMessage(ctx, startingMessage, command, ...args) {
+  if (instanceState?.isIntakePaused()) {
+    await safeEditMessageText(ctx.telegram, startingMessage.chat.id, startingMessage.message_id, undefined, getStoppedChatRejectMessage(ctx.chat.id, `/${command}`));
+    return;
+  }
+  if (command === 'solve') return executeWorkSession(ctx, startingMessage, command, ...args); // counted by the URL claim
+  otherDirectLaunches++;
+  try {
+    return await executeWorkSession(ctx, startingMessage, command, ...args);
+  } finally {
+    otherDirectLaunches--;
+  }
+}
 bot.command('help', async ctx => {
   VERBOSE && console.log('[VERBOSE] /help command received');
 
@@ -477,6 +506,12 @@ const { registerAuthCommand } = await import('./telegram-auth-command.lib.mjs');
 const { handleAuthCommand } = registerAuthCommand(bot, { ...sharedCommandOpts, allowedChats, authEnabled, safeReply, detachHandler: handler => detach(handler, { lane: authLane }) });
 
 // Named handler for /solve command - extracted for reuse by text-based fallback (issue #1207)
+function ensureQueueExecuteCallback(queue) {
+  if (queue.executeCallback) return queue;
+  const _t = (s, i) => trackSession(s, i, VERBOSE);
+  queue.executeCallback = createIsolationAwareQueueCallback(ISOLATION_BACKEND, isolationRunner, _t, createQueueExecuteCallback(executeStartScreen, _t), VERBOSE, CONTAINER_RESOURCE_LIMITS);
+  return queue;
+}
 async function handleSolveCommand(ctx) {
   const solveCommandName = getSolveCommandNameFromText(ctx.message?.text) || 'solve';
   const solveCommandDisplay = `/${solveCommandName}`;
@@ -761,15 +796,13 @@ async function launchSolveTarget(ctx, userArgs, { solveToolAlias, solveLocale, s
     // Issue #594: append "Limits at start" to infoBlock; thread snapshot via sessionInfo.
     let solveLimitsAtStart = null;
     if (solveShowLimits) ({ infoBlock, limitsAtStart: solveLimitsAtStart } = await captureStartSnapshotAndAppend({ infoBlock, tool: solveTool, verbose: VERBOSE, limitsLib, commandLabel: '/solve', locale: solveLocale }));
+    if (instanceState?.isIntakePaused()) return fail(getStoppedChatRejectMessage(ctx.chat.id, 'Solve'));
     if (waitTargets.length === 0 && check.canStart && check.startReserved) {
       const startingMessage = await safeReply(ctx, formatStartingWorkSessionMessage({ infoBlock, locale: solveLocale }), { reply_to_message_id: ctx.message.message_id });
       solveQueue.log(`Starting directly: ${normalizedUrl}`);
       await executeAndUpdateMessage(ctx, startingMessage, 'solve', argsWithLocale, infoBlock, effectiveSolveIsolation, solveTool, solveUrlContext, { showLimits: solveShowLimits, limitsAtStart: solveLimitsAtStart, locale: solveLocale, commandAlias: solveCommandName });
     } else {
-      if (!solveQueue.executeCallback) {
-        const _t = (s, i) => trackSession(s, i, VERBOSE);
-        solveQueue.executeCallback = createIsolationAwareQueueCallback(ISOLATION_BACKEND, isolationRunner, _t, createQueueExecuteCallback(executeStartScreen, _t), VERBOSE, CONTAINER_RESOURCE_LIMITS);
-      }
+      ensureQueueExecuteCallback(solveQueue);
       const itemOptions = { url: normalizedUrl, args: argsWithLocale, ctx, requester, infoBlock, commandAlias: solveCommandName, tool: solveTool, perCommandIsolation: effectiveSolveIsolation, urlContext: solveUrlContext, showLimits: solveShowLimits, limitsAtStart: solveLimitsAtStart, locale: solveLocale };
       const waits = waitTargets.length > 0; // #4069: kept out of the tool queue until the awaited tasks are done
       const queueItem = waits ? solveQueue.enqueueAfter({ ...itemOptions, waitingReason: waitPlan.waitingText }, { targets: waitTargets, mode: waitPlan.mode }) : solveQueue.enqueue(itemOptions);
@@ -780,6 +813,7 @@ async function launchSolveTarget(ctx, userArgs, { solveToolAlias, solveLocale, s
         messageId: queuedMessage.message_id,
         messageThreadId: queuedMessage.message_thread_id ?? ctx.message?.message_thread_id ?? null,
       };
+      await instanceState?.tick();
     }
     return { started: true };
   } finally {
@@ -959,7 +993,7 @@ const { registerPauseResumeCommands } = await import('./telegram-pause-resume-co
 const { registerLogCommand } = await import('./telegram-log-command.lib.mjs');
 registerTopCommand(bot, sharedCommandOpts);
 const { handleStopCommand } = registerStartStopCommands(bot, { ...sharedCommandOpts, getSolveQueue, stopTrackedDockerSession, findRunningSessionByUrl: (url, verbose) => findStoppableSessionByUrl(url, verbose) });
-const taskControlHandlers = registerPauseResumeCommands(bot, { ...sharedCommandOpts, getSolveQueue, claimUrl: url => launchingUrls.claim(url.replace(/#.*$/, '').replace(/\/+$/, '').toLowerCase()) });
+const taskControlHandlers = registerPauseResumeCommands(bot, { ...sharedCommandOpts, getSolveQueue, isIntakePaused: instanceState?.isIntakePaused, claimUrl: url => launchingUrls.claim(url.replace(/#.*$/, '').replace(/\/+$/, '').toLowerCase()) });
 await registerLogCommand(bot, sharedCommandOpts);
 await registerTerminalWatchCommand(bot, sharedCommandOpts);
 // Issue #1745: hidden /tokens command for chat owners (private DMs only,
@@ -1189,46 +1223,22 @@ async function onBotLaunched() {
     verbose: VERBOSE,
     logger: botLogger,
   });
+  if (isShuttingDown) return;
 
+  // Issue #4143: restore subscribers and the queued tasks of the previous instance, then publish the state.
+  const stateLib = await import('./bot-instance-state.lib.mjs');
+  const subscribersLib = await import('./telegram-subscribers.lib.mjs');
+  if (isShuttingDown) return;
+  const queue = getSolveQueue({ verbose: VERBOSE });
+  const restore = tasks => stateLib.restoreQueuedTasks({ tasks, queue: ensureQueueExecuteCallback(queue), telegram: bot.telegram, isUrlActive: url => hasActiveSessionForUrlAsync(url, VERBOSE), log: message => console.log(`[bot-state] ${message}`) });
+  await instanceState?.start({ queue, getActiveSessions, getSubscribers: subscribersLib.getSubscribers, restoreSubscribers: subscribersLib.restoreSubscribers, onSubscribersChanged: subscribersLib.onSubscribersChanged, getStoppedChats: chatStopModule.getStoppedChats, restoreStoppedChats: chatStopModule.restoreStoppedChats, onStoppedChatsChanged: chatStopModule.onStoppedChatsChanged, getLaunchingCount: () => launchingUrls.size + otherDirectLaunches, restore });
+  if (isShuttingDown) return;
   startSessionMonitoringOnce();
   startFormalAiMaintenanceOnce();
   startRouterMaintenanceOnce();
   if (!config.dryRun) mergedPullRequestSweeper ||= startMergedPullRequestSweeper({ scopes: [sweepScope({ author: '@me' })], logger: async message => console.log(message) });
   heartbeat.start();
-  if (VERBOSE) {
-    console.log('[VERBOSE] Bot launched successfully');
-    console.log('[VERBOSE] Polling is active, waiting for messages...');
-
-    // Get bot info and webhook status for diagnostics
-    try {
-      const botInfo = await bot.telegram.getMe();
-      const webhookInfo = await bot.telegram.getWebhookInfo();
-      console.log('[VERBOSE] Bot info:');
-      console.log('[VERBOSE]   Username: @' + botInfo.username);
-      console.log('[VERBOSE]   Bot ID:', botInfo.id);
-      console.log('[VERBOSE] Webhook info:');
-      console.log('[VERBOSE]   URL:', webhookInfo.url || 'none (polling mode)');
-      console.log('[VERBOSE]   Pending updates:', webhookInfo.pending_update_count);
-      if (webhookInfo.last_error_date) {
-        console.log('[VERBOSE]   Last error:', new Date(webhookInfo.last_error_date * 1000).toISOString());
-        console.log('[VERBOSE]   Error message:', webhookInfo.last_error_message);
-      }
-
-      console.log('[VERBOSE]');
-      console.log('[VERBOSE] ⚠️  IMPORTANT: If bot is not receiving messages in group chats:');
-      console.log('[VERBOSE]   1. Privacy Mode: Check if bot has privacy mode enabled in @BotFather');
-      console.log('[VERBOSE]      - Send /setprivacy to @BotFather');
-      console.log('[VERBOSE]      - Select @' + botInfo.username);
-      console.log('[VERBOSE]      - Choose "Disable" to receive all group messages');
-      console.log('[VERBOSE]      - IMPORTANT: Remove bot from group and re-add after changing!');
-      console.log('[VERBOSE]   2. Admin Status: Make bot an admin in the group (admins see all messages)');
-      console.log('[VERBOSE]   3. Run diagnostic: node experiments/test-telegram-bot-privacy-mode.mjs');
-      console.log('[VERBOSE]');
-    } catch (err) {
-      console.log('[VERBOSE] Could not fetch bot info:', err.message);
-    }
-    console.log('[VERBOSE] Send a message to the bot to test message reception');
-  }
+  if (VERBOSE) await logPollingStartupDiagnostics(bot);
 }
 
 // Start completion polling before entering Telegraf long polling. The active
@@ -1251,6 +1261,7 @@ launchBotWithRetry(
     if (!isShuttingDown && VERBOSE) console.log('[VERBOSE] Bot launch promise resolved');
   })
   .catch(error => {
+    if (isShuttingDown) return;
     console.error('❌ Failed to start bot:', error);
     console.error('Error details:', {
       message: error.message,
@@ -1292,16 +1303,21 @@ const handleShutdownSignal = createShutdownHandler({
     mergedPullRequestSweeper?.stop();
     heartbeat.stop();
     stopSolveQueue();
+    return instanceState?.stop(); // #4143: queued tasks stay for the next instance
   },
 });
+const stopBot = signal => {
+  if (isShuttingDown) return;
+  return handleShutdownSignal(signal).catch(error => console.error(`[telegram-bot] Could not stop polling: ${error.message}`));
+};
 
 process.once('SIGINT', () => {
   console.log('\n🛑 Received SIGINT (Ctrl+C), stopping bot...');
-  handleShutdownSignal('SIGINT');
+  stopBot('SIGINT');
 });
 process.once('SIGTERM', () => {
   console.log('\n🛑 Received SIGTERM, stopping bot... (Check system logs: journalctl -u <service> or dmesg)');
-  handleShutdownSignal('SIGTERM');
+  stopBot('SIGTERM');
 });
 // Log and session-event writes are asynchronous; whatever is still queued when
 // the process exits (shutdown event, a crash report) is written synchronously.

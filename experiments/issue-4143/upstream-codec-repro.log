@@ -1,0 +1,16 @@
+hive_mind_state:
+  tasks hive_mind_state_tasks
+  a ''
+  b ''
+
+hive_mind_state_tasks:
+  q-1 hive_mind_state_tasks_q-1
+
+hive_mind_state_tasks_q-1:
+  args hive_mind_state_tasks_q-1_args
+
+hive_mind_state_tasks_q-1_args:
+  --model
+  ''
+  #x
+[["hive_mind_state",[null,"tasks","hive_mind_state_tasks"],[null,"a","\n  b "]],["hive_mind_state_tasks",[null,"q-1","hive_mind_state_tasks_q-1"]],["hive_mind_state_tasks_q-1",[null,"args","hive_mind_state_tasks_q-1_args"]],["hive_mind_state_tasks_q-1_args","--model",""]]

@@ -813,6 +813,7 @@ async function launchSolveTarget(ctx, userArgs, { solveToolAlias, solveLocale, s
         messageId: queuedMessage.message_id,
         messageThreadId: queuedMessage.message_thread_id ?? ctx.message?.message_thread_id ?? null,
       };
+      await instanceState?.tick();
     }
     return { started: true };
   } finally {

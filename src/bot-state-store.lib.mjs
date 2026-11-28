@@ -34,8 +34,8 @@ export const BOT_STATE_LOCK_NAME = 'hive-mind-state';
 export const INTAKE_STATES = Object.freeze(['accepting', 'draining']);
 
 // Fields decoded back to numbers or booleans; everything else stays a string.
-const NUMBER_FIELDS = new Set(['version', 'pid', 'number', 'launching', 'chatId', 'messageId', 'messageThreadId', 'replyToMessageId', 'requesterUserId', 'sourceChatId', 'userId', 'position', 'percentage', 'httpStatus']);
-const BOOLEAN_FIELDS = new Set(['showLimits', 'success']);
+const NUMBER_FIELDS = new Set(['version', 'pid', 'number', 'launching', 'chatId', 'messageId', 'messageThreadId', 'replyToMessageId', 'requesterUserId', 'sourceChatId', 'userId', 'position', 'percentage', 'httpStatus', 'missingSince']);
+const BOOLEAN_FIELDS = new Set(['showLimits', 'success', 'succeeded']);
 
 const isPlainObject = value => value !== null && typeof value === 'object' && !Array.isArray(value);
 

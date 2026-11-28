@@ -14,7 +14,7 @@ import { describeInstanceState, runInstanceStateCommand } from '../src/bot-insta
 import { createLinksStore, decodeDoublets } from '../src/bot-state-links.lib.mjs';
 import { formatVerifiedLinoTree } from '../src/bot-state-lino.lib.mjs';
 import { applyBotStateMigration, migrateBotState, resolveBotStateMigrationTarget } from '../src/bot-state-migrations.lib.mjs';
-import { createBotStateStore, stateToStringTree } from '../src/bot-state-store.lib.mjs';
+import { cloneState, createBotStateStore, stateToStringTree } from '../src/bot-state-store.lib.mjs';
 import { currentLockOwner, withStateLock } from '../src/state-lock.lib.mjs';
 import { SolveQueue } from '../src/telegram-solve-queue.lib.mjs';
 import { getChatStopInfo, getStoppedChats, onStoppedChatsChanged, restoreStoppedChats, setChatStopped } from '../src/telegram-start-stop-command.lib.mjs';
@@ -39,12 +39,13 @@ const queueState = {
   blocked: {
     source: 'queue',
     status: 'waiting',
-    url: 'https://github.com/o/r/issues/2',
-    createdAt: '2026-11-25T12:04:00.000Z',
+    url: 'https://github.com/o/r/issues/1',
+    createdAt: '2026-11-25T12:00:00.000Z',
     args: ['--tool', 'agent'],
+    dependencyMode: 'finish',
     waitsFor: [
       { type: 'item', itemId: 'first', names: ['session-1'] },
-      { type: 'session', names: ['session-2'] },
+      { type: 'session', names: ['session-2'], mode: 'success', outcome: { succeeded: true, detail: 'finished successfully' } },
     ],
   },
   first: { source: 'queue', status: 'queued', url: 'https://github.com/o/r/issues/1', args: ['https://github.com/o/r/issues/1'], createdAt: '2026-11-25T12:00:00.000Z', chatId: -100, messageId: 71, showLimits: true, limitsAtStart: { toolKey: 'claude', success: false, usage: { sevenDay: { percentage: 12.5 } } } },
@@ -92,7 +93,13 @@ test('manual and automatic migrations update both copies and preserve delivered 
       const read = await store.read();
       assert.equal(read.schemaVersion, expected);
       assert.equal(read.consistent, binary ? true : null);
-      assert.equal(read.state.tasks.blocked.waitsFor[0].itemId, 'first');
+      const blocked = queue.dependencies.getEntry('blocked');
+      assert.equal(blocked.targets[0].item.id, 'first');
+      assert.equal(blocked.mode, 'finish');
+      assert.equal(blocked.targets[1].mode, 'success');
+      assert.deepEqual(blocked.targets[1].outcome, queueState.blocked.waitsFor[1].outcome);
+      assert.deepEqual(read.state.tasks.blocked.waitsFor[0].names, ['session-1']);
+      assert.deepEqual(read.state.tasks.blocked.waitsFor[1].outcome, queueState.blocked.waitsFor[1].outcome);
       assert.equal(read.state.tasks.first.messageId, 71);
       assert.deepEqual(read.state.tasks.first.limitsAtStart, queueState.first.limitsAtStart);
       assert.deepEqual(read.state.subscribers, firstRead.state.subscribers);
@@ -114,12 +121,12 @@ test('migration definitions generate inverse steps in reverse order and validate
   const changes = {
     up: [
       { rename: 'old', to: 'task' },
-      { add: 'old', value: 'default' },
+      { add: 'old', value: { status: 'default' } },
     ],
   };
   const upgraded = applyBotStateMigration(initial, changes, 'up');
-  assert.deepEqual(upgraded, { task: 'work', old: 'default', other: 9 });
-  assert.deepEqual(applyBotStateMigration(upgraded, changes, 'down'), initial);
+  assert.deepEqual(upgraded, { task: 'work', old: { status: 'default' }, other: 9 });
+  assert.deepEqual(applyBotStateMigration(cloneState(upgraded), changes, 'down'), initial);
   assert.deepEqual(applyBotStateMigration({}, { up: [{ remove: 'version' }], down: [{ add: 'version', value: 1 }] }, 'down'), { version: 1 });
   assert.throws(() => applyBotStateMigration({}, { up: [{ remove: 'task' }] }, 'down'), /requires an explicit down/);
   assert.throws(() => applyBotStateMigration({ ...upgraded, old: 'edit' }, changes, 'down'), /Cannot remove field old/);

@@ -1,0 +1,14 @@
+c4ecdc081 exit=1
+restore restored=0 skipped=1
+waitsFor=["[object Object]"]
+same-URL prerequisite=null
+
+fbeab4523 exit=1
+restore restored=1 skipped=0
+waitsFor=[{"type":"item","itemId":"queued"}]
+same-URL prerequisite=null
+
+working tree exit=0
+restore restored=1 skipped=0
+waitsFor=[{"type":"item","itemId":"queued"}]
+same-URL prerequisite=queued

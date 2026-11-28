@@ -24,6 +24,7 @@ import { randomUUID } from 'node:crypto';
 
 import { cloneState, createBotStateStore } from './bot-state-store.lib.mjs';
 import { resolveBotStateMigrationTarget } from './bot-state-migrations.lib.mjs';
+import { isAwaitedTaskUrl } from './telegram-after-command.lib.mjs';
 import { createItemTarget, createSessionTarget } from './telegram-solve-dependencies.lib.mjs';
 import { currentLockOwner } from './state-lock.lib.mjs';
 
@@ -40,7 +41,7 @@ const toIso = value => {
 };
 
 /** Durable form of a solve queue item. */
-export function queueItemToTask(item, { dependency = null } = {}) {
+export function queueItemToTask(item, { dependency = null, tracker = null } = {}) {
   return {
     source: 'queue',
     status: item.status,
@@ -65,7 +66,11 @@ export function queueItemToTask(item, { dependency = null } = {}) {
     startedAt: toIso(item.startedAt),
     waitingReason: item.waitingReason || undefined,
     dependencyMode: dependency ? dependency.mode : undefined,
-    waitsFor: dependency ? dependency.targets.map(target => ({ type: target.type, itemId: target.item?.id, url: target.url || undefined, label: target.label || undefined, names: [...(target.names || [])] })) : undefined,
+    waitsFor: dependency?.targets.map(target => {
+      const result = tracker?.getTargetState?.(target);
+      const outcome = result?.state === 'finished' ? { succeeded: result.succeeded, detail: result.detail } : target.outcome || undefined;
+      return { type: target.type, itemId: target.item?.id, url: target.url || undefined, label: target.label || undefined, names: [...(tracker?.targetNames?.(target) ?? target.names ?? [])], mode: target.mode, outcome, missingSince: target.missingSince ?? undefined };
+    }),
   };
 }
 
@@ -100,7 +105,7 @@ export function snapshotTasks({ queue = null, sessions = [] } = {}) {
   if (!queue) return tasks;
   for (const items of Object.values(queue.queues || {})) for (const item of items) tasks[item.id] = queueItemToTask(item);
   for (const item of queue.processing?.values?.() || []) if (!item.sessionName || !tasks[item.sessionName]) tasks[item.id] = queueItemToTask(item);
-  for (const entry of queue.dependencies?.entries || []) tasks[entry.item.id] = queueItemToTask(entry.item, { dependency: entry });
+  for (const entry of queue.dependencies?.entries || []) tasks[entry.item.id] = queueItemToTask(entry.item, { dependency: entry, tracker: queue.dependencies });
   return tasks;
 }
 
@@ -118,6 +123,31 @@ const signatureOf = (tasks, subscribers, stoppedChats, launching) =>
     launching,
   });
 
+function orderRestoreEntries(tasks) {
+  const entries = Object.entries(tasks)
+    .filter(([, task]) => task?.source === 'queue')
+    .sort(([, a], [, b]) => String(a.createdAt || '').localeCompare(String(b.createdAt || '')));
+  const pending = new Map(entries);
+  const ordered = [];
+  for (const [id] of entries) {
+    const stack = [[id]];
+    while (stack.length) {
+      const [itemId, visited] = stack.pop();
+      if (visited) {
+        ordered.push([itemId, visited]);
+        continue;
+      }
+      const task = pending.get(itemId);
+      if (!task) continue;
+      pending.delete(itemId);
+      stack.push([itemId, task]);
+      // Tasks created in the same millisecond can sort in either order after decoding.
+      for (const target of Array.isArray(task.waitsFor) ? task.waitsFor.toReversed() : []) if (target.type === 'item') stack.push([target.itemId]);
+    }
+  }
+  return ordered;
+}
+
 /**
  * Re-enqueue the queued tasks of a previous instance. Tasks that were already
  * starting are not restored: their launch may have gone through.
@@ -127,10 +157,7 @@ export async function restoreQueuedTasks({ tasks = {}, queue, telegram, isUrlAct
   const restored = [];
   const skipped = [];
   const byId = new Map();
-  const entries = Object.entries(tasks)
-    .filter(([, task]) => task?.source === 'queue')
-    .sort(([, a], [, b]) => String(a.createdAt || '').localeCompare(String(b.createdAt || '')));
-  for (const [id, task] of entries) {
+  for (const [id, task] of orderRestoreEntries(tasks)) {
     if (!RESTORABLE_TASK_STATUSES.includes(task.status)) {
       skipped.push({ id, reason: `status ${task.status}` });
       continue;
@@ -139,7 +166,21 @@ export async function restoreQueuedTasks({ tasks = {}, queue, telegram, isUrlAct
       skipped.push({ id, reason: 'no url or args' });
       continue;
     }
-    const active = queue.findByUrl?.(task.url) || (await isUrlActive(task.url));
+    const targets = Array.isArray(task.waitsFor)
+      ? task.waitsFor.map(target => {
+          const item = target.type === 'item' ? byId.get(target.itemId) : null;
+          const original = tasks[target.itemId];
+          const names = [...(target.names || []), original?.sessionName];
+          const restoredTarget = item ? createItemTarget(item, target.label) : createSessionTarget({ names, url: target.url || original?.url, label: target.label });
+          if (item) for (const name of names.filter(Boolean)) restoredTarget.names.add(name);
+          restoredTarget.mode = target.mode;
+          restoredTarget.outcome = target.outcome ?? null;
+          restoredTarget.missingSince = target.missingSince ?? null;
+          return restoredTarget;
+        })
+      : [];
+    const conflict = queue.findLaunchConflict ? queue.findLaunchConflict(task.url, targets) : queue.findByUrl?.(task.url);
+    const active = conflict || (!isAwaitedTaskUrl(targets, task.url) && (await isUrlActive(task.url)));
     if (active && (typeof active.isActive !== 'boolean' || active.isActive)) {
       skipped.push({ id, reason: 'already queued or running' });
       continue;
@@ -147,8 +188,7 @@ export async function restoreQueuedTasks({ tasks = {}, queue, telegram, isUrlAct
     const ctx = task.chatId === undefined ? null : { telegram, chat: { id: task.chatId }, from: { id: task.requesterUserId ?? null }, message: { message_id: task.messageId ?? null, message_thread_id: task.messageThreadId ?? null } };
     const options = { id, createdAt: task.createdAt, url: task.url, args: task.args, ctx, requester: task.requester, infoBlock: task.infoBlock, commandAlias: task.commandAlias, tool: task.tool, perCommandIsolation: task.isolation, urlContext: task.urlContext, showLimits: task.showLimits === true, limitsAtStart: task.limitsAtStart, locale: task.locale };
     let item;
-    if (Array.isArray(task.waitsFor) && task.waitsFor.length > 0) {
-      const targets = task.waitsFor.map(target => (target.type === 'item' && byId.has(target.itemId) ? createItemTarget(byId.get(target.itemId), target.label) : createSessionTarget({ names: target.names || [], url: target.url || null, label: target.label || null })));
+    if (targets.length > 0) {
       item = queue.enqueueAfter({ ...options, waitingReason: task.waitingReason }, { targets, mode: task.dependencyMode || 'success' });
     } else {
       item = queue.enqueue(options);

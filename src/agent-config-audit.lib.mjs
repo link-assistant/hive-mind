@@ -33,6 +33,8 @@ import os from 'os';
 import path from 'path';
 import { stringify as stringifyToml } from 'smol-toml';
 import { parseAgentConfigToml, validateAgentConfigAuditInputs } from './agent-config-audit-inputs.lib.mjs';
+import { readCodexStockManifest } from './codex-runtime-probe.lib.mjs';
+import { isStockCodexAllowed, verifyStockCodexCommand } from './native-codex-command.lib.mjs';
 import { assertApprovedPlaywrightRegistration } from './agent-mcp-baseline.lib.mjs';
 import { agentConfigAuditScopes, codexProfileConfigPaths } from './agent-config-audit-paths.lib.mjs';
 import { auditManagedAgentConfig, managedAgentConfigRoots } from './agent-config-audit-managed.lib.mjs';
@@ -503,21 +505,28 @@ const requireCleanAuditedConfig = async options => {
  * the legacy repair deliberately leaves in place). This enforces the audited
  * surfaces only; it is not a full native CLI discovery/baseline attestation.
  *
- * @param {{ tool?: string, homeDir?: string, env?: object, systemRoots?: object, autoRepair?: boolean, requireClean?: boolean, log?: Function, verbose?: boolean, fsImpl?: typeof fs, allowedMcpServers?: string[] }} [options]
+ * @param {{ tool?: string, homeDir?: string, env?: object, systemRoots?: object, autoRepair?: boolean, requireClean?: boolean, log?: Function, verbose?: boolean, fsImpl?: typeof fs, allowedMcpServers?: string[], codexCommand?: string, codexStockManifest?: object }} [options]
  * @returns {Promise<{ findings: object[], repaired: object[], failed: object[], skipped: object[] }>}
  */
-export const runAgentConfigAudit = async ({ tool = 'all', homeDir = os.homedir(), env = {}, systemRoots = managedAgentConfigRoots(), autoRepair = true, requireClean = false, log = async () => {}, verbose = false, fsImpl = fs, allowedMcpServers = MINIMAL_MCP_SERVERS } = {}) => {
+export const runAgentConfigAudit = async ({ tool = 'all', homeDir = os.homedir(), env = {}, systemRoots = managedAgentConfigRoots(), autoRepair = true, requireClean = false, log = async () => {}, verbose = false, fsImpl = fs, allowedMcpServers = MINIMAL_MCP_SERVERS, codexCommand = 'codex', codexStockManifest } = {}) => {
   const scope = AUDITABLE_TOOLS.includes(tool) ? tool : 'all';
   // Capture only path selectors. Do not retain or inspect provider credentials.
   const selectedEnv = env;
   const selectedSystemRoots = systemRoots;
+  const searchPath = env.PATH ?? process.env.PATH;
+  let stockProbe;
+  let readStockManifest;
+  if (codexStockManifest) readStockManifest = () => codexStockManifest;
+  else if (isStockCodexAllowed(env)) {
+    readStockManifest = () => (stockProbe ??= verifyStockCodexCommand({ command: codexCommand, searchPath }).then(runtime => runtime && readCodexStockManifest({ ...runtime, searchPath })));
+  }
   systemRoots = { claude: systemRoots.claude, codex: systemRoots.codex };
   env = { CLAUDE_CONFIG_DIR: env.CLAUDE_CONFIG_DIR, CODEX_HOME: env.CODEX_HOME };
   const requireSamePaths = () => {
     if (selectedEnv.CLAUDE_CONFIG_DIR !== env.CLAUDE_CONFIG_DIR || selectedEnv.CODEX_HOME !== env.CODEX_HOME) throw new Error('Global agent configuration has unsafe effective path changes; no repair or admission is permitted.');
     if (selectedSystemRoots.claude !== systemRoots.claude || selectedSystemRoots.codex !== systemRoots.codex) throw new Error('Managed agent configuration has unsafe effective path changes; no repair or admission is permitted.');
   };
-  const auditOptions = { tool: scope, homeDir, env, systemRoots, fsImpl, allowedMcpServers };
+  const auditOptions = { tool: scope, homeDir, env, systemRoots, fsImpl, allowedMcpServers, readStockManifest };
   const auditInputs = await validateAgentConfigAuditInputs(auditOptions);
   const { findings, repairable, warnOnly } = auditAgentConfig(auditOptions);
   const managed = (await auditManagedAgentConfig(auditOptions)).findings;

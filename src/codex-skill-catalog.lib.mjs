@@ -155,7 +155,7 @@ const pluginProvenance = async ({ entry, canonical, codexHome, canonicalCodexHom
  * run. Symlinks are resolved so a path that lexically sits inside the scoped
  * home cannot redirect instructions back into an operator/global cache.
  */
-export const validateModelVisibleSkillCatalog = async ({ catalog, codexHome, projectDir, selectedPlugins = [], requiredSkills = [] }) => {
+export const validateModelVisibleSkillCatalog = async ({ catalog, codexHome, projectDir, selectedPlugins = [], requiredSkills = [], allowSystemSkills = true }) => {
   const violations = [...(catalog?.errors || [])];
   const allowed = [];
   // Issue #4057: entries that are refused but have a readable file are
@@ -197,7 +197,7 @@ export const validateModelVisibleSkillCatalog = async ({ catalog, codexHome, pro
     let provenance = null;
     if (systemRoot && isWithin(canonical, systemRoot)) {
       const relative = path.relative(systemRoot, canonical).split(path.sep);
-      if (!entry.name.includes(':') && relative.length === 2 && relative[0] === entry.name && relative[1] === 'SKILL.md') provenance = { providerId: 'codex-system', version: systemVersion };
+      if ((allowSystemSkills || requiredSkills.includes(entry.name)) && !entry.name.includes(':') && relative.length === 2 && relative[0] === entry.name && relative[1] === 'SKILL.md') provenance = { providerId: 'codex-system', version: systemVersion };
     } else if (isRepositorySkill(entry, canonical)) {
       // Issue #3785: the checked-out repository owns its skills. Codex names a
       // skill by its front matter, so neither the directory name nor an issue

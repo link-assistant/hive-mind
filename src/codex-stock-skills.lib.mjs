@@ -11,21 +11,18 @@ const MAX_ENTRIES = 10_000;
 const identity = info => `${info.dev}:${info.ino}:${info.size}:${info.mtimeNs}:${info.ctimeNs}:${info.nlink}`;
 export class CodexStockBaselineError extends Error {
   constructor() {
-    super('Codex stock runtime differs from the pristine pinned CLI 0.164.0 baseline. Restore verified stock content before launch; no repair is permitted.');
+    super('Codex stock runtime differs from the verified baseline. Restore verified stock content before launch; no repair is permitted.');
   }
 }
 const mismatch = () => new CodexStockBaselineError();
 
-/** No installed skill code is executed or logged. The manifest parameter is for
- * isolated tests; production admission always uses the bundled pinned manifest.
- * The returned identities participate in the existing concurrent-edit guard.
- */
-export async function validateCodexStockSkills({ directory, fsImpl = fs, manifest = CODEX_STOCK_SKILLS }) {
+async function inspectStock({ directory, fsImpl, manifest }) {
   const io = fsImpl.promises;
   const snapshot = new Map();
-  const expected = new Set(Object.keys(manifest.files));
-  const directories = new Set();
-  for (const file of expected) {
+  const files = Object.create(null);
+  const expected = manifest ? new Set(Object.keys(manifest.files)) : null;
+  const directories = new Set(manifest?.directories);
+  for (const file of expected ?? []) {
     for (let parent = path.posix.dirname(file); parent !== '.'; parent = path.posix.dirname(parent)) directories.add(parent);
   }
   let entries = 0;
@@ -34,23 +31,26 @@ export async function validateCodexStockSkills({ directory, fsImpl = fs, manifes
     if (++entries > MAX_ENTRIES || info.isSymbolicLink()) throw mismatch();
     snapshot.set(target, identity(info));
     if (info.isDirectory()) {
-      if (relative && !directories.has(relative)) throw mismatch();
+      if (relative && expected && !directories.has(relative)) throw mismatch();
+      if (relative && !expected) directories.add(relative);
       for await (const entry of await io.opendir(target)) await visit(path.join(target, entry.name), relative ? `${relative}/${entry.name}` : entry.name);
     } else {
-      if (!info.isFile() || info.nlink !== 1n || !expected.delete(relative) || info.size > BigInt(MAX_FILE_BYTES)) throw mismatch();
-      const handle = await io.open(target, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
+      if (!relative || !info.isFile() || info.nlink !== 1n || (expected && !expected.delete(relative)) || info.size > BigInt(MAX_FILE_BYTES)) throw mismatch();
+      const handle = await io.open(target, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW | fs.constants.O_NONBLOCK);
       try {
         if (identity(await handle.stat({ bigint: true })) !== identity(info)) throw mismatch();
         // Bound allocation and reads even if the file grows after lstat.
-        const bytes = Buffer.alloc(MAX_FILE_BYTES + 1);
+        const bytes = Buffer.alloc(Number(info.size) + 1);
         let offset = 0;
         while (offset < bytes.length) {
           const { bytesRead } = await handle.read(bytes, offset, bytes.length - offset, offset);
           if (bytesRead === 0) break;
           offset += bytesRead;
         }
-        if (offset > MAX_FILE_BYTES || identity(await handle.stat({ bigint: true })) !== identity(info)) throw mismatch();
-        if (createHash('sha256').update(bytes.subarray(0, offset)).digest('hex') !== manifest.files[relative]) throw mismatch();
+        if (offset !== Number(info.size) || identity(await handle.stat({ bigint: true })) !== identity(info)) throw mismatch();
+        const digest = createHash('sha256').update(bytes.subarray(0, offset)).digest('hex');
+        if (manifest && digest !== manifest.files[relative]) throw mismatch();
+        files[relative] = digest;
       } finally {
         await handle.close();
       }
@@ -63,12 +63,26 @@ export async function validateCodexStockSkills({ directory, fsImpl = fs, manifes
     } catch (error) {
       if (error.code !== 'ENOENT') throw error;
       snapshot.set(directory, 'missing');
-      return snapshot; // A fresh CLI has not materialized its stock assets yet.
+      return { snapshot, files, directories }; // A fresh CLI has not materialized its stock assets yet.
     }
     await visit(directory);
-    if (expected.size) throw mismatch();
-    return snapshot;
+    if (expected?.size || manifest?.directories?.some(relative => !snapshot.has(path.join(directory, relative)))) throw mismatch();
+    return { snapshot, files, directories };
   } catch {
     throw mismatch();
   }
+}
+
+/** Verify bytes and retain identities for the audit's concurrent-edit guard. */
+export async function validateCodexStockSkills({ directory, fsImpl = fs, manifest = CODEX_STOCK_SKILLS }) {
+  const { snapshot } = await inspectStock({ directory, fsImpl, manifest });
+  return snapshot;
+}
+
+/** Only call on the disposable tree just produced by the selected stock CLI. */
+export async function captureCodexStockSkills({ directory }) {
+  if ((await fs.promises.realpath(directory).catch(() => null)) !== directory) throw mismatch();
+  const { files, snapshot, directories } = await inspectStock({ directory, fsImpl: fs });
+  if (snapshot.get(directory) === 'missing') throw mismatch();
+  return { files, directories: [...directories] };
 }

@@ -8,13 +8,13 @@ const rejectDiscovery = () => {
   throw new Error('Codex stock skill discovery is not pristine. Inspect native search paths and restore the pinned catalog before admission.');
 };
 
-export function assertCodexStockSkillDiscovery({ result, home, cwd }) {
+export function assertCodexStockSkillDiscovery({ result, home, cwd, manifest = CODEX_STOCK_SKILLS }) {
   const entries = result?.data;
   if (!Array.isArray(entries) || entries.length !== 1) rejectDiscovery();
   const entry = entries[0];
   if (entry?.cwd !== cwd || !Array.isArray(entry.errors) || entry.errors.length !== 0 || !Array.isArray(entry.skills)) rejectDiscovery();
   const expected = new Map(
-    Object.keys(CODEX_STOCK_SKILLS.files)
+    Object.keys(manifest.files)
       .filter(file => file.endsWith('/SKILL.md'))
       .map(file => [path.join(home, '.codex/skills/.system', file), path.posix.basename(path.posix.dirname(file))])
   );

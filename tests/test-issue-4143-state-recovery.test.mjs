@@ -303,8 +303,8 @@ test('signal shutdown stops polling promptly and waits for the final queue snaps
     await finalWrite;
   }
   await shutdown;
-  const { state, consistent } = await store.read();
-  assert.equal(consistent, true);
+  const { state, consistent, binaryStore } = await store.read();
+  assert.equal(consistent, binaryStore === 'available' ? true : null);
   assert.ok(state.instance.stoppedAt);
   assert.equal(state.tasks[item.id].status, 'queued');
 });

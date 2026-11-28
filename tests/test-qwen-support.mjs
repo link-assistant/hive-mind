@@ -171,6 +171,7 @@ await test('executeQwenCommand passes resume session to qwen', async () => {
     const commandScript = fakeDollar.calls[0].values[0];
 
     assert.equal(result.success, true);
+    assert.equal(fakeDollar.calls[0].options.env.QWEN_RUNTIME_DIR, process.env.QWEN_RUNTIME_DIR);
     assert.match(commandScript, /--resume 'session-existing'/);
   } finally {
     rmSync(params.tempDir, { recursive: true, force: true });

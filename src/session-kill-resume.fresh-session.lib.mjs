@@ -18,9 +18,8 @@
  *
  * Only Docker recoveries are checked: screen/tmux recoveries run on the same
  * host and keep the scoped `CODEX_HOME`. Claude's transcripts are on a mounted
- * folder ({@link DOCKER_ISOLATION_TOOL_MOUNTS}). agent, gemini, qwen and
- * opencode keep their sessions inside the killed container, which no new
- * container can read, so their `--resume` is dropped the same way.
+ * folder ({@link DOCKER_ISOLATION_TOOL_MOUNTS}). Fresh recovery replaces
+ * `--resume` for tools without a verified session mount for recovery.
  *
  * @see https://github.com/link-assistant/hive-mind/issues/2888
  */
@@ -127,7 +126,8 @@ export async function resolveFreshRecoveryCommand({ sessionName, sessionInfo, co
   if (tool !== 'codex') {
     const mounted = DOCKER_ISOLATION_TOOL_MOUNTS[tool]?.some(entry => entry.role === 'sessions');
     if (mounted && !hasUseRouterFlag(command.args)) return keep(FRESH_RESUME_OUTCOMES.NOT_CHECKED);
-    return drop(`${tool} session ${threadId} stayed in the killed container: ${mounted ? 'a --use-router container gets no' : 'task containers get no'} mount of ${tool}'s session store. Starting a new ${tool} session on the same branch instead.`);
+    if (mounted) return drop(`${tool} session ${threadId} is unavailable because --use-router withholds the ${tool} session mount. Starting a new ${tool} session on the same branch.`);
+    return drop(`${tool} session ${threadId} is unavailable for fresh-container recovery. Starting a new ${tool} session on the same branch.`);
   }
   // --use-router tasks get no ~/.codex mounts, so no host rollout can reach them.
   if (hasUseRouterFlag(command.args)) return drop(`Codex thread ${threadId} cannot be resumed in a new --use-router container (no ~/.codex/sessions mount). Starting a new Codex session on the same branch instead.`);

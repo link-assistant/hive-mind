@@ -1,5 +1,15 @@
 # @link-assistant/hive-mind
 
+## 2.50.1
+
+### Patch Changes
+
+- 1d71a11: Preserve saved Git identity when moving a Docker host-socket deployment to Hive Mind Manager. Identify the rejected source when a Docker task mount cannot be backed, and document the host bind required for manual deployments.
+
+  Accept npm 12 pack metadata when building and verifying release tarballs.
+
+- ecfecff: Accept compatible Claude Code releases and support stock Codex through `HIVE_MIND_ALLOW_STOCK_CODEX=1`. Compare stock Codex's skill catalog and file contents with those produced by its installed package in a disposable home.
+
 ## 2.50.0
 
 ### Minor Changes

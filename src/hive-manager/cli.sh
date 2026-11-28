@@ -524,6 +524,10 @@ init_state() {
         (umask 077 && mkdir -- "$stage/$item")
       fi
     done
+    # Older DooD deployments saved a host copy at $state_dir/gitconfig.
+    if [[ -d $stage/git && -f $state_dir/gitconfig && ! -L $state_dir/gitconfig ]]; then
+      (umask 077 && cat -- "$state_dir/gitconfig" > "$stage/git/config")
+    fi
     docker run --pull never --rm --network none --user root --entrypoint bash \
       --mount "type=bind,source=$stage,target=/mnt" "$image_id" -c '
         set -e
@@ -533,7 +537,7 @@ init_state() {
             cp -- "/home/box/.$config" "/mnt/$config"
           fi
         done
-        if [[ -d /mnt/git ]]; then touch /mnt/git/config; fi
+        if [[ -d /mnt/git && ! -e /mnt/git/config ]]; then touch /mnt/git/config; fi
         chown -R box:box /mnt/*
       '
     for item in "${missing[@]}"; do

@@ -15,10 +15,12 @@ import stat
 import subprocess
 import tempfile
 import tarfile
+import tomllib
 
 ROOT = Path(__file__).resolve().parents[1]
 RECIPE = ROOT / "src/native-codex/recipe.json"
 ADAPTERS = ROOT / "experiments/issue-3785/native-codex"
+MANIFEST_SCHEMA = 2
 
 
 def sha256(path):
@@ -94,7 +96,7 @@ def build_environment(recipe, inherited=None):
         )
 
     env = {name: value for name, value in inherited.items()
-           if not name.startswith(("CARGO_", "RUSTFLAGS", "RUSTUP_TOOLCHAIN"))
+           if not name.startswith(("CARGO_", "RUSTFLAGS", "RUSTUP_TOOLCHAIN", "RUSTY_V8_", "V8_"))
            and name != "RUSTC_WRAPPER" and name != "RUSTC_WORKSPACE_WRAPPER"
            and not native_override(name)}
     # Keep only cache locations from Cargo's inherited configuration. Compiler,
@@ -138,8 +140,8 @@ def prepare(root, state):
     for step in recipe["steps"]:
         subprocess.run(["python3", str(ADAPTERS / ("apply_" + step + ".py")),
                         str(root)], env=env, check=True)
-    # apply_adapter also supplies a separate experimental executable. Release
-    # builds include only codex-cli; omit that unused driver from prepared source.
+    # apply_adapter also supplies a separate experimental executable. Omit
+    # that unused driver from prepared release source.
     driver = root / "codex-rs/login/src/bin/hive-canonical-auth-probe.rs"
     if sha256(driver) != recipe["inputs"]["native_lifecycle_probe.rs"]:
         raise ValueError("Unexpected native driver bytes during source preparation.")
@@ -237,6 +239,41 @@ def copy_compiler_binary(source, destination, limit):
         os.close(descriptor)
 
 
+def stage_v8_artifacts(root, target, directory):
+    lock = tomllib.loads(git(root, "show", "HEAD:codex-rs/Cargo.lock").decode())
+    versions = [package["version"] for package in lock["package"] if package["name"] == "v8"]
+    if len(versions) != 1:
+        raise ValueError("The pinned Codex lockfile must select exactly one V8 version.")
+    version = versions[0]
+    ledger = "third_party/v8/rusty_v8_" + version.replace(".", "_") + ".sha256"
+    checksums = {name: digest for digest, name in
+                 (line.split() for line in git(root, "show", "HEAD:" + ledger).decode().splitlines())}
+    # Codex enables V8's pointer compression and sandbox. Its release publishes
+    # these build inputs under a different tag from the default crate downloader.
+    suffix = "ptrcomp_sandbox_release_" + target
+    base = "https://github.com/openai/codex/releases/download/rusty-v8-v" + version
+    inputs = {
+        "RUSTY_V8_ARCHIVE": "librusty_v8_" + suffix + ".a.gz",
+        "RUSTY_V8_SRC_BINDING_PATH": "src_binding_" + suffix + ".rs",
+    }
+    if not all(name in checksums for name in inputs.values()):
+        raise ValueError("The pinned Codex source lacks a checksum for the V8 archive or binding.")
+    limit = 64 * 1024 * 1024
+    environment = {}
+    for variable, name in inputs.items():
+        destination = directory / name
+        subprocess.run(["curl", "--disable", "--fail", "--silent", "--show-error", "--location",
+                        "--proto", "=https", "--proto-redir", "=https", "--retry", "3",
+                        "--max-filesize", str(limit), "--output", str(destination), base + "/" + name],
+                       check=True)
+        regular(destination, limit)
+        if sha256(destination) != checksums[name]:
+            raise ValueError("V8 build input does not match its pinned Codex checksum: " + name)
+        environment[variable] = str(destination)
+    print("Verified the pinned Codex V8 archive and binding for " + target + ".", flush=True)
+    return environment
+
+
 def build(root, state, platform, output):
     recipe, digest = load_recipe()
     prepared = verify_source(root, state, recipe, digest)
@@ -247,18 +284,25 @@ def build(root, state, platform, output):
         raise ValueError("Compiler changed after native source preparation.")
     target = recipe["targets"][platform]["target"]
     workspace = root / "codex-rs"
-    subprocess.run(["cargo", "+" + recipe["rustToolchain"], "build", "--locked", "--verbose",
-                    "--release", "--manifest-path", str(workspace / "Cargo.toml"),
-                    "--target-dir", str(workspace / "target"), "--target", target,
-                    "-p", "codex-cli", "--bin", "codex"],
-                   cwd=workspace, env=env, check=True)
+    executables = recipe["executables"]
+    packages = [argument for package in executables.values() for argument in ("-p", package)]
+    binaries = [argument for name in executables for argument in ("--bin", name)]
+    with tempfile.TemporaryDirectory(prefix="hive-native-codex-v8-") as artifacts:
+        env.update(stage_v8_artifacts(root, target, Path(artifacts)))
+        subprocess.run(["cargo", "+" + recipe["rustToolchain"], "build", "--locked", "--verbose",
+                        "--release", "--manifest-path", str(workspace / "Cargo.toml"),
+                        "--target-dir", str(workspace / "target"), "--target", target,
+                        *packages, *binaries],
+                       cwd=workspace, env=env, check=True)
     verify_source(root, state, recipe, digest)
-    binary = workspace / "target" / target / "release/codex"
+    release = workspace / "target" / target / "release"
     output.mkdir(mode=0o755)
-    copied = output / "codex"
-    copy_compiler_binary(binary, copied, recipe["maxBinaryBytes"])
-    identity = inspect_binary(copied, recipe, platform)
-    verify_version(copied, recipe)
+    identities = {}
+    for name in executables:
+        copied = output / name
+        copy_compiler_binary(release / name, copied, recipe["maxBinaryBytes"])
+        identities[name] = inspect_binary(copied, recipe, platform)
+    verify_version(output / "codex", recipe)
     for name, expected in recipe["licenses"].items():
         source = root / name
         if sha256(source) != expected:
@@ -269,9 +313,9 @@ def build(root, state, platform, output):
     shutil.copyfile(RECIPE, output / "recipe.json")
     write_json(output / "source.json", prepared)
     write_json(output / "manifest.json", {
-        "schema": 1, "platform": platform, "target": target, "version": recipe["version"],
+        "schema": MANIFEST_SCHEMA, "platform": platform, "target": target, "version": recipe["version"],
         "upstreamCommit": recipe["upstreamCommit"], "recipeSha256": digest,
-        "sourceSha256": sha256(output / "source.json"), "binary": identity,
+        "sourceSha256": sha256(output / "source.json"), "executables": identities,
         "compiler": prepared["compiler"], "cargoEnvironment": recipe["cargoEnvironment"],
         "licenses": recipe["licenses"],
     })
@@ -279,8 +323,15 @@ def build(root, state, platform, output):
 
 
 def artifact_paths(recipe):
-    return {"codex", "manifest.json", "source.json", "recipe.json"} | {
+    return set(recipe["executables"]) | {"manifest.json", "source.json", "recipe.json"} | {
         "licenses/" + name for name in recipe["licenses"]}
+
+
+VARIANT_FILE_LIMIT = 4 * 1024 * 1024
+
+
+def artifact_file_limit(name, recipe):
+    return recipe["maxBinaryBytes"] if name in recipe["executables"] else VARIANT_FILE_LIMIT
 
 
 def verify_artifact(root, recipe, digest, platform, executable=False):
@@ -297,16 +348,16 @@ def verify_artifact(root, recipe, digest, platform, executable=False):
             continue
         if not stat.S_ISREG(mode) or name not in expected:
             raise ValueError("Unexpected native artifact entry.")
-        regular(path, recipe["maxBinaryBytes"] if name == "codex" else 4 * 1024 * 1024)
+        regular(path, artifact_file_limit(name, recipe))
         seen.add(name)
     if seen != expected:
-        raise ValueError("Native artifact is incomplete.")
+        raise ValueError("Native artifact is incomplete. Missing: " + ", ".join(sorted(expected - seen)))
     if sha256(root / "recipe.json") != digest:
         raise ValueError("Native artifact recipe differs from the checked-out recipe.")
     manifest = json.loads((root / "manifest.json").read_text())
     prepared = json.loads((root / "source.json").read_text())
     target = recipe["targets"][platform]["target"]
-    expected_manifest = {"schema": 1, "platform": platform, "target": target,
+    expected_manifest = {"schema": MANIFEST_SCHEMA, "platform": platform, "target": target,
                          "version": recipe["version"], "upstreamCommit": recipe["upstreamCommit"],
                          "recipeSha256": digest, "sourceSha256": sha256(root / "source.json"),
                          "cargoEnvironment": recipe["cargoEnvironment"], "licenses": recipe["licenses"]}
@@ -320,8 +371,12 @@ def verify_artifact(root, recipe, digest, platform, executable=False):
             or not prepared["compiler"].startswith("rustc " + recipe["rustToolchain"] + " ")
             or ("host: " + target) not in prepared["compiler"].splitlines()):
         raise ValueError("Native artifact source or compiler differs from its pinned inputs.")
-    if manifest.get("binary") != inspect_binary(root / "codex", recipe, platform, executable):
-        raise ValueError("Native artifact executable identity changed.")
+    identities = manifest.get("executables")
+    if not isinstance(identities, dict) or identities.keys() != recipe["executables"].keys():
+        raise ValueError("Native artifact manifest has an invalid executable set.")
+    for name, identity in identities.items():
+        if identity != inspect_binary(root / name, recipe, platform, executable):
+            raise ValueError("Native artifact executable identity changed: " + name)
     for name, expected_hash in recipe["licenses"].items():
         if sha256(root / "licenses" / name) != expected_hash:
             raise ValueError("Native artifact license identity changed.")
@@ -345,7 +400,7 @@ def assemble(artifacts, output):
                 target.parent.mkdir(parents=True, exist_ok=True)
                 with target.open("xb") as writer, (source / name).open("rb") as reader:
                     shutil.copyfileobj(reader, writer, 64 * 1024)
-                target.chmod(0o755 if name == "codex" else 0o644)
+                target.chmod(0o755 if name in recipe["executables"] else 0o644)
             verify_artifact(destination, recipe, digest, platform, executable=True)
         staging.chmod(0o755)
         staging.rename(output)
@@ -355,22 +410,17 @@ def assemble(artifacts, output):
     print("Assembled both verified native Codex platforms for the variant packages.")
 
 
-VARIANT_FILE_LIMIT = 4 * 1024 * 1024
-
-
 def extract_members(package, members, prefix, allowed, recipe, root):
     """Copy admitted tar members below root; reject anything unexpected.
 
-    Names are relative to one platform's runtime, so the executable is exactly
-    "codex", as in verify_artifact. Only it may exceed VARIANT_FILE_LIMIT; the
-    real linux-x64 binary is 351,203,584 bytes (issue #4050, job 131520166341).
+    Names are relative to one platform's runtime. The recipe's executables
+    have a separate size limit from manifests and licenses.
     """
     seen = set()
     for member in members:
         name = member.name[len(prefix):]
         if (name not in allowed or name in seen or not member.isfile()
-                or member.size <= 0 or member.size > (
-                    recipe["maxBinaryBytes"] if name == "codex" else VARIANT_FILE_LIMIT)):
+                or member.size <= 0 or member.size > artifact_file_limit(name, recipe)):
             raise ValueError("Unexpected native payload in the npm artifact.")
         seen.add(name)
         destination = root / name
@@ -394,7 +444,7 @@ def variant_identity(name, version, platform):
 
 
 def verify_variant(archive, platform, name, version):
-    """One platform's executable package: exactly its runtime, nothing else (issue #4050)."""
+    """One platform's executable package: exactly its runtime (issue #4050)."""
     recipe, digest = load_recipe()
     if platform not in recipe["targets"]:
         raise ValueError("Unsupported native platform.")
@@ -419,7 +469,7 @@ def verify_variant(archive, platform, name, version):
             root.mkdir()
             seen = extract_members(package, payload, prefix, allowed, recipe, root)
         if seen != allowed:
-            raise ValueError("The native variant package omitted a required runtime file.")
+            raise ValueError("The native variant package omitted: " + ", ".join(sorted(allowed - seen)))
         verify_artifact(root, recipe, digest, platform, executable=True)
     print("Verified the complete " + platform + " native Codex variant package.")
 

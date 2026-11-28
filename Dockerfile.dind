@@ -64,7 +64,7 @@ RUN cargo install link-cli --version "${LINK_CLI_VERSION}" --locked
 # of record, as the reproducible source for this pin. Box #129 also adds file
 # for validating downloaded attachments. Box 2.10.5 enables Docker live
 # restore in the nested DinD daemon (box#131).
-FROM ghcr.io/link-foundation/box-dind:2.10.5
+FROM ghcr.io/link-foundation/box-dind:2.10.6
 ARG HIVE_MIND_VERSION=latest
 ARG HIVE_MIND_INSTALL_SOURCE=false
 # Task-container prerequisite installs stay within the workspace (formal-ai#1159).

@@ -15,6 +15,7 @@ import stat
 import subprocess
 import tempfile
 import tarfile
+import tomllib
 
 ROOT = Path(__file__).resolve().parents[1]
 RECIPE = ROOT / "src/native-codex/recipe.json"
@@ -95,7 +96,7 @@ def build_environment(recipe, inherited=None):
         )
 
     env = {name: value for name, value in inherited.items()
-           if not name.startswith(("CARGO_", "RUSTFLAGS", "RUSTUP_TOOLCHAIN"))
+           if not name.startswith(("CARGO_", "RUSTFLAGS", "RUSTUP_TOOLCHAIN", "RUSTY_V8_", "V8_"))
            and name != "RUSTC_WRAPPER" and name != "RUSTC_WORKSPACE_WRAPPER"
            and not native_override(name)}
     # Keep only cache locations from Cargo's inherited configuration. Compiler,
@@ -238,6 +239,41 @@ def copy_compiler_binary(source, destination, limit):
         os.close(descriptor)
 
 
+def stage_v8_artifacts(root, target, directory):
+    lock = tomllib.loads(git(root, "show", "HEAD:codex-rs/Cargo.lock").decode())
+    versions = [package["version"] for package in lock["package"] if package["name"] == "v8"]
+    if len(versions) != 1:
+        raise ValueError("The pinned Codex lockfile must select exactly one V8 version.")
+    version = versions[0]
+    ledger = "third_party/v8/rusty_v8_" + version.replace(".", "_") + ".sha256"
+    checksums = {name: digest for digest, name in
+                 (line.split() for line in git(root, "show", "HEAD:" + ledger).decode().splitlines())}
+    # Codex enables V8's pointer compression and sandbox. Its release publishes
+    # these build inputs under a different tag from the default crate downloader.
+    suffix = "ptrcomp_sandbox_release_" + target
+    base = "https://github.com/openai/codex/releases/download/rusty-v8-v" + version
+    inputs = {
+        "RUSTY_V8_ARCHIVE": "librusty_v8_" + suffix + ".a.gz",
+        "RUSTY_V8_SRC_BINDING_PATH": "src_binding_" + suffix + ".rs",
+    }
+    if not all(name in checksums for name in inputs.values()):
+        raise ValueError("The pinned Codex source lacks a checksum for the V8 archive or binding.")
+    limit = 64 * 1024 * 1024
+    environment = {}
+    for variable, name in inputs.items():
+        destination = directory / name
+        subprocess.run(["curl", "--disable", "--fail", "--silent", "--show-error", "--location",
+                        "--proto", "=https", "--proto-redir", "=https", "--retry", "3",
+                        "--max-filesize", str(limit), "--output", str(destination), base + "/" + name],
+                       check=True)
+        regular(destination, limit)
+        if sha256(destination) != checksums[name]:
+            raise ValueError("V8 build input does not match its pinned Codex checksum: " + name)
+        environment[variable] = str(destination)
+    print("Verified the pinned Codex V8 archive and binding for " + target + ".", flush=True)
+    return environment
+
+
 def build(root, state, platform, output):
     recipe, digest = load_recipe()
     prepared = verify_source(root, state, recipe, digest)
@@ -251,11 +287,13 @@ def build(root, state, platform, output):
     executables = recipe["executables"]
     packages = [argument for package in executables.values() for argument in ("-p", package)]
     binaries = [argument for name in executables for argument in ("--bin", name)]
-    subprocess.run(["cargo", "+" + recipe["rustToolchain"], "build", "--locked", "--verbose",
-                    "--release", "--manifest-path", str(workspace / "Cargo.toml"),
-                    "--target-dir", str(workspace / "target"), "--target", target,
-                    *packages, *binaries],
-                   cwd=workspace, env=env, check=True)
+    with tempfile.TemporaryDirectory(prefix="hive-native-codex-v8-") as artifacts:
+        env.update(stage_v8_artifacts(root, target, Path(artifacts)))
+        subprocess.run(["cargo", "+" + recipe["rustToolchain"], "build", "--locked", "--verbose",
+                        "--release", "--manifest-path", str(workspace / "Cargo.toml"),
+                        "--target-dir", str(workspace / "target"), "--target", target,
+                        *packages, *binaries],
+                       cwd=workspace, env=env, check=True)
     verify_source(root, state, recipe, digest)
     release = workspace / "target" / target / "release"
     output.mkdir(mode=0o755)

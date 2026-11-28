@@ -8,6 +8,8 @@ It packages both executables with their source inventory and provenance. It
 refuses changed inputs, changed prepared source, the wrong machine type,
 oversized executables and unexpected CLI versions. Compilation uses one Cargo
 job with debug information disabled and a pinned optimized profile.
+The build verifies Codex's sandboxed V8 archive and Rust binding against the
+checksums in the pinned source before passing them to Cargo.
 
 The release-build workflow compiles on native x64 and arm64 Ubuntu runners, then
 exercises actual status, reauthentication, logout and model request controls

@@ -95,12 +95,18 @@ class NativeBuildAdmission(unittest.TestCase):
             "CARGO_PROFILE_RELEASE_OPT_LEVEL": "0",
             "CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER": "other-linker",
             "CARGO_BUILD_RUSTFLAGS": "unexpected build arguments",
+            "RUSTY_V8_ARCHIVE": "unverified-v8.a",
+            "RUSTY_V8_SRC_BINDING_PATH": "unverified-v8.rs",
+            "V8_FROM_SOURCE": "1",
         })
         self.assertEqual(env["CARGO_PROFILE_RELEASE_OPT_LEVEL"], "2")
         self.assertNotIn("RUSTFLAGS", env)
         self.assertNotIn("CARGO_ENCODED_RUSTFLAGS", env)
         self.assertNotIn("CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER", env)
         self.assertNotIn("CARGO_BUILD_RUSTFLAGS", env)
+        self.assertNotIn("RUSTY_V8_ARCHIVE", env)
+        self.assertNotIn("RUSTY_V8_SRC_BINDING_PATH", env)
+        self.assertNotIn("V8_FROM_SOURCE", env)
 
     def test_native_c_and_sqlite_build_overrides_are_removed(self):
         recipe, _ = BUILD.load_recipe(self.recipe, self.inputs)
@@ -131,6 +137,48 @@ class NativeBuildAdmission(unittest.TestCase):
                 self.assertNotIn(name, env)
         self.assertEqual(env["PATH"], "/usr/bin")
         self.assertEqual(env["CARGO_HOME"], str(self.root / "cargo-cache"))
+
+
+class NativeV8Inputs(unittest.TestCase):
+    def setUp(self):
+        temporary = tempfile.TemporaryDirectory(prefix="native-v8-input-test-")
+        self.addCleanup(temporary.cleanup)
+        self.directory = Path(temporary.name)
+        self.target = "aarch64-unknown-linux-gnu"
+        self.archive = "librusty_v8_ptrcomp_sandbox_release_" + self.target + ".a.gz"
+        self.binding = "src_binding_ptrcomp_sandbox_release_" + self.target + ".rs"
+        self.files = {self.archive: b"test V8 archive", self.binding: b"test V8 binding"}
+        ledger = "\n".join(f"{hashlib.sha256(data).hexdigest()}  {name}"
+                           for name, data in self.files.items())
+        sources = {"HEAD:codex-rs/Cargo.lock": b'[[package]]\nname = "v8"\nversion = "152.2.0"\n',
+                   "HEAD:third_party/v8/rusty_v8_152_2_0.sha256": ledger.encode()}
+
+        def git(root, operation, reference):
+            self.assertEqual(operation, "show")
+            return sources[reference]
+
+        def download(arguments, *, check):
+            self.assertTrue(check)
+            destination = Path(arguments[arguments.index("--output") + 1])
+            self.assertEqual(arguments[-1],
+                             "https://github.com/openai/codex/releases/download/"
+                             "rusty-v8-v152.2.0/" + destination.name)
+            destination.write_bytes(self.files[destination.name])
+
+        for target, name, implementation in [(BUILD, "git", git), (BUILD.subprocess, "run", download)]:
+            mock = patch.object(target, name, implementation)
+            mock.start()
+            self.addCleanup(mock.stop)
+
+    def test_stages_only_the_matching_verified_release_pair(self):
+        self.assertEqual(BUILD.stage_v8_artifacts(self.directory, self.target, self.directory),
+                         {"RUSTY_V8_ARCHIVE": str(self.directory / self.archive),
+                          "RUSTY_V8_SRC_BINDING_PATH": str(self.directory / self.binding)})
+
+    def test_rejects_a_changed_release_asset(self):
+        self.files[self.archive] = b"unexpected V8 archive"
+        with self.assertRaisesRegex(ValueError, "pinned Codex checksum"):
+            BUILD.stage_v8_artifacts(self.directory, self.target, self.directory)
 
 
 class NativeCompilerOutput(unittest.TestCase):
@@ -177,6 +225,7 @@ class NativeCompilerOutput(unittest.TestCase):
             ("load_recipe", {"return_value": (self.recipe, self.digest)}),
             ("verify_source", {"return_value": self.prepared}),
             ("compiler", {"return_value": self.prepared["compiler"]}),
+            ("stage_v8_artifacts", {"return_value": {}}),
         ]:
             mock = patch.object(BUILD, name, **options)
             mock.start()

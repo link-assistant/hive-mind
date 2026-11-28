@@ -1223,13 +1223,16 @@ async function onBotLaunched() {
     verbose: VERBOSE,
     logger: botLogger,
   });
+  if (isShuttingDown) return;
 
   // Issue #4143: restore subscribers and the queued tasks of the previous instance, then publish the state.
   const stateLib = await import('./bot-instance-state.lib.mjs');
   const subscribersLib = await import('./telegram-subscribers.lib.mjs');
+  if (isShuttingDown) return;
   const queue = getSolveQueue({ verbose: VERBOSE });
   const restore = tasks => stateLib.restoreQueuedTasks({ tasks, queue: ensureQueueExecuteCallback(queue), telegram: bot.telegram, isUrlActive: url => hasActiveSessionForUrlAsync(url, VERBOSE), log: message => console.log(`[bot-state] ${message}`) });
   await instanceState?.start({ queue, getActiveSessions, getSubscribers: subscribersLib.getSubscribers, restoreSubscribers: subscribersLib.restoreSubscribers, onSubscribersChanged: subscribersLib.onSubscribersChanged, getStoppedChats: chatStopModule.getStoppedChats, restoreStoppedChats: chatStopModule.restoreStoppedChats, onStoppedChatsChanged: chatStopModule.onStoppedChatsChanged, getLaunchingCount: () => launchingUrls.size + otherDirectLaunches, restore });
+  if (isShuttingDown) return;
   startSessionMonitoringOnce();
   startFormalAiMaintenanceOnce();
   startRouterMaintenanceOnce();
@@ -1291,6 +1294,7 @@ launchBotWithRetry(
     if (!isShuttingDown && VERBOSE) console.log('[VERBOSE] Bot launch promise resolved');
   })
   .catch(error => {
+    if (isShuttingDown) return;
     console.error('❌ Failed to start bot:', error);
     console.error('Error details:', {
       message: error.message,
@@ -1331,18 +1335,22 @@ const handleShutdownSignal = createShutdownHandler({
     routerMaintenance?.stop();
     mergedPullRequestSweeper?.stop();
     heartbeat.stop();
-    instanceState?.stop(); // #4143: final state write; queued tasks stay for the next instance
     stopSolveQueue();
+    return instanceState?.stop(); // #4143: queued tasks stay for the next instance
   },
 });
+const stopBot = signal => {
+  if (isShuttingDown) return;
+  return handleShutdownSignal(signal).catch(error => console.error(`[telegram-bot] Could not stop polling: ${error.message}`));
+};
 
 process.once('SIGINT', () => {
   console.log('\n🛑 Received SIGINT (Ctrl+C), stopping bot...');
-  handleShutdownSignal('SIGINT');
+  stopBot('SIGINT');
 });
 process.once('SIGTERM', () => {
   console.log('\n🛑 Received SIGTERM, stopping bot... (Check system logs: journalctl -u <service> or dmesg)');
-  handleShutdownSignal('SIGTERM');
+  stopBot('SIGTERM');
 });
 // Log and session-event writes are asynchronous; whatever is still queued when
 // the process exits (shutdown event, a crash report) is written synchronously.

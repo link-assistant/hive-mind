@@ -11,6 +11,7 @@ import { promisify } from 'node:util';
 
 import { createBotInstanceState, restoreQueuedTasks } from '../src/bot-instance-state.lib.mjs';
 import { describeInstanceState, runInstanceStateCommand } from '../src/bot-instance-status.lib.mjs';
+import { createShutdownHandler } from '../src/bot-lifecycle.lib.mjs';
 import { createLinksStore, decodeDoublets } from '../src/bot-state-links.lib.mjs';
 import { formatVerifiedLinoTree } from '../src/bot-state-lino.lib.mjs';
 import { applyBotStateMigration, migrateBotState, resolveBotStateMigrationTarget } from '../src/bot-state-migrations.lib.mjs';
@@ -265,6 +266,47 @@ test('an interrupted startup retains queued work and chat stops for the next ins
     await recovered.stop();
     setChatStopped(-4143, false);
   }
+});
+
+test('signal shutdown stops polling promptly and waits for the final queue snapshot', { timeout: 10000 }, async t => {
+  const { store } = await setup(t);
+  const writing = deferred();
+  const releaseWrite = deferred();
+  let holdWrite = false;
+  const controlledStore = {
+    ...store,
+    async update(...args) {
+      if (holdWrite) {
+        writing.resolve();
+        await releaseWrite.promise;
+      }
+      return store.update(...args);
+    },
+  };
+  const queue = new SolveQueue({ autoStart: false });
+  t.after(() => queue.stop());
+  const instance = createBotInstanceState({ store: controlledStore, intervalMs: 60000, log: quiet });
+  await instance.start({ queue });
+  const item = queue.enqueue({ url: 'https://github.com/o/r/issues/7', args: ['https://github.com/o/r/issues/7'] });
+  let finalWrite;
+  let stopped;
+  const handle = createShutdownHandler({ logger: { event: quiet }, cleanup: () => (finalWrite = instance.stop()), bot: { stop: signal => (stopped = signal) } });
+  holdWrite = true;
+  let settled = false;
+  const shutdown = Promise.resolve(handle('SIGTERM')).then(() => (settled = true));
+  try {
+    await writing.promise;
+    assert.equal(stopped, 'SIGTERM');
+    assert.equal(settled, false);
+  } finally {
+    releaseWrite.resolve();
+    await finalWrite;
+  }
+  await shutdown;
+  const { state, consistent } = await store.read();
+  assert.equal(consistent, true);
+  assert.ok(state.instance.stoppedAt);
+  assert.equal(state.tasks[item.id].status, 'queued');
 });
 
 test('PID mode protects an old live lock and age mode can expire it', { timeout: 5000 }, async t => {

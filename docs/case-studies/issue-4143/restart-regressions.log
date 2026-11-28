@@ -12,3 +12,9 @@ working tree exit=0
 restore restored=1 skipped=0
 waitsFor=[{"type":"item","itemId":"queued"}]
 same-URL prerequisite=queued
+
+Signal shutdown regression with Link CLI 3.3.3
+a8c81fec0, previous lifecycle exit=1
+Shutdown settled while final queue snapshot was still being written (actual: true, expected: false).
+Updated lifecycle exit=0
+Polling stopped promptly and the final snapshot preserved the queued task and stop time.

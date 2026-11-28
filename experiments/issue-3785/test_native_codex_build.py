@@ -427,7 +427,9 @@ class NativeArtifactAssembly(unittest.TestCase):
         out = Path(tempfile.mkdtemp(prefix="pack-", dir=self.root))
         packed = subprocess.run(["npm", "pack", "--ignore-scripts", "--json", "--pack-destination", str(out), *extra],
                                 cwd=directory, env=env, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        return out / json.loads(packed.stdout)[0]["filename"]
+        entries = json.loads(packed.stdout)
+        [entry] = entries.values() if isinstance(entries, dict) else entries
+        return out / entry["filename"]
 
     def test_actual_npm_file_allowlist_ships_recipe_and_pins_variants(self):
         """Issue #4050: the executables left the 249,862,346-byte main tarball."""

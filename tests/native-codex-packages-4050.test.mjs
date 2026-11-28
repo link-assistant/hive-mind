@@ -11,7 +11,7 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 import { nativeCodexPackagingFixture as packagingFixture } from './helpers/native-codex-fixture.mjs';
-import { checkNpmTarballSizes, findOversizedTarballs, formatOversizedReport, NPM_TARBALL_BUDGET_BYTES } from '../scripts/check-npm-tarball-size.mjs';
+import { checkNpmTarballSizes, findOversizedTarballs, formatOversizedReport, NPM_TARBALL_BUDGET_BYTES, readNpmPackEntries, readSingleNpmPackEntry } from '../scripts/check-npm-tarball-size.mjs';
 import { optionalDependenciesFor, packVariants, publishVariants, readPlatforms, variantManifest, variantName, variantTag, variantVersion, wirePackage } from '../scripts/native-codex-packages.mjs';
 
 const supported = process.platform === 'linux' && ['x64', 'arm64'].includes(process.arch);
@@ -68,6 +68,18 @@ test('the CLI checks archives on disk and honours the budget override', async t 
   assert.equal(refused.status, 1);
   assert.match(refused.stderr, /::error title=npm tarball over the publish budget::/u);
   assert.notEqual(run('not-a-number').status, 0);
+});
+
+test('pack metadata works with the npm 11 array and npm 12 package map', () => {
+  const entry = { name: main.name, filename: 'link-assistant-hive-mind-2.40.2.tgz', size: 1024 };
+  for (const value of [[entry], { [main.name]: entry }, entry]) {
+    assert.deepEqual(readSingleNpmPackEntry(JSON.stringify(value)), entry);
+  }
+  const other = { name: 'other', filename: 'other.tgz', size: 256 };
+  const multiple = JSON.stringify({ [main.name]: entry, [other.name]: other });
+  assert.deepEqual(readNpmPackEntries(multiple), [entry, other]);
+  assert.throws(() => readSingleNpmPackEntry(multiple), /one local .tgz archive/u);
+  assert.throws(() => readSingleNpmPackEntry(JSON.stringify([{ ...entry, filename: '../outside.tgz' }])), /one local .tgz archive/u);
 });
 
 test('variant identities pin each platform to the exact main version', async () => {
